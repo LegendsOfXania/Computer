@@ -1,24 +1,64 @@
-pub mod networking;
-
-use std::{fs, path::Path};
-
-use networking::NetworkingConfig;
 use serde::{Deserialize, Serialize};
+use std::{fs, path::Path, sync::OnceLock};
 use toml::Value;
 use tracing::{error, warn};
 
-#[derive(Deserialize, Serialize, Default)]
+mod panel;
+mod websocket;
+
+pub use panel::PanelConfig;
+pub use websocket::WebSocketConfig;
+
+static CONFIG: OnceLock<ComputerConfig> = OnceLock::new();
+
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(default)]
 pub struct ComputerConfig {
-    pub networking: NetworkingConfig,
+    pub enabled: bool,
+    pub host: String,
+    pub websocket: WebSocketConfig,
+    pub panel: PanelConfig,
+}
+
+impl Default for ComputerConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            host: "127.0.0.1".to_string(),
+            websocket: WebSocketConfig::default(),
+            panel: PanelConfig::default(),
+        }
+    }
 }
 
 impl ComputerConfig {
-    #[must_use]
-    pub fn load(plugin_dir: &Path) -> Self {
+    pub fn init(plugin_dir: &Path) {
+        let config = Self::load(plugin_dir);
+        CONFIG
+            .set(config)
+            .expect("ComputerConfig already initialized");
+    }
+
+    pub fn get() -> &'static ComputerConfig {
+        CONFIG.get().expect("ComputerConfig not initialized")
+    }
+
+    pub fn http_addr(&self) -> String {
+        format!("{}:{}", self.host, self.panel.port)
+    }
+
+    pub fn ws_addr(&self) -> String {
+        format!("{}:{}", self.host, self.websocket.port)
+    }
+
+    pub fn panel_active(&self) -> bool {
+        self.enabled && self.panel.enabled
+    }
+
+    fn load(plugin_dir: &Path) -> Self {
         let path = plugin_dir.join("config.toml");
 
-        let config = if path.exists() {
+        if path.exists() {
             let content = match fs::read_to_string(&path) {
                 Ok(content) => content,
                 Err(err) => {
@@ -51,21 +91,16 @@ impl ComputerConfig {
                 warn!(reason = %err, "Could not write config.toml by default");
             }
             default
-        };
-
-        config
+        }
     }
 
     fn merge_with_defaults(parsed: Value) -> (Self, bool) {
         let default_value =
             Value::try_from(Self::default()).expect("Failed to serialize default config");
-
         let (merged_value, changed) = Self::merge_toml_values(default_value, parsed);
-
         let config = merged_value
             .try_into()
             .expect("Failed to deserialize after merge");
-
         (config, changed)
     }
 
@@ -73,7 +108,6 @@ impl ComputerConfig {
         match (base, overlay) {
             (Value::Table(mut base_table), Value::Table(overlay_table)) => {
                 let mut changed = base_table.keys().any(|k| !overlay_table.contains_key(k));
-
                 for (key, overlay_value) in overlay_table {
                     if let Some(base_value) = base_table.get(&key).cloned() {
                         let (merged, value_changed) =
@@ -86,7 +120,6 @@ impl ComputerConfig {
                         base_table.insert(key, overlay_value);
                     }
                 }
-
                 (Value::Table(base_table), changed)
             }
             (_, overlay) => (overlay, false),

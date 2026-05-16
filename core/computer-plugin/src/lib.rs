@@ -1,9 +1,9 @@
 use std::path::Path;
 
 use pumpkin_plugin_api::{
-    Context, Plugin, PluginMetadata,
     permission::{Permission, PermissionDefault},
     permissions::{FS_WRITE_DATA, NETWORK_OUTBOUND, NETWORK_TCP, NETWORK_TCP_BIND},
+    Context, Plugin, PluginMetadata,
 };
 use tracing::*;
 
@@ -11,6 +11,7 @@ use crate::{command::init_command_tree, config::ComputerConfig};
 
 mod command;
 mod config;
+mod server;
 
 struct ComputerPlugin;
 
@@ -36,12 +37,14 @@ impl Plugin for ComputerPlugin {
     }
 
     fn on_load(&mut self, context: Context) -> pumpkin_plugin_api::Result<()> {
+        ComputerConfig::init(&Path::new(&context.get_data_folder()));
+
         command::register_internal();
 
         context.register_permission(&Permission {
             node: "computer:computer".to_string(),
             description: "Access to the /computer command".to_string(),
-            default: PermissionDefault::Deny,
+            default: PermissionDefault::Allow,
             children: Vec::new(),
         })?;
 

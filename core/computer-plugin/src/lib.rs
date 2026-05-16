@@ -1,8 +1,16 @@
+use std::path::Path;
+
 use pumpkin_plugin_api::{
     Context, Plugin, PluginMetadata,
+    permission::{Permission, PermissionDefault},
     permissions::{FS_WRITE_DATA, NETWORK_OUTBOUND, NETWORK_TCP, NETWORK_TCP_BIND},
 };
 use tracing::*;
+
+use crate::{command::init_command_tree, config::ComputerConfig};
+
+mod command;
+mod config;
 
 struct ComputerPlugin;
 
@@ -13,7 +21,7 @@ impl Plugin for ComputerPlugin {
 
     fn metadata(&self) -> PluginMetadata {
         PluginMetadata {
-            name: "Computer".into(),
+            name: "computer".into(),
             version: env!("CARGO_PKG_VERSION").into(),
             authors: vec!["Legends of Xania".into()],
             description: "A new page for player interactions".into(),
@@ -27,8 +35,18 @@ impl Plugin for ComputerPlugin {
         }
     }
 
-    fn on_load(&mut self, _context: Context) -> pumpkin_plugin_api::Result<()> {
-        info!("Hello from the example plugin!");
+    fn on_load(&mut self, context: Context) -> pumpkin_plugin_api::Result<()> {
+        command::register_internal();
+
+        context.register_permission(&Permission {
+            node: "computer:computer".to_string(),
+            description: "Access to the /computer command".to_string(),
+            default: PermissionDefault::Deny,
+            children: Vec::new(),
+        })?;
+
+        context.register_command(init_command_tree(), "computer:computer");
+
         Ok(())
     }
 

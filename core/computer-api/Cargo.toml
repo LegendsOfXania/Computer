@@ -1,0 +1,8 @@
+[package]
+name = "computer-api"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+pumpkin-plugin-api.workspace = true
+tracing.workspace = true

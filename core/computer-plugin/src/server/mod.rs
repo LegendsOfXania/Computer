@@ -8,7 +8,7 @@ pub mod http;
 pub mod session;
 pub mod ws;
 
-static RUNNING: AtomicBool = AtomicBool::new(false);
+pub static RUNNING: AtomicBool = AtomicBool::new(false);
 
 pub fn start(http_addr: String, ws_addr: String) {
     if RUNNING.swap(true, Ordering::SeqCst) {

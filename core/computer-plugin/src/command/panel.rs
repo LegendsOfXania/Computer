@@ -6,8 +6,6 @@ use pumpkin_plugin_api::{
     commands::CommandHandler,
     text::TextComponent,
 };
-use std::str::FromStr;
-use uuid::Uuid;
 
 pub struct PanelExecutor;
 
@@ -20,28 +18,23 @@ impl CommandHandler for PanelExecutor {
     ) -> Result<i32, CommandError> {
         let config = ComputerConfig::get();
 
-        if let Some(player) = sender.as_player() {
-            if !config.panel_active() {
-                sender.send_message(TextComponent::text("The panel is disabled on this server."));
-                return Ok(0);
-            }
-
-            if !server::is_running() {
-                server::start(config.http_addr(), config.ws_addr());
-            }
-
-            let uuid = Uuid::from_str(&player.get_id()).unwrap_or(Uuid::nil());
-            let token = server::session::create_token(uuid);
-
-            player.send_system_message(
-                TextComponent::text(&format!(
-                    "Open the panel: http://{}?token={}",
-                    config.http_addr(),
-                    token
-                )),
-                false,
-            );
+        if !config.panel_active() {
+            sender.send_message(TextComponent::text("The panel is disabled on this server."));
+            return Ok(0);
         }
+
+        if !server::is_running() {
+            server::start(config.http_addr(), config.ws_addr());
+        }
+
+        let token = server::session::create_token();
+        let url = format!("http://{}?token={}", config.http_addr(), token);
+
+        let msg = TextComponent::text("Click the link to open the panel: ");
+        let link = TextComponent::text(&url);
+        link.click_open_url(&url);
+        msg.add_child(link);
+        sender.send_message(msg);
 
         Ok(1)
     }

@@ -3,10 +3,16 @@ use std::{
     net::{TcpListener, TcpStream},
     thread,
 };
-use tracing::{info, warn};
+use tracing::{error, info};
 
 pub fn listen(addr: &str) {
-    let listener = TcpListener::bind(addr).expect("Failed to bind HTTP server");
+    let listener = match TcpListener::bind(addr) {
+        Ok(listener) => listener,
+        Err(err) => {
+            error!(reason = %err, "Failed to bind HTTP server on {}", addr);
+            return;
+        }
+    };
     info!("Computer HTTP server listening on http://{}", addr);
 
     for stream in listener.incoming() {
@@ -15,7 +21,7 @@ pub fn listen(addr: &str) {
                 thread::spawn(|| handle(stream));
             }
             Err(err) => {
-                warn!(reason = %err, "Failed to accept HTTP connection");
+                error!(reason = %err, "Failed to accept HTTP connection");
             }
         }
     }
@@ -50,7 +56,10 @@ fn respond(stream: &mut TcpStream, status: u16, content_type: &str, body: &[u8])
 
     let header = format!(
         "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-        status, status_text, content_type, body.len(),
+        status,
+        status_text,
+        content_type,
+        body.len(),
     );
 
     let _ = stream.write_all(header.as_bytes());

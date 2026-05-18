@@ -1,11 +1,16 @@
+use crate::server::session::consume_token;
 use std::{net::TcpListener, thread};
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 use tungstenite::{Message, accept};
 
-use crate::server::session::consume_token;
-
 pub fn listen(addr: &str) {
-    let listener = TcpListener::bind(addr).expect("Failed to bind WS server");
+    let listener = match TcpListener::bind(addr) {
+        Ok(listener) => listener,
+        Err(err) => {
+            error!(reason = %err, "Failed to bind WS server on {}", addr);
+            return;
+        }
+    };
     info!("Computer WS server listening on ws://{}", addr);
 
     for stream in listener.incoming() {
@@ -14,7 +19,7 @@ pub fn listen(addr: &str) {
                 thread::spawn(|| handle(stream));
             }
             Err(err) => {
-                warn!(reason = %err, "Failed to accept WS connection");
+                error!(reason = %err, "Failed to accept WS connection");
             }
         }
     }
@@ -29,18 +34,19 @@ fn handle(stream: std::net::TcpStream) {
         }
     };
 
-    let session = loop {
+    let authenticated = loop {
         match ws.read() {
             Ok(Message::Text(text)) => match extract_token(&text) {
-                Some(token) => match consume_token(&token) {
-                    Some(session) => break session,
-                    None => {
+                Some(token) => {
+                    if consume_token(&token) {
+                        break true;
+                    } else {
                         let _ = ws.send(Message::Text(
                             r#"{"type":"error","message":"invalid or expired token"}"#.into(),
                         ));
                         return;
                     }
-                },
+                }
                 None => {
                     let _ = ws.send(Message::Text(
                         r#"{"type":"error","message":"expected auth message"}"#.into(),
@@ -53,22 +59,24 @@ fn handle(stream: std::net::TcpStream) {
         }
     };
 
-    info!(player = %session.id, "Panel WS authenticated");
+    if !authenticated {
+        return;
+    }
+
+    info!("Panel WS authenticated");
     let _ = ws.send(Message::Text(r#"{"type":"ready"}"#.into()));
 
-    // Boucle principale
     loop {
         match ws.read() {
             Ok(Message::Text(msg)) => {
-                // TODO: dispatcher les messages
-                info!(player = %session.id, msg = %msg, "Panel message received");
+                info!(msg = %msg, "Panel message received");
             }
             Ok(Message::Close(_)) => {
-                info!(player = %session.id, "Panel WS disconnected");
+                info!("Panel WS disconnected");
                 break;
             }
             Err(err) => {
-                warn!(player = %session.id, reason = %err, "Panel WS error");
+                warn!(reason = %err, "Panel WS error");
                 break;
             }
             _ => {}

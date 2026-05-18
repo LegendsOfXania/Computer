@@ -3,12 +3,6 @@ use std::{fs, path::Path, sync::OnceLock};
 use toml::Value;
 use tracing::{error, warn};
 
-mod panel;
-mod websocket;
-
-pub use panel::PanelConfig;
-pub use websocket::WebSocketConfig;
-
 static CONFIG: OnceLock<ComputerConfig> = OnceLock::new();
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -16,8 +10,7 @@ static CONFIG: OnceLock<ComputerConfig> = OnceLock::new();
 pub struct ComputerConfig {
     pub enabled: bool,
     pub host: String,
-    pub websocket: WebSocketConfig,
-    pub panel: PanelConfig,
+    pub port: u16,
 }
 
 impl Default for ComputerConfig {
@@ -25,8 +18,7 @@ impl Default for ComputerConfig {
         Self {
             enabled: true,
             host: "127.0.0.1".to_string(),
-            websocket: WebSocketConfig::default(),
-            panel: PanelConfig::default(),
+            port: 8080,
         }
     }
 }
@@ -43,16 +35,12 @@ impl ComputerConfig {
         CONFIG.get().expect("ComputerConfig not initialized")
     }
 
-    pub fn http_addr(&self) -> String {
-        format!("{}:{}", self.host, self.panel.port)
-    }
-
-    pub fn ws_addr(&self) -> String {
-        format!("{}:{}", self.host, self.websocket.port)
+    pub fn panel_addr(&self) -> String {
+        format!("{}:{}", self.host, self.port)
     }
 
     pub fn panel_active(&self) -> bool {
-        self.enabled && self.panel.enabled
+        self.enabled
     }
 
     fn load(plugin_dir: &Path) -> Self {

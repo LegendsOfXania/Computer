@@ -1,35 +1,43 @@
 use std::{
     collections::HashMap,
     sync::{Mutex, OnceLock},
+    time::{Duration, Instant},
 };
 
-static SESSIONS: OnceLock<Mutex<HashMap<String, ()>>> = OnceLock::new();
+const TOKEN_TTL: Duration = Duration::from_secs(600);
 
-fn store() -> &'static Mutex<HashMap<String, ()>> {
+struct Session {
+    expires_at: Instant,
+}
+
+static SESSIONS: OnceLock<Mutex<HashMap<String, Session>>> = OnceLock::new();
+
+fn store() -> &'static Mutex<HashMap<String, Session>> {
     SESSIONS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
 pub fn create_token() -> String {
-    let token = generate_token();
-    store().lock().unwrap().insert(token.clone(), ());
+    let token = uuid::Uuid::new_v4().to_string();
+    let session = Session {
+        expires_at: Instant::now() + TOKEN_TTL,
+    };
+
+    let mut guard = store().lock().unwrap();
+    purge_expired(&mut guard);
+    guard.insert(token.clone(), session);
     token
 }
 
 pub fn consume_token(token: &str) -> bool {
-    store().lock().unwrap().remove(token).is_some()
+    let mut guard = store().lock().unwrap();
+    purge_expired(&mut guard);
+    guard
+        .remove(token)
+        .map(|s| s.expires_at > Instant::now())
+        .unwrap_or(false)
 }
 
-fn generate_token() -> String {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    let mut hasher = DefaultHasher::new();
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .subsec_nanos()
-        .hash(&mut hasher);
-    std::thread::current().id().hash(&mut hasher);
-    format!("{:x}{:x}", hasher.finish(), hasher.finish() ^ 0xdeadbeef)
+fn purge_expired(map: &mut HashMap<String, Session>) {
+    let now = Instant::now();
+    map.retain(|_, s| s.expires_at > now);
 }

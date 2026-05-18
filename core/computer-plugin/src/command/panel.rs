@@ -4,8 +4,10 @@ use pumpkin_plugin_api::{
     Result, Server,
     command::{CommandError, CommandNode, CommandSender, ConsumedArgs},
     commands::CommandHandler,
+    scheduler::SchedulerExt,
     text::TextComponent,
 };
+use tracing::error;
 
 pub struct PanelExecutor;
 
@@ -13,7 +15,7 @@ impl CommandHandler for PanelExecutor {
     fn handle(
         &self,
         sender: CommandSender,
-        _server: Server,
+        pumpkin_server: Server,
         _args: ConsumedArgs,
     ) -> Result<i32, CommandError> {
         let config = ComputerConfig::get();
@@ -24,11 +26,21 @@ impl CommandHandler for PanelExecutor {
         }
 
         if !server::is_running() {
-            server::start(config.http_addr(), config.ws_addr());
+            if let Err(reason) = server::start(config.panel_addr()) {
+                error!(%reason, "Failed to start Computer HTTP/WS server");
+                sender.send_message(TextComponent::text(
+                    "Could not start the panel server. Check server logs for details.",
+                ));
+                return Ok(0);
+            }
+
+            pumpkin_server.schedule_repeating_task(0, 1, |_| {
+                server::poll();
+            });
         }
 
         let token = server::session::create_token();
-        let url = format!("http://{}?token={}", config.http_addr(), token);
+        let url = format!("http://{}?token={}", config.panel_addr(), token);
 
         let msg = TextComponent::text("Click the link to open the panel: ");
         let link = TextComponent::text(&url);

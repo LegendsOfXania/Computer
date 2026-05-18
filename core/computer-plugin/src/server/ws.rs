@@ -1,84 +1,110 @@
 use crate::server::session::consume_token;
-use std::{net::TcpListener, thread};
-use tracing::{error, info, warn};
-use tungstenite::{Message, accept};
+use std::{
+    net::TcpStream,
+    sync::{Mutex, OnceLock},
+};
+use tracing::{info, warn};
+use tungstenite::{Message, WebSocket, accept};
 
-pub fn listen(addr: &str) {
-    let listener = match TcpListener::bind(addr) {
-        Ok(listener) => listener,
-        Err(err) => {
-            error!(reason = %err, "Failed to bind WS server on {}", addr);
-            return;
+static CLIENTS: OnceLock<Mutex<Vec<Client>>> = OnceLock::new();
+
+fn clients() -> &'static Mutex<Vec<Client>> {
+    CLIENTS.get_or_init(|| Mutex::new(Vec::new()))
+}
+
+struct Client {
+    ws: WebSocket<TcpStream>,
+    authenticated: bool,
+}
+
+pub fn accept_stream(stream: TcpStream) {
+    match accept(stream) {
+        Ok(ws) => {
+            info!("Panel WS: new connection, waiting for auth");
+            clients().lock().unwrap().push(Client {
+                ws,
+                authenticated: false,
+            });
         }
-    };
-    info!("Computer WS server listening on ws://{}", addr);
-
-    for stream in listener.incoming() {
-        match stream {
-            Ok(stream) => {
-                thread::spawn(|| handle(stream));
-            }
-            Err(err) => {
-                error!(reason = %err, "Failed to accept WS connection");
-            }
+        Err(err) => {
+            warn!(reason = %err, "Panel WS: handshake failed");
         }
     }
 }
 
-fn handle(stream: std::net::TcpStream) {
-    let mut ws = match accept(stream) {
-        Ok(ws) => ws,
-        Err(err) => {
-            warn!(reason = %err, "WS handshake failed");
-            return;
-        }
-    };
+pub fn poll_clients() {
+    let mut guard = clients().lock().unwrap();
 
-    let authenticated = loop {
-        match ws.read() {
-            Ok(Message::Text(text)) => match extract_token(&text) {
-                Some(token) => {
-                    if consume_token(&token) {
-                        break true;
-                    } else {
-                        let _ = ws.send(Message::Text(
-                            r#"{"type":"error","message":"invalid or expired token"}"#.into(),
-                        ));
-                        return;
-                    }
+    let mut i = guard.len();
+    while i > 0 {
+        i -= 1;
+        if !tick_client(&mut guard[i]) {
+            guard.swap_remove(i);
+        }
+    }
+}
+
+#[allow(dead_code)]
+pub fn broadcast(msg: &str) {
+    let mut guard = clients().lock().unwrap();
+    let message = Message::Text(msg.into());
+
+    guard.retain_mut(|client| {
+        if !client.authenticated {
+            return true;
+        }
+        match client.ws.send(message.clone()) {
+            Ok(_) => true,
+            Err(err) => {
+                warn!(reason = %err, "Panel WS: broadcast send error, dropping client");
+                false
+            }
+        }
+    });
+}
+
+fn tick_client(client: &mut Client) -> bool {
+    loop {
+        match client.ws.read() {
+            Ok(Message::Text(text)) if !client.authenticated => match extract_token(&text) {
+                Some(token) if consume_token(&token) => {
+                    client.authenticated = true;
+                    info!("Panel WS: client authenticated");
+                    let _ = client.ws.send(Message::Text(r#"{"type":"ready"}"#.into()));
+                }
+                Some(_) => {
+                    let _ = client.ws.send(Message::Text(
+                        r#"{"type":"error","message":"invalid or expired token"}"#.into(),
+                    ));
+                    return false;
                 }
                 None => {
-                    let _ = ws.send(Message::Text(
+                    let _ = client.ws.send(Message::Text(
                         r#"{"type":"error","message":"expected auth message"}"#.into(),
                     ));
-                    return;
+                    return false;
                 }
             },
-            Ok(Message::Close(_)) | Err(_) => return,
-            _ => continue,
-        }
-    };
 
-    if !authenticated {
-        return;
-    }
-
-    info!("Panel WS authenticated");
-    let _ = ws.send(Message::Text(r#"{"type":"ready"}"#.into()));
-
-    loop {
-        match ws.read() {
             Ok(Message::Text(msg)) => {
-                info!(msg = %msg, "Panel message received");
+                info!(msg = %msg, "Panel WS: message received");
+                // TODO: dispatch to command handlers
             }
+
             Ok(Message::Close(_)) => {
-                info!("Panel WS disconnected");
-                break;
+                info!("Panel WS: client disconnected");
+                return false;
             }
+
+            Err(tungstenite::Error::Io(ref e)) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                return true;
+            }
+
             Err(err) => {
-                warn!(reason = %err, "Panel WS error");
-                break;
+                warn!(reason = %err, "Panel WS: read error, dropping client");
+                return false;
             }
+
             _ => {}
         }
     }

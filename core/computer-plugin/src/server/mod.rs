@@ -1,33 +1,27 @@
-use std::{
-    net::{TcpListener, TcpStream},
-    sync::{Mutex, OnceLock},
-};
+use std::net::{TcpListener, TcpStream};
+use std::sync::OnceLock;
 use tracing::{error, info};
 
+pub mod assets;
 pub mod http;
 pub mod session;
 pub mod ws;
 
-static LISTENER: OnceLock<Mutex<TcpListener>> = OnceLock::new();
+static LISTENER: OnceLock<TcpListener> = OnceLock::new();
 
-pub fn start(addr: String) -> Result<(), String> {
+pub fn start(addr: &str) -> Result<(), String> {
     if LISTENER.get().is_some() {
         return Err("Server is already running".into());
     }
 
-    let listener = TcpListener::bind(&addr)
+    let listener = TcpListener::bind(addr)
         .map_err(|e| format!("Failed to bind HTTP/WS listener on {addr}: {e}"))?;
-
     listener
         .set_nonblocking(true)
         .map_err(|e| format!("set_nonblocking failed: {e}"))?;
 
     info!("Computer HTTP/WS server listening on http://{addr}");
-
-    LISTENER
-        .set(Mutex::new(listener))
-        .map_err(|_| "LISTENER already set".to_string())?;
-
+    LISTENER.set(listener).ok();
     Ok(())
 }
 
@@ -44,20 +38,19 @@ fn accept_pending() {
     let Some(listener) = LISTENER.get() else {
         return;
     };
-    let Ok(guard) = listener.lock() else { return };
 
     loop {
-        match guard.accept() {
+        match listener.accept() {
             Ok((stream, addr)) => {
                 if let Err(e) = stream.set_nonblocking(true) {
-                    error!(reason = %e, %addr, "Could not set stream non-blocking, dropping");
+                    error!(%addr, reason = %e, "Could not set stream non-blocking, dropping");
                     continue;
                 }
                 handle_connection(stream);
             }
             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
             Err(e) => {
-                error!(reason = %e, "HTTP accept error");
+                error!(reason = %e, "Accept error");
                 break;
             }
         }
@@ -65,9 +58,8 @@ fn accept_pending() {
 }
 
 fn handle_connection(mut stream: TcpStream) {
-    let raw = match http::read_request(&mut stream) {
-        Some(r) => r,
-        None => return,
+    let Some(raw) = http::read_request(&mut stream) else {
+        return;
     };
 
     if http::is_ws_upgrade(&raw) {
@@ -80,16 +72,25 @@ fn handle_connection(mut stream: TcpStream) {
         return;
     };
 
-    route_http(&mut stream, &req);
+    if req.path.starts_with("/api/") {
+        route_api(&mut stream, &req);
+    } else {
+        http::respond_asset::<assets::Panel>(&mut stream, req.path);
+    }
 }
 
-fn route_http(stream: &mut TcpStream, req: &http::Request<'_>) {
+fn route_api(stream: &mut TcpStream, req: &http::Request<'_>) {
+    use serde_json::json;
     match (req.method, req.path) {
-        ("GET", "/health") => {
-            http::respond(stream, 200, "application/json", b"{\"status\":\"ok\"}");
+        ("GET", "/api/health") => {
+            http::respond_json(stream, 200, &json!({ "status": "ok" }));
+        }
+        ("POST", "/api/auth/token") => {
+            let token = session::create_token();
+            http::respond_json(stream, 200, &json!({ "token": token }));
         }
         _ => {
-            http::respond_json_error(stream, 404, "not found");
+            http::respond_json(stream, 404, &json!({ "error": "not found" }));
         }
     }
 }

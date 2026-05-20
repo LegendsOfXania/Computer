@@ -81,6 +81,7 @@ dependencies = [
  "pumpkin-plugin-api",
  "rust-embed",
  "serde",
+ "serde_json",
  "toml",
  "tracing",
  "tungstenite",

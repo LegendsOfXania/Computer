@@ -1,10 +1,29 @@
-use crate::server::session::consume_token;
+use super::session::consume_token;
+use serde::{Deserialize, Serialize};
 use std::{
     net::TcpStream,
     sync::{Mutex, OnceLock},
 };
 use tracing::{info, warn};
 use tungstenite::{Message, WebSocket, accept};
+
+#[derive(Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum ClientMsg {
+    Auth { token: String },
+    Publish { file: serde_json::Value },
+    RequestSync,
+}
+
+#[derive(Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ServerMsg<'a> {
+    Ready,
+    AuthError { message: &'a str },
+    Sync { payload: &'a serde_json::Value },
+    Update { payload: &'a serde_json::Value },
+    Error { message: &'a str },
+}
 
 static CLIENTS: OnceLock<Mutex<Vec<Client>>> = OnceLock::new();
 
@@ -17,6 +36,24 @@ struct Client {
     authenticated: bool,
 }
 
+impl Client {
+    fn send_msg(&mut self, msg: &ServerMsg<'_>) -> bool {
+        match serde_json::to_string(msg) {
+            Ok(text) => match self.ws.send(Message::Text(text.into())) {
+                Ok(_) => true,
+                Err(e) => {
+                    warn!(reason = %e, "Panel WS: send error, dropping client");
+                    false
+                }
+            },
+            Err(e) => {
+                warn!(reason = %e, "Panel WS: serialization error");
+                false
+            }
+        }
+    }
+}
+
 pub fn accept_stream(stream: TcpStream) {
     match accept(stream) {
         Ok(ws) => {
@@ -26,93 +63,104 @@ pub fn accept_stream(stream: TcpStream) {
                 authenticated: false,
             });
         }
-        Err(err) => {
-            warn!(reason = %err, "Panel WS: handshake failed");
-        }
+        Err(e) => warn!(reason = %e, "Panel WS: handshake failed"),
     }
 }
 
-pub fn poll_clients() {
-    let mut guard = clients().lock().unwrap();
-
-    let mut i = guard.len();
-    while i > 0 {
-        i -= 1;
-        if !tick_client(&mut guard[i]) {
-            guard.swap_remove(i);
+pub fn broadcast(msg: &ServerMsg<'_>) {
+    let text = match serde_json::to_string(msg) {
+        Ok(t) => t,
+        Err(e) => {
+            warn!(reason = %e, "Panel WS: broadcast serialization failed");
+            return;
         }
-    }
-}
-
-#[allow(dead_code)]
-pub fn broadcast(msg: &str) {
-    let mut guard = clients().lock().unwrap();
-    let message = Message::Text(msg.into());
-
-    guard.retain_mut(|client| {
+    };
+    let message = Message::Text(text.into());
+    clients().lock().unwrap().retain_mut(|client| {
         if !client.authenticated {
             return true;
         }
         match client.ws.send(message.clone()) {
             Ok(_) => true,
-            Err(err) => {
-                warn!(reason = %err, "Panel WS: broadcast send error, dropping client");
+            Err(e) => {
+                warn!(reason = %e, "Panel WS: broadcast error, dropping client");
                 false
             }
         }
     });
 }
 
+pub fn poll_clients() {
+    clients().lock().unwrap().retain_mut(tick_client);
+}
+
 fn tick_client(client: &mut Client) -> bool {
     loop {
         match client.ws.read() {
-            Ok(Message::Text(text)) if !client.authenticated => match extract_token(&text) {
-                Some(token) if consume_token(&token) => {
-                    client.authenticated = true;
-                    info!("Panel WS: client authenticated");
-                    let _ = client.ws.send(Message::Text(r#"{"type":"ready"}"#.into()));
-                }
-                Some(_) => {
-                    let _ = client.ws.send(Message::Text(
-                        r#"{"type":"error","message":"invalid or expired token"}"#.into(),
-                    ));
+            Ok(Message::Text(text)) => {
+                if !dispatch(client, &text) {
                     return false;
                 }
-                None => {
-                    let _ = client.ws.send(Message::Text(
-                        r#"{"type":"error","message":"expected auth message"}"#.into(),
-                    ));
-                    return false;
-                }
-            },
-
-            Ok(Message::Text(msg)) => {
-                info!(msg = %msg, "Panel WS: message received");
-                // TODO: dispatch to command handlers
             }
-
             Ok(Message::Close(_)) => {
                 info!("Panel WS: client disconnected");
                 return false;
             }
-
+            Ok(Message::Ping(data)) => {
+                let _ = client.ws.send(Message::Pong(data));
+            }
             Err(tungstenite::Error::Io(ref e)) if e.kind() == std::io::ErrorKind::WouldBlock => {
                 return true;
             }
-
-            Err(err) => {
-                warn!(reason = %err, "Panel WS: read error, dropping client");
+            Err(e) => {
+                warn!(reason = %e, "Panel WS: read error, dropping client");
                 return false;
             }
-
             _ => {}
         }
     }
 }
 
-fn extract_token(json: &str) -> Option<String> {
-    let key = r#""token":""#;
-    let start = json.find(key)? + key.len();
-    let end = json[start..].find('"')? + start;
-    Some(json[start..end].to_string())
+fn dispatch(client: &mut Client, text: &str) -> bool {
+    let msg = match serde_json::from_str::<ClientMsg>(text) {
+        Ok(m) => m,
+        Err(_) => {
+            return client.send_msg(&ServerMsg::Error {
+                message: "invalid message format",
+            });
+        }
+    };
+
+    match msg {
+        ClientMsg::Auth { token } => handle_auth(client, &token),
+
+        _ if !client.authenticated => client.send_msg(&ServerMsg::AuthError {
+            message: "not authenticated",
+        }),
+
+        ClientMsg::Publish { file } => {
+            info!(?file, "Panel WS: publish request");
+            // TODO: forward to computer-api publish handler
+            client.send_msg(&ServerMsg::Ready) // ack
+        }
+
+        ClientMsg::RequestSync => {
+            // TODO: build real payload from server state
+            let payload = serde_json::json!({});
+            client.send_msg(&ServerMsg::Sync { payload: &payload })
+        }
+    }
+}
+
+fn handle_auth(client: &mut Client, token: &str) -> bool {
+    if consume_token(token) {
+        client.authenticated = true;
+        info!("Panel WS: client authenticated");
+        client.send_msg(&ServerMsg::Ready)
+    } else {
+        client.send_msg(&ServerMsg::AuthError {
+            message: "invalid or expired token",
+        });
+        false
+    }
 }

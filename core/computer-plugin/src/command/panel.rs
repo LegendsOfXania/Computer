@@ -26,7 +26,7 @@ impl CommandHandler for PanelExecutor {
         }
 
         if !server::is_running() {
-            if let Err(reason) = server::start(config.panel_addr()) {
+            if let Err(reason) = server::start(config.panel_addr().as_str()) {
                 error!(%reason, "Failed to start Computer HTTP/WS server");
                 sender.send_message(TextComponent::text(
                     "Could not start the panel server. Check server logs for details.",

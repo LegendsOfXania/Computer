@@ -26,15 +26,17 @@ export function useWebSocket(
 ) {
   const wsRef = useRef<WebSocket | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const handlersRef = useRef(handlers)
   const authFailedRef = useRef(false)
+
+  // Keep handlers ref up-to-date without re-triggering connect
+  useEffect(() => { handlersRef.current = handlers }, [handlers])
 
   const token = new URLSearchParams(window.location.search).get('token') ?? ''
 
   const send = useCallback((msg: ClientMsg) => {
     const ws = wsRef.current
-    if (ws?.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(msg))
-    }
+    if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg))
   }, [])
 
   const connect = useCallback(() => {
@@ -50,58 +52,39 @@ export function useWebSocket(
     const ws = new WebSocket(`${protocol}://${window.location.host}/ws`)
     wsRef.current = ws
 
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ type: 'auth', token } satisfies ClientMsg))
-    }
+    ws.onopen = () => ws.send(JSON.stringify({ type: 'auth', token } satisfies ClientMsg))
 
-    ws.onmessage = (event: MessageEvent<string>) => {
+    ws.onmessage = ({ data }: MessageEvent<string>) => {
       let msg: ServerMsg
-      try {
-        msg = JSON.parse(event.data) as ServerMsg
-      } catch {
-        console.warn('[ws] unparseable message', event.data)
-        return
-      }
+      try { msg = JSON.parse(data) as ServerMsg }
+      catch { console.warn('[ws] unparseable message', data); return }
 
       switch (msg.type) {
         case 'ready':
           setStatus('connected')
           ws.send(JSON.stringify({ type: 'request_sync' } satisfies ClientMsg))
           break
-
         case 'auth_error':
           console.error('[ws] auth failed:', msg.message)
           authFailedRef.current = true
           setStatus('disconnected')
           ws.close()
           break
-
-        case 'sync':
-          handlers.onSync(msg.payload)
-          break
-
-        case 'update':
-          handlers.onUpdate(msg.payload)
-          break
-
-        case 'error':
-          console.warn('[ws] server error:', msg.message)
-          break
+        case 'sync':    handlersRef.current.onSync(msg.payload);   break
+        case 'update':  handlersRef.current.onUpdate(msg.payload); break
+        case 'error':   console.warn('[ws] server error:', msg.message); break
       }
     }
 
     ws.onclose = () => {
       setStatus('disconnected')
       wsRef.current = null
-      if (!authFailedRef.current) {
+      if (!authFailedRef.current)
         timerRef.current = setTimeout(connect, WS_RECONNECT_DELAY_MS)
-      }
     }
 
-    ws.onerror = () => {
-      setStatus('disconnected')
-    }
-  }, [token, setStatus, handlers])
+    ws.onerror = () => setStatus('disconnected')
+  }, [token, setStatus]) // handlers intentionally excluded — accessed via ref
 
   useEffect(() => {
     connect()

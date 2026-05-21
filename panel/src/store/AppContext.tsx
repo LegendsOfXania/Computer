@@ -6,15 +6,8 @@ import {
   useMemo,
   type ReactNode,
 } from 'react'
-import type {
-  Tab,
-  Folder,
-  FolderChild,
-  ComputerFile,
-  ConnectionStatus,
-  Registry,
-} from '../types'
-import { useWebSocket } from './useWebSocket'
+import type { Tab, Folder, FolderChild, ComputerFile, ConnectionStatus } from '../types'
+import { useWebSocket } from './useWebsocket'
 
 interface AppState {
   tabs: Tab[]
@@ -29,10 +22,6 @@ interface AppState {
   allFiles: ComputerFile[]
 
   connectionStatus: ConnectionStatus
-  setConnectionStatus: (s: ConnectionStatus) => void
-
-  registry: Registry | null
-  setRegistry: (r: Registry) => void
 
   publishFile: (file: ComputerFile) => void
 }
@@ -53,9 +42,8 @@ const HOME_TAB: Tab = { id: 'home', kind: 'home', label: 'Home', dirty: false }
 export function AppProvider({ children }: { children: ReactNode }) {
   const [tabs, setTabs] = useState<Tab[]>([HOME_TAB])
   const [activeTabId, setActiveTabId] = useState<string | null>('home')
-  const [rootFolders, setRootFolders] = useState<Folder[]>(MOCK_FOLDERS)
+  const [rootFolders, setRootFolders] = useState<Folder[]>([])
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected')
-  const [registry, setRegistry] = useState<Registry | null>(null)
 
   const allFiles = useMemo(
     () => rootFolders.flatMap((f) => collectFiles(f.children)),
@@ -80,8 +68,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const next = prev.filter((t) => t.id !== tabId)
       setActiveTabId((id) => {
         if (id !== tabId) return id
-        if (next.length === 0) return null
-        return next[Math.min(idx, next.length - 1)].id
+        return next.length ? next[Math.min(idx, next.length - 1)].id : null
       })
       return next
     })
@@ -92,7 +79,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const onSync = useCallback((payload: unknown) => {
-    // TODO: parse and merge full server state into rootFolders / registry
+    // TODO: parse and merge full server state into rootFolders
     console.info('[ws] sync received', payload)
   }, [])
 
@@ -110,7 +97,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setConnectionStatus('stagging')
       send({ type: 'publish', file })
     },
-    [send, setConnectionStatus],
+    [send],
   )
 
   return (
@@ -126,9 +113,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setRootFolders,
         allFiles,
         connectionStatus,
-        setConnectionStatus,
-        registry,
-        setRegistry,
         publishFile,
       }}
     >
@@ -142,74 +126,3 @@ export function useApp() {
   if (!ctx) throw new Error('useApp must be used within AppProvider')
   return ctx
 }
-
-const MOCK_FOLDERS: Folder[] = [
-  {
-    id: 'folder_npcs',
-    name: 'npcs',
-    children: [
-      {
-        kind: 'folder',
-        folder: {
-          id: 'folder_merchants',
-          name: 'merchants',
-          children: [
-            {
-              kind: 'file',
-              file: {
-                id: 'file_001',
-                name: 'boucher_activity',
-                type: 'sequence',
-                priority: 0,
-                version: '1.0.0',
-                entries: [
-                  {
-                    id: 'e_001',
-                    name: 'boucher_interact_event',
-                    type: 'entity_interact_event',
-                    fields: { triggers: ['e_002'], criteria: [], modifiers: [] },
-                  },
-                  {
-                    id: 'e_002',
-                    name: 'boucher_dialogue',
-                    type: 'action_bar_dialogue',
-                    fields: {
-                      triggers: [],
-                      criteria: [],
-                      modifiers: [],
-                      text: 'Des porcs, des boeufs !',
-                      duration: 1000,
-                    },
-                  },
-                ],
-              },
-            },
-            {
-              kind: 'file',
-              file: { id: 'file_002', name: 'boulanger_activity', type: 'sequence', priority: 0, version: '1.0.0', entries: [] },
-            },
-          ],
-        },
-      },
-      {
-        kind: 'file',
-        file: { id: 'file_003', name: 'world_npcs', type: 'manifest', priority: 0, version: '1.0.0', entries: [] },
-      },
-    ],
-  },
-  {
-    id: 'folder_quests',
-    name: 'quests',
-    children: [
-      { kind: 'file', file: { id: 'file_004', name: 'main_intro', type: 'sequence', priority: 1, version: '1.0.0', entries: [] } },
-      { kind: 'file', file: { id: 'file_005', name: 'intro_cinematic', type: 'scene', priority: 0, version: '1.0.0', entries: [] } },
-    ],
-  },
-  {
-    id: 'folder_data',
-    name: 'data',
-    children: [
-      { kind: 'file', file: { id: 'file_006', name: 'server_facts', type: 'static', priority: 0, version: '1.0.0', entries: [] } },
-    ],
-  },
-]

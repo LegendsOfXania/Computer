@@ -1,9 +1,9 @@
 use std::path::Path;
 
 use pumpkin_plugin_api::{
+    Context, Plugin, PluginMetadata,
     permission::{Permission, PermissionDefault},
     permissions::{FS_WRITE_DATA, NETWORK_OUTBOUND, NETWORK_TCP, NETWORK_TCP_BIND},
-    Context, Plugin, PluginMetadata,
 };
 use tracing::*;
 
@@ -11,6 +11,7 @@ use crate::{command::init_command_tree, config::ComputerConfig};
 
 mod command;
 mod config;
+mod files;
 mod server;
 
 struct ComputerPlugin;

@@ -15,7 +15,7 @@ impl CommandHandler for PanelExecutor {
     fn handle(
         &self,
         sender: CommandSender,
-        pumpkin_server: Server,
+        _server: Server,
         _args: ConsumedArgs,
     ) -> Result<i32, CommandError> {
         let config = ComputerConfig::get();
@@ -33,10 +33,6 @@ impl CommandHandler for PanelExecutor {
                 ));
                 return Ok(0);
             }
-
-            pumpkin_server.schedule_repeating_task(0, 1, |_| {
-                server::poll();
-            });
         }
 
         let token = server::session::create_token();

@@ -11,7 +11,6 @@ use crate::{command::init_command_tree, config::ComputerConfig};
 
 mod command;
 mod config;
-mod files;
 mod server;
 
 struct ComputerPlugin;

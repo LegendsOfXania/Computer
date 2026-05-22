@@ -1,13 +1,8 @@
 use serde::{Deserialize, Serialize};
-use std::{
-    fs,
-    path::{Path, PathBuf},
-    sync::OnceLock,
-};
+use std::{fs, path::Path, sync::OnceLock};
 use tracing::{error, warn};
 
 static CONFIG: OnceLock<ComputerConfig> = OnceLock::new();
-static DATA_DIR: OnceLock<PathBuf> = OnceLock::new();
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(default)]
@@ -30,9 +25,6 @@ impl Default for ComputerConfig {
 impl ComputerConfig {
     pub fn init(plugin_dir: &Path) {
         let config = Self::load(plugin_dir);
-        DATA_DIR
-            .set(plugin_dir.join("data").join("files"))
-            .expect("Data dir already initialized");
         CONFIG
             .set(config)
             .expect("ComputerConfig already initialized");
@@ -48,10 +40,6 @@ impl ComputerConfig {
 
     pub fn panel_active(&self) -> bool {
         self.enabled
-    }
-
-    pub fn files_dir() -> &'static PathBuf {
-        DATA_DIR.get().expect("Data dir not initialized")
     }
 
     fn load(plugin_dir: &Path) -> Self {

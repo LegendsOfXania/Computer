@@ -1,9 +1,9 @@
 use std::net::{TcpListener, TcpStream};
 use std::sync::OnceLock;
 
-use tracing::error;
+use tracing::{error, warn};
 
-use super::{http, ws};
+use super::{auth, http, ws};
 
 static LISTENER: OnceLock<TcpListener> = OnceLock::new();
 
@@ -47,7 +47,21 @@ fn dispatch(mut stream: TcpStream) {
     };
 
     if http::is_websocket_upgrade(&raw) {
-        ws::register(stream);
+        let provided = http::extract_token(&raw);
+
+        match provided {
+            Some(t) if auth::validate(t) => {
+                ws::register(stream);
+            }
+            Some(_) => {
+                warn!("WS: token invalide ou expiré, connexion refusée");
+                http::reject_unauthorized(&mut stream);
+            }
+            None => {
+                warn!("WS: aucun token fourni, connexion refusée");
+                http::reject_unauthorized(&mut stream);
+            }
+        }
     } else if let Some(req) = http::parse(&raw) {
         http::serve_asset(&mut stream, req.path);
     }

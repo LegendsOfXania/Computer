@@ -10,6 +10,7 @@ struct Panel;
 pub struct Request<'a> {
     pub method: &'a str,
     pub path: &'a str,
+    pub raw: &'a str,
 }
 
 pub fn read_raw(stream: &mut TcpStream) -> Option<String> {
@@ -26,12 +27,25 @@ pub fn is_websocket_upgrade(raw: &str) -> bool {
     lower.contains("upgrade: websocket")
 }
 
-pub fn parse(raw: &str) -> Option<Request<'_>> {
+pub fn parse<'a>(raw: &'a str) -> Option<Request<'a>> {
     let line = raw.lines().next()?;
     let mut parts = line.splitn(3, ' ');
     let method = parts.next()?;
-    let path = parts.next()?.split('?').next()?;
-    Some(Request { method, path })
+    let full_path = parts.next()?;
+    let path = full_path.split('?').next()?;
+    Some(Request { method, path, raw })
+}
+
+pub fn extract_token<'a>(raw: &'a str) -> Option<&'a str> {
+    let first_line = raw.lines().next()?;
+    let query = first_line.split('?').nth(1)?;
+    let query = query.split(' ').next()?;
+    for param in query.split('&') {
+        if let Some(value) = param.strip_prefix("token=") {
+            return Some(value);
+        }
+    }
+    None
 }
 
 pub fn serve_asset(stream: &mut TcpStream, path: &str) {
@@ -53,6 +67,13 @@ pub fn serve_asset(stream: &mut TcpStream, path: &str) {
     };
 
     write_response(stream, 200, mime, file.data.as_ref());
+}
+
+pub fn reject_unauthorized(stream: &mut TcpStream) {
+    let _ = write!(
+        stream,
+        "HTTP/1.1 401 Unauthorized\r\nContent-Type: text/plain\r\nContent-Length: 12\r\nConnection: close\r\n\r\nUnauthorized"
+    );
 }
 
 fn write_response(stream: &mut TcpStream, status: u16, content_type: &str, body: &[u8]) {

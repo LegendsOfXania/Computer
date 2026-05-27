@@ -1,19 +1,17 @@
 import { useEffect, useRef, useCallback } from 'react'
 import type { ConnectionStatus } from '../types'
 
-type ServerMsg =
+type SMsg =
   | { type: 'ready' }
   | { type: 'sync'; payload: unknown }
-  | { type: 'update'; payload: unknown }
   | { type: 'error'; message: string }
 
-type ClientMsg =
-  | { type: 'publish'; file: unknown }
+type CMsg =
   | { type: 'request_sync' }
+  | { type: 'publish'; file: unknown }
 
 export interface WsHandlers {
   onSync: (payload: unknown) => void
-  onUpdate: (payload: unknown) => void
 }
 
 const WS_RECONNECT_DELAY_MS = 3_000
@@ -25,12 +23,11 @@ export function useWebSocket(
   const wsRef = useRef<WebSocket | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const handlersRef = useRef(handlers)
-
   useEffect(() => { handlersRef.current = handlers }, [handlers])
 
   const token = new URLSearchParams(window.location.search).get('token') ?? ''
 
-  const send = useCallback((msg: ClientMsg) => {
+  const send = useCallback((msg: CMsg) => {
     const ws = wsRef.current
     if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg))
   }, [])
@@ -51,23 +48,20 @@ export function useWebSocket(
     }
 
     ws.onmessage = ({ data }: MessageEvent<string>) => {
-      let msg: ServerMsg
-      try { msg = JSON.parse(data) as ServerMsg }
-      catch { console.warn('[ws] unparseable message', data); return }
+      let msg: SMsg
+      try { msg = JSON.parse(data) as SMsg }
+      catch { console.warn('[ws] message invalide', data); return }
 
       switch (msg.type) {
         case 'ready':
           setStatus('connected')
-          ws.send(JSON.stringify({ type: 'request_sync' } satisfies ClientMsg))
+          send({ type: 'request_sync' })
           break
         case 'sync':
           handlersRef.current.onSync(msg.payload)
           break
-        case 'update':
-          handlersRef.current.onUpdate(msg.payload)
-          break
         case 'error':
-          console.warn('[ws] server error:', msg.message)
+          console.warn('[ws] erreur serveur:', msg.message)
           break
       }
     }
@@ -82,7 +76,7 @@ export function useWebSocket(
       setStatus('disconnected')
       if (timerRef.current) clearTimeout(timerRef.current)
     }
-  }, [token, setStatus])
+  }, [token, setStatus, send])
 
   useEffect(() => {
     connect()

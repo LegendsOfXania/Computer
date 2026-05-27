@@ -4,7 +4,7 @@ use pumpkin_plugin_api::command::Command;
 pub mod panel;
 
 pub fn register_internal() {
-    panel::PanelExecutor::register();
+    panel::PanelCommand::register();
 }
 
 pub fn init_command_tree() -> Command {

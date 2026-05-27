@@ -18,7 +18,6 @@ interface AppState {
   markDirty: (tabId: string, dirty: boolean) => void
 
   rootFolders: Folder[]
-  setRootFolders: (folders: Folder[]) => void
   allFiles: ComputerFile[]
 
   connectionStatus: ConnectionStatus
@@ -79,16 +78,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const onSync = useCallback((payload: unknown) => {
-    // TODO: parse and merge full server state into rootFolders
-    console.info('[ws] sync received', payload)
+    const data = payload as { folders: Folder[] }
+    if (Array.isArray(data?.folders)) {
+      setRootFolders(data.folders)
+    }
   }, [])
 
-  const onUpdate = useCallback((payload: unknown) => {
-    // TODO: apply incremental update from server
-    console.info('[ws] update received', payload)
-  }, [])
-
-  const handlers = useMemo(() => ({ onSync, onUpdate }), [onSync, onUpdate])
+  const handlers = useMemo(() => ({ onSync }), [onSync])
 
   const { send } = useWebSocket(setConnectionStatus, handlers)
 
@@ -110,7 +106,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setActiveTab: setActiveTabId,
         markDirty,
         rootFolders,
-        setRootFolders,
         allFiles,
         connectionStatus,
         publishFile,

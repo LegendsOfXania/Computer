@@ -1,7 +1,7 @@
 import { GitBranch, Layers, Film, Database } from "lucide-react";
 import type { FileType } from ".";
 
-export const FILE_TYPE_META: Record<
+export const FILE_TYPE: Record<
   FileType,
   {
     label: string;

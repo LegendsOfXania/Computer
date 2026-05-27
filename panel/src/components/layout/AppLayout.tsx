@@ -2,7 +2,7 @@ import { useApp } from "../../store/AppContext";
 import { Sidebar } from "../sidebar/Sidebar";
 import { TabBar } from "../tabs/TabBar";
 import { HomeView } from "./HomeView";
-import { ChapterView } from "./ChapterView";
+import { FileView } from "./FileView";
 import "./AppLayout.css";
 
 export function AppLayout() {
@@ -17,7 +17,7 @@ export function AppLayout() {
         <div className="app-layout__content">
           {activeTab?.kind === "home" && <HomeView />}
           {activeTab?.kind === "file" && activeTab.fileId && (
-            <ChapterView fileId={activeTab.fileId} />
+            <FileView fileId={activeTab.fileId} />
           )}
           {!activeTab && (
             <div className="app-layout__empty">

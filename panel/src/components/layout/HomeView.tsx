@@ -1,12 +1,12 @@
 import { useApp } from "../../store/AppContext";
-import { FILE_TYPE_META } from "../../types/fileTypes";
+import { FILE_TYPE } from "../../types/fileTypes";
 import type { FileType } from "../../types";
 import "./HomeView.css";
 
 export function HomeView() {
   const { allFiles, openTab } = useApp();
 
-  const counts = (Object.keys(FILE_TYPE_META) as FileType[]).map((type) => ({
+  const counts = (Object.keys(FILE_TYPE) as FileType[]).map((type) => ({
     type,
     count: allFiles.filter((f) => f.type === type).length,
   }));
@@ -23,7 +23,7 @@ export function HomeView() {
 
       <div className="home__stats">
         {counts.map(({ type, count }) => {
-          const { label, icon: Icon, color, desc } = FILE_TYPE_META[type];
+          const { label, icon: Icon, color, desc } = FILE_TYPE[type];
           return (
             <div
               key={type}
@@ -45,7 +45,7 @@ export function HomeView() {
         <h2 className="home__section-title">Recent files</h2>
         <div className="home__file-list">
           {allFiles.slice(0, 6).map((file) => {
-            const { icon: Icon, color } = FILE_TYPE_META[file.type];
+            const { icon: Icon, color } = FILE_TYPE[file.type];
             return (
               <button
                 key={file.id}

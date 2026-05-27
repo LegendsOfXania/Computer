@@ -85,7 +85,6 @@ body {
     background: var(--border-strong);
 }
 
-/* Utility */
 .mono {
     font-family: var(--font-mono);
 }

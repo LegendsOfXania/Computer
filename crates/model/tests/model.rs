@@ -21,7 +21,7 @@ impl Fields for DialogueFields {
             ),
             Field::new(
                 "speaker",
-                Schema::reference().entry_type("character"),
+                Schema::reference().with_entry_type("character"),
             ),
         ]
     }

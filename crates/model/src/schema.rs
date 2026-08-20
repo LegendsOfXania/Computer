@@ -1,10 +1,5 @@
 use crate::Value;
 
-/// Describes the shape of a value without storing the value itself.
-///
-/// `Value` contains runtime data. `Schema` describes which `Value` instances
-/// are valid for a field. In particular, `Schema::Struct` maps directly to a
-/// Rust struct and `Schema::List` maps to a `Vec<T>`-like value.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Schema {
     Null,

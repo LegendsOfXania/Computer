@@ -2,7 +2,6 @@ use crate::Value;
 
 use std::collections::BTreeMap;
 
-/// Portable metadata shared by every entry instance.
 #[derive(Debug, Clone, PartialEq)]
 pub struct EntryData {
     entry_type: String,

@@ -1,0 +1,10 @@
+[package]
+name = "panel"
+description = "WASM bindings for the Computer panel"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+model.workspace = true
+serialization.workspace = true

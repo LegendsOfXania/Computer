@@ -1,0 +1,9 @@
+[package]
+name = "runtime"
+description = "In-memory runtime for Computer entries and pages"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+model.workspace = true

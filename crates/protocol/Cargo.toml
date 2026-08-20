@@ -1,0 +1,9 @@
+[package]
+name = "protocol"
+description = "Shared protocol types for Computer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+model.workspace = true

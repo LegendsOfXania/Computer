@@ -1,0 +1,10 @@
+[package]
+name = "engine"
+description = "The Pumpkin engine of Computer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+runtime.workspace = true
+serialization.workspace = true

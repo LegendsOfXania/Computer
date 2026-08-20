@@ -1,0 +1,10 @@
+[package]
+name = "serialization"
+description = "Serialization formats for Computer's pure model"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+kdl.workspace = true
+model.workspace = true

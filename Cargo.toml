@@ -1,0 +1,28 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/model",
+    "crates/serialization",
+    "crates/runtime",
+    "crates/protocol",
+    "crates/engine",
+    "crates/panel",
+]
+
+[workspace.package]
+edition = "2024"
+version = "0.1.0"
+license = "MIT"
+
+[workspace.dependencies]
+kdl = "6.7.1"
+model = { path = "crates/model" }
+runtime = { path = "crates/runtime" }
+serialization = { path = "crates/serialization" }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

@@ -1,0 +1,6 @@
+[package]
+name = "model"
+description = "Pure data model shared by Computer components"
+version.workspace = true
+edition.workspace = true
+license.workspace = true

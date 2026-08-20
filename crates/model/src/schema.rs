@@ -67,7 +67,7 @@ pub struct ReferenceSchema {
 
 impl ReferenceSchema {
     #[inline]
-    pub fn entry_type(mut self, entry_type: impl Into<String>) -> Self {
+    pub fn with_entry_type(mut self, entry_type: impl Into<String>) -> Self {
         self.entry_type = Some(entry_type.into());
         self
     }
@@ -85,7 +85,7 @@ impl ReferenceSchema {
     }
 
     #[inline]
-    pub fn entry_type_name(&self) -> Option<&str> {
+    pub fn entry_type(&self) -> Option<&str> {
         self.entry_type.as_deref()
     }
 

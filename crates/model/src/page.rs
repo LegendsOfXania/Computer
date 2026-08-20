@@ -1,7 +1,6 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PageType {
     Sequence,
-    Manifest,
     Static,
 }
 
@@ -10,7 +9,6 @@ impl PageType {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Sequence => "sequence",
-            Self::Manifest => "manifest",
             Self::Static => "static",
         }
     }
@@ -19,7 +17,6 @@ impl PageType {
     pub fn parse(value: &str) -> Option<Self> {
         match value {
             "sequence" => Some(Self::Sequence),
-            "manifest" => Some(Self::Manifest),
             "static" => Some(Self::Static),
             _ => None,
         }

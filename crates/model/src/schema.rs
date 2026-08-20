@@ -12,9 +12,7 @@ pub enum Schema {
         values: Vec<String>,
     },
 
-    Reference {
-        tags: Vec<String>,
-    },
+    Reference(ReferenceSchema),
 
     Struct(StructSchema),
 
@@ -35,15 +33,8 @@ impl Schema {
     }
 
     #[inline]
-    pub fn reference(
-        tags: impl IntoIterator<Item = impl Into<String>>,
-    ) -> Self {
-        Self::Reference {
-            tags: tags
-                .into_iter()
-                .map(Into::into)
-                .collect(),
-        }
+    pub fn reference() -> ReferenceSchema {
+        ReferenceSchema::default()
     }
 
     #[inline]
@@ -70,18 +61,15 @@ impl Schema {
                 Self::Float,
                 Value::Number(crate::Number::Float(_)),
             )
-            | (Self::Boolean, Value::Boolean(_)) => true,
+            | (Self::Boolean, Value::Boolean(_))
+            | (Self::Reference(_), Value::Reference(_)) => true,
 
             (
                 Self::Enumeration { values },
                 Value::Enum(value),
-            ) => {
-                values
-                    .iter()
-                    .any(|candidate| candidate == value)
-            }
-
-            (Self::Reference { .. }, Value::Reference(_)) => true,
+            ) => values
+                .iter()
+                .any(|candidate| candidate == value),
 
             (
                 Self::Struct(schema),
@@ -100,6 +88,65 @@ impl Schema {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ReferenceSchema {
+    entry_type: Option<String>,
+    tags: Vec<String>,
+}
+
+impl ReferenceSchema {
+    #[inline]
+    pub fn entry_type(
+        mut self,
+        entry_type: impl Into<String>,
+    ) -> Self {
+        self.entry_type = Some(entry_type.into());
+
+        self
+    }
+
+    #[inline]
+    pub fn has_tag(
+        mut self,
+        tag: impl Into<String>,
+    ) -> Self {
+        self.tags.push(tag.into());
+
+        self
+    }
+
+    #[inline]
+    pub fn has_tags(
+        mut self,
+        tags: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        self.tags.extend(
+            tags
+                .into_iter()
+                .map(Into::into),
+        );
+
+        self
+    }
+
+    #[inline]
+    pub fn entry_type_name(&self) -> Option<&str> {
+        self.entry_type.as_deref()
+    }
+
+    #[inline]
+    pub fn tags(&self) -> &[String] {
+        &self.tags
+    }
+}
+
+impl From<ReferenceSchema> for Schema {
+    #[inline]
+    fn from(schema: ReferenceSchema) -> Self {
+        Self::Reference(schema)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Field {
     name: String,
@@ -111,11 +158,11 @@ impl Field {
     #[inline]
     pub fn new(
         name: impl Into<String>,
-        schema: Schema,
+        schema: impl Into<Schema>,
     ) -> Self {
         Self {
             name: name.into(),
-            schema,
+            schema: schema.into(),
             required: true,
         }
     }
@@ -123,11 +170,11 @@ impl Field {
     #[inline]
     pub fn optional(
         name: impl Into<String>,
-        schema: Schema,
+        schema: impl Into<Schema>,
     ) -> Self {
         Self {
             name: name.into(),
-            schema,
+            schema: schema.into(),
             required: false,
         }
     }

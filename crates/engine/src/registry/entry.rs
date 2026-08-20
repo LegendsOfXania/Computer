@@ -106,11 +106,7 @@ impl EntryRegistry {
     pub fn new() -> Self {
         Self::default()
     }
-
-    /// Registers `definition`, resolving its tags against `tags` first.
-    /// Prefer [`super::Registry::register_entry`], which supplies its own
-    /// `TagRegistry` automatically -- this exists mainly so `EntryRegistry`
-    /// stays independently testable, the same way `runtime::EntryStore` does.
+    
     pub fn register(
         &self,
         definition: EntryDefinition,

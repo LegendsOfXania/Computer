@@ -1,11 +1,11 @@
-use crate::{Entry, EntryKey, EntryRegistry, Page};
+use crate::{Entry, EntryKey, EntryStore, Page};
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock, RwLock};
 
 #[derive(Debug, Default)]
 pub struct Library {
     pages: RwLock<HashMap<String, Arc<Page>>>,
-    entries: EntryRegistry,
+    entries: EntryStore,
 }
 
 static LIBRARY: LazyLock<Library> = LazyLock::new(Library::new);
@@ -38,7 +38,7 @@ impl Library {
     #[inline]
     pub fn is_empty(&self) -> bool { self.pages.read().expect("Library pages lock poisoned").is_empty() }
     #[inline]
-    pub fn entries(&self) -> &EntryRegistry { &self.entries }
+    pub fn entries(&self) -> &EntryStore { &self.entries }
     #[inline]
     pub fn find<E>(&self, key: &EntryKey) -> Option<Arc<E>> where E: Entry { self.entries.find(key) }
     pub fn clear(&self) {

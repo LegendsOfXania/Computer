@@ -4,11 +4,11 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 #[derive(Debug, Default)]
-pub struct EntryRegistry {
+pub struct EntryStore {
     entries: RwLock<HashMap<EntryKey, Arc<dyn StoredEntry>>>,
 }
 
-impl EntryRegistry {
+impl EntryStore {
     #[inline]
     pub fn new() -> Self { Self::default() }
 
@@ -25,13 +25,13 @@ impl EntryRegistry {
     {
         self.entries
             .write()
-            .expect("EntryRegistry lock poisoned")
+            .expect("EntryStore lock poisoned")
             .insert(key, Arc::new(TypedEntry { entry }));
     }
 
     pub fn add_page(&self, page: &Page) {
         let page_id = page.id().to_owned();
-        let mut entries = self.entries.write().expect("EntryRegistry lock poisoned");
+        let mut entries = self.entries.write().expect("EntryStore lock poisoned");
 
         for (id, entry) in page.entries() {
             entries.insert(EntryKey::new(&page_id, id), Arc::clone(entry));
@@ -40,7 +40,7 @@ impl EntryRegistry {
 
     pub fn remove_page(&self, page: &Page) {
         let page_id = page.id().to_owned();
-        let mut entries = self.entries.write().expect("EntryRegistry lock poisoned");
+        let mut entries = self.entries.write().expect("EntryStore lock poisoned");
 
         for (id, entry) in page.entries() {
             let key = EntryKey::new(&page_id, id);
@@ -55,7 +55,7 @@ impl EntryRegistry {
     pub fn remove(&self, key: &EntryKey) -> Option<Arc<dyn Entry>> {
         self.entries
             .write()
-            .expect("EntryRegistry lock poisoned")
+            .expect("EntryStore lock poisoned")
             .remove(key)
             .map(|entry| entry.entry())
     }
@@ -67,7 +67,7 @@ impl EntryRegistry {
         let entry = self
             .entries
             .read()
-            .expect("EntryRegistry lock poisoned")
+            .expect("EntryStore lock poisoned")
             .get(key)
             .cloned()?;
 
@@ -81,7 +81,7 @@ impl EntryRegistry {
     pub fn get(&self, key: &EntryKey) -> Option<Arc<dyn Entry>> {
         self.entries
             .read()
-            .expect("EntryRegistry lock poisoned")
+            .expect("EntryStore lock poisoned")
             .get(key)
             .map(|entry| entry.entry())
     }
@@ -90,27 +90,27 @@ impl EntryRegistry {
     pub fn contains(&self, key: &EntryKey) -> bool {
         self.entries
             .read()
-            .expect("EntryRegistry lock poisoned")
+            .expect("EntryStore lock poisoned")
             .contains_key(key)
     }
 
     #[inline]
     pub fn len(&self) -> usize {
-        self.entries.read().expect("EntryRegistry lock poisoned").len()
+        self.entries.read().expect("EntryStore lock poisoned").len()
     }
 
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.entries
             .read()
-            .expect("EntryRegistry lock poisoned")
+            .expect("EntryStore lock poisoned")
             .is_empty()
     }
 
     pub fn clear(&self) {
         self.entries
             .write()
-            .expect("EntryRegistry lock poisoned")
+            .expect("EntryStore lock poisoned")
             .clear();
     }
 }

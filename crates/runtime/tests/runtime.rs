@@ -34,7 +34,7 @@ impl Entry for OtherEntry {
 
 #[test]
 fn registry_finds_typed_entries() {
-    let registry = runtime::EntryRegistry::new();
+    let registry = runtime::EntryStore::new();
     let key = EntryKey::new("page", "entry");
 
     registry.insert(key.clone(), TestEntry::new("entry", "dialogue"));

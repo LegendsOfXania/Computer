@@ -1,6 +1,6 @@
 pub mod key;
 pub mod reference;
-pub mod registry;
+pub mod store;
 
 use model::EntryData;
 use std::any::Any;
@@ -8,7 +8,7 @@ use std::fmt::Debug;
 
 pub use key::EntryKey;
 pub use reference::Ref;
-pub use registry::EntryRegistry;
+pub use store::EntryStore;
 
 pub trait Entry: Any + Debug + Send + Sync {
     fn id(&self) -> &str;

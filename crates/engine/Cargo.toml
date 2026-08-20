@@ -6,5 +6,6 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+model.workspace = true
 runtime.workspace = true
 serialization.workspace = true

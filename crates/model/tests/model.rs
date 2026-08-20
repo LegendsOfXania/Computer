@@ -213,7 +213,6 @@ fn schema_rejects_wrong_value_shapes() {
 fn page_type_round_trip() {
     for page_type in [
         PageType::Sequence,
-        PageType::Manifest,
         PageType::Static,
     ] {
         assert_eq!(

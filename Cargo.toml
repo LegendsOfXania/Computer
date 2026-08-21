@@ -4,7 +4,6 @@ members = [
     "crates/model",
     "crates/serialization",
     "crates/runtime",
-    "crates/engine",
 ]
 
 [workspace.package]

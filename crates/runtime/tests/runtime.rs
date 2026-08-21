@@ -1,82 +1,129 @@
-use model::{EntryData, PageData, PageType};
-use runtime::{Entry, EntryKey, Library, Page, Ref};
+use model::{EntryData, Field, PageData, PageType, Schema, Value};
+use runtime::{
+    Entry, EntryDefinition, EntryKey, Library, Page, Registry, TagDefinition, ValidationError,
+    Validator,
+};
+use std::collections::BTreeMap;
+use std::str::FromStr;
 
 #[derive(Debug)]
 struct TestEntry {
     id: String,
     data: EntryData,
 }
-
-impl TestEntry {
-    fn new(id: &str, entry_type: &str) -> Self {
-        Self {
-            id: id.into(),
-            data: EntryData::empty(entry_type),
-        }
+impl Entry for TestEntry {
+    fn id(&self) -> &str {
+        &self.id
+    }
+    fn data(&self) -> &EntryData {
+        &self.data
+    }
+}
+fn entry(id: &str, entry_type: &str, fields: BTreeMap<String, Value>) -> TestEntry {
+    TestEntry {
+        id: id.into(),
+        data: EntryData::new(entry_type, fields),
     }
 }
 
-impl Entry for TestEntry {
-    fn id(&self) -> &str { &self.id }
-    fn data(&self) -> &EntryData { &self.data }
-}
-
-#[derive(Debug)]
-struct OtherEntry {
-    id: String,
-    data: EntryData,
-}
-
-impl Entry for OtherEntry {
-    fn id(&self) -> &str { &self.id }
-    fn data(&self) -> &EntryData { &self.data }
-}
-
 #[test]
-fn registry_finds_typed_entries() {
-    let registry = runtime::EntryStore::new();
-    let key = EntryKey::new("page", "entry");
-
-    registry.insert(key.clone(), TestEntry::new("entry", "dialogue"));
-
-    assert_eq!(
-        registry.find::<TestEntry>(&key).unwrap().entry_type(),
-        "dialogue",
+fn library_indexes_page_entries() {
+    let mut page = Page::new("0", PageData::new("main", PageType::Sequence, 0));
+    page.insert(entry("one", "dialogue", BTreeMap::new()));
+    let library = Library::new();
+    library.insert(page);
+    assert!(
+        library
+            .entries()
+            .contains(&EntryKey::from_str("0:one").unwrap())
     );
-    assert!(registry.find::<OtherEntry>(&key).is_none());
 }
 
 #[test]
-fn library_indexes_entries_by_page_and_entry_id() {
+fn registry_resolves_tag_fields() {
+    let registry = Registry::new();
+    registry
+        .register_tag(TagDefinition::new("triggerable").field(Field::new("trigger", Schema::Text)))
+        .unwrap();
+    registry
+        .register_entry(EntryDefinition::new("action").tag("triggerable"))
+        .unwrap();
+    let definition = registry.entries().get("action").unwrap();
+    assert!(
+        definition
+            .fields()
+            .iter()
+            .any(|field| field.name() == "name")
+    );
+    assert!(
+        definition
+            .fields()
+            .iter()
+            .any(|field| field.name() == "trigger")
+    );
+}
+
+#[test]
+fn validator_collects_local_errors() {
+    let registry = Registry::new();
+    registry
+        .register_entry(EntryDefinition::new("dialogue").field(Field::new("text", Schema::Text)))
+        .unwrap();
     let library = Library::new();
-    let mut page = Page::new(PageData::new("page", "Page", PageType::Sequence, 0));
-    page.add_entry(TestEntry::new("entry", "dialogue"));
-    library.add_page(page);
-
-    let key = EntryKey::new("page", "entry");
-    assert_eq!(library.find::<TestEntry>(&key).unwrap().id(), "entry");
-    assert!(library.page("page").is_some());
+    let validator = Validator::new(&registry, &library);
+    let data = EntryData::new(
+        "dialogue",
+        BTreeMap::from([
+            ("name".into(), Value::integer(1)),
+            ("extra".into(), Value::text("x")),
+        ]),
+    );
+    assert_eq!(
+        validator.validate_entry(&data),
+        vec![
+            ValidationError::UnknownField {
+                field: "extra".into()
+            },
+            ValidationError::InvalidValue {
+                field: "name".into()
+            },
+            ValidationError::MissingField {
+                field: "text".into()
+            }
+        ]
+    );
 }
 
 #[test]
-fn replacing_a_page_replaces_its_entries() {
+fn validator_checks_reference_constraints() {
+    let registry = Registry::new();
+    registry
+        .register_tag(TagDefinition::new("triggerable"))
+        .unwrap();
+    registry
+        .register_entry(EntryDefinition::new("action").tag("triggerable"))
+        .unwrap();
+    registry
+        .register_entry(EntryDefinition::new("dialogue").field(Field::new(
+            "target",
+            Schema::reference().with_tag("triggerable"),
+        )))
+        .unwrap();
+    let mut page = Page::new("0", PageData::new("main", PageType::Sequence, 0));
+    page.insert(entry(
+        "action",
+        "action",
+        BTreeMap::from([("name".into(), Value::text("A"))]),
+    ));
     let library = Library::new();
-
-    let mut first = Page::new(PageData::new("page", "First", PageType::Sequence, 0));
-    first.add_entry(TestEntry::new("first", "dialogue"));
-    library.add_page(first);
-
-    let mut second = Page::new(PageData::new("page", "Second", PageType::Sequence, 0));
-    second.add_entry(TestEntry::new("second", "dialogue"));
-    library.add_page(second);
-
-    assert!(library.find::<TestEntry>(&EntryKey::new("page", "first")).is_none());
-    assert!(library.find::<TestEntry>(&EntryKey::new("page", "second")).is_some());
-}
-
-#[test]
-fn references_use_qualified_keys() {
-    let reference = Ref::<TestEntry>::new("page", "entry");
-    assert_eq!(reference.key().unwrap().to_string(), "page:entry");
-    assert!(Ref::<TestEntry>::empty().key().is_none());
+    library.insert(page);
+    let validator = Validator::new(&registry, &library);
+    let data = EntryData::new(
+        "dialogue",
+        BTreeMap::from([
+            ("name".into(), Value::text("D")),
+            ("target".into(), Value::reference("0:action")),
+        ]),
+    );
+    assert!(validator.validate_entry(&data).is_empty());
 }

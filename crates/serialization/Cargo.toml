@@ -1,6 +1,6 @@
 [package]
 name = "serialization"
-description = "Serialization formats for Computer's pure model"
+description = "Serialization formats for Computer's portable model"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

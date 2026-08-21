@@ -1,12 +1,10 @@
-pub mod error;
-pub mod kdl;
+mod error;
+mod format;
+mod kdl;
+mod page;
 
 pub use error::SerializationError;
+pub use format::Format;
 pub use kdl::KdlFormat;
 pub use model::{Number, Value};
-
-pub trait Format {
-    fn decode(input: &str) -> Result<Value, SerializationError>;
-
-    fn encode(value: &Value) -> Result<String, SerializationError>;
-}
+pub use page::{RawEntry, RawPage, decode_page, encode_page, page_from_value, page_to_value};

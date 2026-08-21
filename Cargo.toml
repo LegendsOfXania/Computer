@@ -2,8 +2,9 @@
 resolver = "2"
 members = [
     "crates/model",
-    "crates/serialization",
     "crates/runtime",
+    "crates/serialization",
+    "crates/storage",
 ]
 
 [workspace.package]

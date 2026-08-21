@@ -1,7 +1,7 @@
 use super::{RegistryError, TagRegistry};
 use model::{Field, Schema};
 use std::collections::{HashMap, HashSet};
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct EntryDefinition {
@@ -75,12 +75,13 @@ fn resolve(
 }
 #[derive(Debug, Default)]
 pub struct EntryRegistry {
-    entries: RwLock<HashMap<String, EntryDefinition>>,
+    entries: RwLock<HashMap<String, Arc<EntryDefinition>>>,
 }
 impl EntryRegistry {
     pub fn new() -> Self {
         Self::default()
     }
+
     pub fn register(
         &self,
         definition: EntryDefinition,
@@ -93,28 +94,32 @@ impl EntryRegistry {
                 definition.entry_type().to_owned(),
             ));
         }
-        entries.insert(definition.entry_type().to_owned(), definition);
+        entries.insert(definition.entry_type().to_owned(), Arc::new(definition));
         Ok(())
     }
-    pub fn get(&self, entry_type: &str) -> Option<EntryDefinition> {
+
+    pub fn get(&self, entry_type: &str) -> Option<Arc<EntryDefinition>> {
         self.entries
             .read()
             .expect("EntryRegistry lock poisoned")
             .get(entry_type)
             .cloned()
     }
+
     pub fn contains(&self, entry_type: &str) -> bool {
         self.entries
             .read()
             .expect("EntryRegistry lock poisoned")
             .contains_key(entry_type)
     }
+
     pub fn len(&self) -> usize {
         self.entries
             .read()
             .expect("EntryRegistry lock poisoned")
             .len()
     }
+
     pub fn is_empty(&self) -> bool {
         self.entries
             .read()

@@ -12,9 +12,11 @@ impl Library {
     pub fn global() -> &'static Self {
         &LIBRARY
     }
+
     pub fn new() -> Self {
         Self::default()
     }
+
     pub fn insert(&self, page: Page) -> Option<Arc<Page>> {
         let page = Arc::new(page);
         let previous = self
@@ -28,6 +30,7 @@ impl Library {
         self.entries.add_page(&page);
         previous
     }
+
     pub fn remove(&self, id: &str) -> Option<Arc<Page>> {
         let page = self
             .pages
@@ -37,13 +40,15 @@ impl Library {
         self.entries.remove_page(&page);
         Some(page)
     }
-    pub fn get(&self, id: &str) -> Option<Arc<Page>> {
+
+    pub fn page(&self, id: &str) -> Option<Arc<Page>> {
         self.pages
             .read()
             .expect("Library pages lock poisoned")
             .get(id)
             .cloned()
     }
+
     pub fn pages(&self) -> Vec<Arc<Page>> {
         self.pages
             .read()
@@ -52,30 +57,36 @@ impl Library {
             .cloned()
             .collect()
     }
+
     pub fn contains(&self, id: &str) -> bool {
         self.pages
             .read()
             .expect("Library pages lock poisoned")
             .contains_key(id)
     }
+
     pub fn len(&self) -> usize {
         self.pages
             .read()
             .expect("Library pages lock poisoned")
             .len()
     }
+
     pub fn is_empty(&self) -> bool {
         self.pages
             .read()
             .expect("Library pages lock poisoned")
             .is_empty()
     }
+
     pub fn entries(&self) -> &EntryStore {
         &self.entries
     }
-    pub fn get_typed<E: Entry>(&self, key: &EntryKey) -> Option<Arc<E>> {
+
+    pub fn typed_entry<E: Entry>(&self, key: &EntryKey) -> Option<Arc<E>> {
         self.entries.get_typed(key)
     }
+
     pub fn clear(&self) {
         self.pages
             .write()

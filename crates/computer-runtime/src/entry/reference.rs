@@ -33,7 +33,7 @@ impl<E: Entry> Ref<E> {
         self.key.as_ref()
     }
     pub fn resolve(&self, library: &Library) -> Option<Arc<E>> {
-        library.get_typed(self.key.as_ref()?)
+        library.typed_entry(self.key.as_ref()?)
     }
     pub fn get(&self) -> Option<Arc<E>> {
         self.resolve(Library::global())

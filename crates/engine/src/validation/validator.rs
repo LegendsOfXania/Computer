@@ -52,8 +52,7 @@ impl<'a> Validator<'a> {
                     .into_iter()
                     .map(|error| {
                         ValidationDiagnostic::new(
-                            page_id,
-                            entry.id(),
+                            EntryKey::new(page_id, entry.id()),
                             error,
                         )
                     })

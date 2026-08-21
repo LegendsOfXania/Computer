@@ -1,8 +1,8 @@
 use engine::{EntryDefinition, Registry, RegistryError, TagDefinition};
-use model::{Field, PageType, Schema};
+use model::{Field, Schema};
 
 fn triggerable_tag() -> TagDefinition {
-    TagDefinition::new("triggerable").field(Field::new("trigger", Schema::reference(["entry"])))
+    TagDefinition::new("triggerable").field(Field::new("trigger", Schema::reference().with_entry_type("entry")))
 }
 
 fn action_tag() -> TagDefinition {
@@ -14,7 +14,7 @@ fn spoken_dialogue() -> EntryDefinition {
         .tag("triggerable")
         .tag("action")
         .field(Field::new("text", Schema::Text))
-        .field(Field::new("speaker", Schema::reference(["character"])))
+        .field(Field::new("speaker", Schema::reference().with_tag("character")))
 }
 
 #[test]

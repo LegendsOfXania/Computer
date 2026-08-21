@@ -33,7 +33,7 @@ impl EntryStore {
         let page_id = page.id().to_owned();
         let mut entries = self.entries.write().expect("EntryStore lock poisoned");
 
-        for (id, entry) in page.entries() {
+        for (id, entry) in page.stored_entries() {
             entries.insert(EntryKey::new(&page_id, id), Arc::clone(entry));
         }
     }
@@ -42,7 +42,7 @@ impl EntryStore {
         let page_id = page.id().to_owned();
         let mut entries = self.entries.write().expect("EntryStore lock poisoned");
 
-        for (id, entry) in page.entries() {
+        for (id, entry) in page.stored_entries() {
             let key = EntryKey::new(&page_id, id);
 
             if entries.get(&key).is_some_and(|current| Arc::ptr_eq(current, entry)) {

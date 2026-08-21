@@ -66,7 +66,7 @@ impl Page {
         );
     }
 
-    pub(crate) fn entries(
+    pub(crate) fn stored_entries(
         &self,
     ) -> impl Iterator<Item = (&str, &Arc<dyn StoredEntry>)> {
         self.entries
@@ -74,6 +74,14 @@ impl Page {
             .map(|(id, entry)| (id.as_str(), entry))
     }
 
+    pub fn entries(
+        &self,
+    ) -> impl Iterator<Item = Arc<dyn Entry>> + '_ {
+        self.entries
+        .values()
+        .map(|e| e.entry())
+    }
+    
     pub fn entry(
         &self,
         id: &str,

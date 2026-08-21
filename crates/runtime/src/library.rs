@@ -32,6 +32,8 @@ impl Library {
     #[inline]
     pub fn page(&self, id: &str) -> Option<Arc<Page>> { self.pages.read().expect("Library pages lock poisoned").get(id).cloned() }
     #[inline]
+    pub fn pages(&self) -> Vec<Arc<Page>> { self.pages.read().expect("Library pages lock poisoned").values().cloned().collect()}
+    #[inline]
     pub fn contains_page(&self, id: &str) -> bool { self.pages.read().expect("Library pages lock poisoned").contains_key(id) }
     #[inline]
     pub fn len(&self) -> usize { self.pages.read().expect("Library pages lock poisoned").len() }

@@ -126,31 +126,6 @@ fn struct_schema_matches_a_rust_struct_shape() {
 }
 
 #[test]
-fn optional_fields_are_not_required_for_struct_validation() {
-    let schema = Schema::structure([
-        Field::new(
-            "name",
-            Schema::Text,
-        ),
-        Field::optional(
-            "description",
-            Schema::Text,
-        ),
-    ]);
-
-    let value = Value::structure(
-        std::collections::BTreeMap::from([
-            (
-                "name".into(),
-                Value::text("Computer"),
-            ),
-        ]),
-    );
-
-    assert!(schema.accepts(&value));
-}
-
-#[test]
 fn nested_structs_and_lists_are_described_recursively() {
     let position = Schema::structure([
         Field::new(

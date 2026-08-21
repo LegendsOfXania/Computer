@@ -132,7 +132,7 @@ impl StructSchema {
 
         self.fields.iter().all(|field| match values.get(field.name()) {
             Some(value) => field.schema().accepts(value),
-            None => !field.is_required(),
+            None => !field.schema().accepts(&Value::Null),
         })
     }
 }
@@ -141,8 +141,8 @@ impl StructSchema {
 pub struct Field {
     name: String,
     schema: Schema,
-    required: bool,
 }
+//todo Field flags system: required, withAlpha, withYaw, withPitch, default....
 
 impl Field {
     #[inline]
@@ -150,22 +150,11 @@ impl Field {
         Self {
             name: name.into(),
             schema: schema.into(),
-            required: true,
-        }
-    }
-
-    #[inline]
-    pub fn optional(name: impl Into<String>, schema: impl Into<Schema>) -> Self {
-        Self {
-            name: name.into(),
-            schema: schema.into(),
-            required: false,
         }
     }
 
     #[inline] pub fn name(&self) -> &str { &self.name }
     #[inline] pub fn schema(&self) -> &Schema { &self.schema }
-    #[inline] pub const fn is_required(&self) -> bool { self.required }
 }
 
 pub trait Fields {

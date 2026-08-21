@@ -24,7 +24,6 @@ fn validates_entry_and_collects_errors() {
         .register_entry(
             EntryDefinition::new("dialogue")
                 .field(Field::new("text", Schema::Text))
-                .field(Field::optional("enabled", Schema::Boolean)),
         )
         .expect("Failed to register entry");
 

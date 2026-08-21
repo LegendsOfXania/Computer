@@ -96,13 +96,11 @@ impl<'a> Validator<'a> {
 
         for field in definition.fields() {
             let Some(value) = entry.field(field.name()) else {
-                if field.is_required() {
-                    errors.push(
-                        ValidationError::MissingField {
-                            field: field.name().to_owned(),
-                        },
-                    );
-                }
+                errors.push(
+                    ValidationError::MissingField {
+                        field: field.name().to_owned(),
+                    },
+                );
 
                 continue;
             };

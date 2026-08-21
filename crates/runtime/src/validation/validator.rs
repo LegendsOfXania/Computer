@@ -47,20 +47,25 @@ impl<'a> Validator<'a> {
             }
         }
         for field in definition.fields() {
-            let Some(value) = entry.get(field.name()) else {
-                if field.is_required() {
-                    errors.push(ValidationError::MissingField {
-                        field: field.name().to_owned(),
-                    });
+            let value = match entry.get(field.name()) {
+                Some(v) => v,
+                None => {
+                    if !field.schema().accepts(&Value::Null) {
+                        errors.push(ValidationError::MissingField {
+                            field: field.name().to_owned(),
+                        });
+                    }
+                    continue;
                 }
-                continue;
             };
+
             if !field.schema().accepts(value) {
                 errors.push(ValidationError::InvalidValue {
                     field: field.name().to_owned(),
                 });
                 continue;
             }
+
             self.validate_value(field.name(), field.schema(), value, &mut errors);
         }
         errors

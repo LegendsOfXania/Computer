@@ -84,21 +84,15 @@ impl From<ReferenceSchema> for Schema {
 pub struct Field {
     name: String,
     schema: Schema,
-    required: bool,
 }
+
+//todo implement fields flags: default, required, min/max etc...
+
 impl Field {
     pub fn new(name: impl Into<String>, schema: impl Into<Schema>) -> Self {
         Self {
             name: name.into(),
             schema: schema.into(),
-            required: true,
-        }
-    }
-    pub fn optional(name: impl Into<String>, schema: impl Into<Schema>) -> Self {
-        Self {
-            name: name.into(),
-            schema: schema.into(),
-            required: false,
         }
     }
     pub fn name(&self) -> &str {
@@ -106,9 +100,6 @@ impl Field {
     }
     pub fn schema(&self) -> &Schema {
         &self.schema
-    }
-    pub const fn is_required(&self) -> bool {
-        self.required
     }
 }
 
@@ -135,7 +126,7 @@ impl StructSchema {
                 .iter()
                 .all(|field| match values.get(field.name()) {
                     Some(value) => field.schema().accepts(value),
-                    None => !field.is_required(),
+                    None => !field.schema().accepts(&Value::Null),
                 })
     }
 }

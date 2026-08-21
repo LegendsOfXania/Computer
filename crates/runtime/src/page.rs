@@ -2,12 +2,7 @@ use crate::Entry;
 
 use model::PageData;
 
-use std::{
-    any::Any,
-    collections::HashMap,
-    fmt::Debug,
-    sync::Arc,
-};
+use std::{any::Any, collections::HashMap, fmt::Debug, sync::Arc};
 
 pub(crate) trait StoredEntry: Debug + Send + Sync {
     fn as_entry(&self) -> Arc<dyn Entry>;
@@ -48,10 +43,7 @@ pub struct Page {
 
 impl Page {
     #[inline]
-    pub fn new(
-        id: impl Into<String>,
-        data: PageData,
-    ) -> Self {
+    pub fn new(id: impl Into<String>, data: PageData) -> Self {
         Self {
             id: id.into(),
             data,
@@ -69,10 +61,7 @@ impl Page {
         &self.data
     }
 
-    pub fn insert<E>(
-        &mut self,
-        entry: E,
-    ) -> Option<Arc<dyn Entry>>
+    pub fn insert<E>(&mut self, entry: E) -> Option<Arc<dyn Entry>>
     where
         E: Entry,
     {
@@ -89,20 +78,12 @@ impl Page {
     }
 
     #[inline]
-    pub fn get(
-        &self,
-        id: &str,
-    ) -> Option<Arc<dyn Entry>> {
-        self.entries
-            .get(id)
-            .map(|entry| entry.as_entry())
+    pub fn get(&self, id: &str) -> Option<Arc<dyn Entry>> {
+        self.entries.get(id).map(|entry| entry.as_entry())
     }
 
     #[inline]
-    pub fn get_typed<E>(
-        &self,
-        id: &str,
-    ) -> Option<Arc<E>>
+    pub fn get_typed<E>(&self, id: &str) -> Option<Arc<E>>
     where
         E: Entry,
     {
@@ -113,32 +94,14 @@ impl Page {
             .map(TypedEntry::get)
     }
 
-    pub fn iter(
-        &self,
-    ) -> impl Iterator<Item = (&str, Arc<dyn Entry>)> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = (&str, Arc<dyn Entry>)> + '_ {
         self.entries
             .iter()
-            .map(|(id, entry)| {
-                (
-                    id.as_str(),
-                    entry.as_entry(),
-                )
-            })
+            .map(|(id, entry)| (id.as_str(), entry.as_entry()))
     }
 
-    pub(crate) fn stored_entries(
-        &self,
-    ) -> impl Iterator<
-        Item = (&str, &Arc<dyn StoredEntry>),
-    > {
-        self.entries
-            .iter()
-            .map(|(id, entry)| {
-                (
-                    id.as_str(),
-                    entry,
-                )
-            })
+    pub(crate) fn stored_entries(&self) -> impl Iterator<Item = (&str, &Arc<dyn StoredEntry>)> {
+        self.entries.iter().map(|(id, entry)| (id.as_str(), entry))
     }
 
     #[inline]

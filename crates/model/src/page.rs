@@ -41,11 +41,7 @@ pub struct PageData {
 }
 
 impl PageData {
-    pub fn new(
-        name: impl Into<String>,
-        page_type: PageType,
-        priority: u32,
-    ) -> Self {
+    pub fn new(name: impl Into<String>, page_type: PageType, priority: u32) -> Self {
         Self {
             name: name.into(),
             page_type,

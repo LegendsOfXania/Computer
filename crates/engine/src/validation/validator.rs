@@ -1,8 +1,5 @@
 use model::{
-    EntryData,
-    ReferenceSchema,
-    Schema,
-    Value,
+    EntryData, Schema, Value, schema::ReferenceSchema,
 };
 
 use runtime::{
@@ -12,9 +9,7 @@ use runtime::{
 };
 
 use crate::{
-    Registry,
-    ValidationDiagnostic,
-    ValidationError,
+    Registry, ValidationError, validation::ValidationDiagnostic,
 };
 
 pub struct Validator<'a> {

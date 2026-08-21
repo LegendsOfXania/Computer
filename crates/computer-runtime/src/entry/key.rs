@@ -25,7 +25,7 @@ impl FromStr for EntryKey {
     type Err = ();
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         let (page_id, entry_id) = value.split_once(':').ok_or(())?;
-        if page_id.is_empty() || entry_id.is_empty() || entry_id.contains(':') {
+        if page_id.is_empty() || entry_id.is_empty() || entry_id.contains(':') || page_id.contains(':') {
             Err(())
         } else {
             Ok(Self::new(page_id, entry_id))

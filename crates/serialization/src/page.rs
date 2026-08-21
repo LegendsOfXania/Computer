@@ -1,8 +1,13 @@
-use crate::{Format, KdlFormat, Number, SerializationError, Value};
+use crate::{SerializationError, kdl::{decode_node, encode_node}};
 
-use model::{EntryData, PageData, PageType};
+use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
 
-use std::{collections::BTreeMap, str::FromStr};
+use model::{EntryData, PageData, PageType, Value};
+
+use std::{
+    collections::{BTreeMap, btree_map::Entry},
+    str::FromStr,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RawEntry {
@@ -12,7 +17,10 @@ pub struct RawEntry {
 
 impl RawEntry {
     #[inline]
-    pub fn new(id: impl Into<String>, data: EntryData) -> Self {
+    pub fn new(
+        id: impl Into<String>,
+        data: EntryData,
+    ) -> Self {
         Self {
             id: id.into(),
             data,
@@ -76,167 +84,351 @@ impl RawPage {
     }
 }
 
-pub fn decode_page(input: &str) -> Result<RawPage, SerializationError> {
-    let value = KdlFormat::decode(input)?;
+pub fn decode_page(
+    input: &str,
+) -> Result<RawPage, SerializationError> {
+    let document = input
+        .parse::<KdlDocument>()
+        .map_err(|error| SerializationError::Parse(error.to_string()))?;
 
-    page_from_value(value)
+    decode_page_document(&document)
 }
 
-pub fn encode_page(page: &RawPage) -> Result<String, SerializationError> {
-    KdlFormat::encode(&page_to_value(page))
+pub fn encode_page(
+    page: &RawPage,
+) -> Result<String, SerializationError> {
+    Ok(encode_page_document(page).to_string())
 }
 
-pub fn page_from_value(value: Value) -> Result<RawPage, SerializationError> {
-    let mut root = into_struct(value, "page document")?;
+fn decode_page_document(
+    document: &KdlDocument,
+) -> Result<RawPage, SerializationError> {
+    let nodes = document.nodes();
 
-    let id = required_text(&mut root, "id", "page document")?;
+    if nodes.len() != 1 {
+        return Err(SerializationError::invalid_structure(
+            "a page document must contain exactly one `page` node",
+        ));
+    }
 
-    let data = root
-        .remove("page")
-        .ok_or_else(|| SerializationError::invalid_structure("page document is missing `page`"))
-        .and_then(decode_page_data)?;
-
-    let entries = match root.remove("entries") {
-        Some(Value::List(entries)) => entries,
-
-        _ => {
-            return Err(SerializationError::invalid_structure(
-                "page document `entries` must be a list",
-            ));
-        }
-    };
-
-    ensure_empty(&root, "page document")?;
-
-    let entries = entries
-        .into_iter()
-        .map(decode_raw_entry)
-        .collect::<Result<Vec<_>, _>>()?;
-
-    Ok(RawPage::new(id, data, entries))
+    decode_page_node(&nodes[0])
 }
 
-fn decode_raw_entry(value: Value) -> Result<RawEntry, SerializationError> {
-    let mut values = into_struct(value, "entry")?;
+fn decode_page_node(
+    node: &KdlNode,
+) -> Result<RawPage, SerializationError> {
+    if node.name().value() != "page" {
+        return Err(SerializationError::invalid_structure(
+            "the root node must be `page`",
+        ));
+    }
 
-    let id = required_text(&mut values, "id", "entry")?;
+    if node.ty().is_some() {
+        return Err(SerializationError::invalid_structure(
+            "page cannot have a type annotation",
+        ));
+    }
 
-    let entry_type = required_enum(&mut values, "type", "entry")?;
+    let mut properties = collect_properties(node, "page")?;
 
-    let fields = values
-        .remove("fields")
-        .ok_or_else(|| SerializationError::invalid_structure("entry is missing `fields`"))
-        .and_then(|value| into_struct(value, "entry `fields`"))?;
+    let id = required_text(&mut properties, "id", "page")?;
+    let name = required_text(&mut properties, "name", "page")?;
 
-    ensure_empty(&values, "entry")?;
+    let page_type = required_text(&mut properties, "type", "page")
+        .and_then(|value| {
+            PageType::from_str(&value).map_err(|_| {
+                SerializationError::invalid_structure(
+                    format!("unknown page type `{value}`"),
+                )
+            })
+        })?;
 
-    Ok(RawEntry::new(id, EntryData::new(entry_type, fields)))
-}
+    let priority = required_u32(
+        &mut properties,
+        "priority",
+        "page",
+    )?;
 
-fn decode_page_data(value: Value) -> Result<PageData, SerializationError> {
-    let mut values = into_struct(value, "`page`")?;
+    ensure_empty(&properties, "page")?;
 
-    let name = required_text(&mut values, "name", "page")?;
-
-    let page_type = required_enum(&mut values, "type", "page").and_then(|value| {
-        PageType::from_str(&value).map_err(|_| {
-            SerializationError::invalid_structure(format!("unknown page type `{value}`"))
-        })
+    let children = node.children().ok_or_else(|| {
+        SerializationError::invalid_structure(
+            "page must contain an entry document",
+        )
     })?;
 
-    let priority = match values.remove("priority") {
-        Some(Value::Number(Number::Integer(value))) => u32::try_from(value).map_err(|_| {
-            SerializationError::invalid_structure("page `priority` must fit in u32")
-        })?,
+    let entries = children
+        .nodes()
+        .iter()
+        .map(decode_entry_node)
+        .collect::<Result<Vec<_>, _>>()?;
 
-        _ => {
-            return Err(SerializationError::invalid_structure(
-                "page `priority` must be an integer",
-            ));
-        }
-    };
-
-    ensure_empty(&values, "page")?;
-
-    Ok(PageData::new(name, page_type, priority))
+    Ok(RawPage::new(
+        id,
+        PageData::new(name, page_type, priority),
+        entries,
+    ))
 }
 
-pub fn page_to_value(raw_page: &RawPage) -> Value {
-    let data = raw_page.data();
-
-    let page_value = Value::structure(BTreeMap::from([
-        ("name".into(), Value::text(data.name())),
-        ("type".into(), Value::enumeration(data.page_type().as_str())),
-        (
-            "priority".into(),
-            Value::integer(i64::from(data.priority())),
-        ),
-    ]));
-
-    let entries = raw_page.entries().iter().map(raw_entry_to_value).collect();
-
-    Value::structure(BTreeMap::from([
-        ("id".into(), Value::text(raw_page.id())),
-        ("page".into(), page_value),
-        ("entries".into(), Value::list(entries)),
-    ]))
-}
-
-fn raw_entry_to_value(entry: &RawEntry) -> Value {
-    Value::structure(BTreeMap::from([
-        ("id".into(), Value::text(entry.id())),
-        ("type".into(), Value::enumeration(entry.data().entry_type())),
-        (
-            "fields".into(),
-            Value::structure(entry.data().fields().clone()),
-        ),
-    ]))
-}
-
-fn into_struct(value: Value, context: &str) -> Result<BTreeMap<String, Value>, SerializationError> {
-    match value {
-        Value::Struct(values) => Ok(values),
-
-        _ => Err(SerializationError::invalid_structure(format!(
-            "{context} must be a struct"
-        ))),
-    }
-}
-
-fn required_text(
-    values: &mut BTreeMap<String, Value>,
-    field: &str,
-    context: &str,
-) -> Result<String, SerializationError> {
-    match values.remove(field) {
-        Some(Value::Text(value)) if !value.trim().is_empty() => Ok(value),
-
-        _ => Err(SerializationError::invalid_structure(format!(
-            "{context} `{field}` must be a non-empty string"
-        ))),
-    }
-}
-
-fn required_enum(
-    values: &mut BTreeMap<String, Value>,
-    field: &str,
-    context: &str,
-) -> Result<String, SerializationError> {
-    match values.remove(field) {
-        Some(Value::Enum(value)) if !value.trim().is_empty() => Ok(value),
-
-        _ => Err(SerializationError::invalid_structure(format!(
-            "{context} `{field}` must be a non-empty enum"
-        ))),
-    }
-}
-
-fn ensure_empty(values: &BTreeMap<String, Value>, context: &str) -> Result<(), SerializationError> {
-    if let Some(field) = values.keys().next() {
+fn decode_entry_node(
+    node: &KdlNode,
+) -> Result<RawEntry, SerializationError> {
+    if node.name().value() != "entry" {
         return Err(SerializationError::invalid_structure(format!(
-            "{context} has an unknown field `{field}`"
+            "page can only contain `entry` nodes, found `{}`",
+            node.name().value(),
         )));
     }
 
+    if node.ty().is_some() {
+        return Err(SerializationError::invalid_structure(
+            "entry cannot have a type annotation",
+        ));
+    }
+
+    let mut properties = collect_properties(node, "entry")?;
+
+    let id = required_text(
+        &mut properties,
+        "id",
+        "entry",
+    )?;
+
+    let entry_type = required_text(
+        &mut properties,
+        "type",
+        "entry",
+    )?;
+
+    ensure_empty(&properties, "entry")?;
+
+    let fields = match node.children() {
+        Some(children) => decode_fields(children)?,
+        None => BTreeMap::new(),
+    };
+
+    Ok(RawEntry::new(
+        id,
+        EntryData::new(entry_type, fields),
+    ))
+}
+
+fn decode_fields(
+    document: &KdlDocument,
+) -> Result<BTreeMap<String, Value>, SerializationError> {
+    let mut fields = BTreeMap::new();
+
+    for node in document.nodes() {
+        let name = node.name().value();
+
+        let value = decode_node(node)?;
+
+        match fields.entry(name.to_owned()) {
+            Entry::Vacant(entry) => {
+                entry.insert(value);
+            }
+
+            Entry::Occupied(_) => {
+                return Err(SerializationError::invalid_structure(
+                    format!("duplicate field `{name}`"),
+                ));
+            }
+        }
+    }
+
+    Ok(fields)
+}
+
+fn collect_properties(
+    node: &KdlNode,
+    context: &str,
+) -> Result<BTreeMap<String, KdlValue>, SerializationError> {
+    let mut properties = BTreeMap::new();
+
+    for entry in node.entries() {
+        let Some(name) = entry.name() else {
+            return Err(SerializationError::invalid_structure(
+                format!(
+                    "{context} cannot contain positional values"
+                ),
+            ));
+        };
+
+        match properties.entry(name.value().to_owned()) {
+            Entry::Vacant(property) => {
+                property.insert(entry.value().clone());
+            }
+
+            Entry::Occupied(_) => {
+                return Err(SerializationError::invalid_structure(
+                    format!(
+                        "{context} contains duplicate property `{}`",
+                        name.value(),
+                    ),
+                ));
+            }
+        }
+    }
+
+    Ok(properties)
+}
+
+fn required_text(
+    properties: &mut BTreeMap<String, KdlValue>,
+    name: &str,
+    context: &str,
+) -> Result<String, SerializationError> {
+    match properties.remove(name) {
+        Some(KdlValue::String(value))
+            if !value.trim().is_empty() =>
+        {
+            Ok(value)
+        }
+
+        Some(_) => Err(
+            SerializationError::invalid_structure(
+                format!(
+                    "{context} property `{name}` must be a non-empty string"
+                ),
+            ),
+        ),
+
+        None => Err(
+            SerializationError::invalid_structure(
+                format!(
+                    "{context} is missing required property `{name}`"
+                ),
+            ),
+        ),
+    }
+}
+
+fn required_u32(
+    properties: &mut BTreeMap<String, KdlValue>,
+    name: &str,
+    context: &str,
+) -> Result<u32, SerializationError> {
+    match properties.remove(name) {
+        Some(KdlValue::Integer(value)) => {
+            u32::try_from(value).map_err(|_| {
+                SerializationError::invalid_structure(
+                    format!(
+                        "{context} property `{name}` must fit in u32"
+                    ),
+                )
+            })
+        }
+
+        Some(_) => Err(
+            SerializationError::invalid_structure(
+                format!(
+                    "{context} property `{name}` must be an integer"
+                ),
+            ),
+        ),
+
+        None => Err(
+            SerializationError::invalid_structure(
+                format!(
+                    "{context} is missing required property `{name}`"
+                ),
+            ),
+        ),
+    }
+}
+
+fn ensure_empty(
+    properties: &BTreeMap<String, KdlValue>,
+    context: &str,
+) -> Result<(), SerializationError> {
+    if let Some(name) = properties.keys().next() {
+        return Err(
+            SerializationError::invalid_structure(
+                format!(
+                    "{context} has an unknown property `{name}`"
+                ),
+            ),
+        );
+    }
+
     Ok(())
+}
+
+fn encode_page_document(
+    page: &RawPage,
+) -> KdlDocument {
+    let mut document = KdlDocument::new();
+
+    document
+        .nodes_mut()
+        .push(encode_page_node(page));
+
+    document
+}
+
+fn encode_page_node(
+    page: &RawPage,
+) -> KdlNode {
+    let mut node = KdlNode::new("page");
+
+    let data = page.data();
+
+    node.entries_mut().extend([
+        KdlEntry::new_prop("id", page.id()),
+        KdlEntry::new_prop("name", data.name()),
+        KdlEntry::new_prop(
+            "type",
+            data.page_type().as_str(),
+        ),
+        KdlEntry::new_prop(
+            "priority",
+            i128::from(data.priority()),
+        ),
+    ]);
+
+    let mut children = KdlDocument::new();
+
+    children
+        .nodes_mut()
+        .extend(
+            page.entries()
+                .iter()
+                .map(encode_entry_node),
+        );
+
+    node.set_children(children);
+
+    node
+}
+
+fn encode_entry_node(
+    entry: &RawEntry,
+) -> KdlNode {
+    let mut node = KdlNode::new("entry");
+
+    node.entries_mut().extend([
+        KdlEntry::new_prop("id", entry.id()),
+        KdlEntry::new_prop(
+            "type",
+            entry.data().entry_type(),
+        ),
+    ]);
+
+    let mut children = KdlDocument::new();
+
+    children
+        .nodes_mut()
+        .extend(
+            entry
+                .data()
+                .fields()
+                .iter()
+                .map(|(name, value)| {
+                    encode_node(name, value)
+                }),
+        );
+
+    node.set_children(children);
+
+    node
 }

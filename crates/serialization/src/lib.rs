@@ -7,4 +7,9 @@ pub use error::SerializationError;
 pub use format::Format;
 pub use kdl::KdlFormat;
 pub use model::{Number, Value};
-pub use page::{RawEntry, RawPage, decode_page, encode_page, page_from_value, page_to_value};
+pub use page::{
+    RawEntry,
+    RawPage,
+    decode_page,
+    encode_page,
+};

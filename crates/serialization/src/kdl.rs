@@ -50,7 +50,7 @@ fn decode_document(document: &KdlDocument) -> Result<Value, SerializationError> 
     Ok(Value::Struct(values))
 }
 
-fn decode_node(node: &KdlNode) -> Result<Value, SerializationError> {
+pub(crate) fn decode_node(node: &KdlNode) -> Result<Value, SerializationError> {
     match node.ty() {
         Some(ty) if ty.value() == "list" => decode_list(node),
 
@@ -183,7 +183,7 @@ fn encode_document(values: &BTreeMap<String, Value>) -> KdlDocument {
     document
 }
 
-fn encode_node(name: &str, value: &Value) -> KdlNode {
+pub(crate) fn encode_node(name: &str, value: &Value) -> KdlNode {
     let mut node = KdlNode::new(name);
 
     match value {

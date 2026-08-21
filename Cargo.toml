@@ -1,10 +1,10 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/model",
-    "crates/runtime",
-    "crates/serialization",
-    "crates/storage",
+    "crates/computer-model",
+    "crates/computer-runtime",
+    "crates/computer-serialization",
+    "crates/computer-storage",
 ]
 
 [workspace.package]
@@ -14,9 +14,9 @@ license = "MIT"
 
 [workspace.dependencies]
 kdl = "6.7.1"
-model = { path = "crates/model" }
-runtime = { path = "crates/runtime" }
-serialization = { path = "crates/serialization" }
+model = { path = "crates/computer-model" }
+runtime = { path = "crates/computer-runtime" }
+serialization = { path = "crates/computer-serialization" }
 
 [profile.release]
 opt-level = "z"

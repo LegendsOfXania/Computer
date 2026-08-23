@@ -130,7 +130,3 @@ impl StructSchema {
                 })
     }
 }
-
-pub trait Fields {
-    fn fields() -> Vec<Field>;
-}

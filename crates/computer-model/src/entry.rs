@@ -1,7 +1,9 @@
+use serde::{Deserialize, Serialize};
+
 use crate::Value;
 use std::collections::BTreeMap;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EntryData {
     entry_type: String,
     fields: BTreeMap<String, Value>,

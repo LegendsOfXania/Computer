@@ -1,4 +1,4 @@
-use crate::{Format, Number, SerializationError, Value};
+use crate::{Number, SerializationError, Value};
 
 use kdl::{KdlDocument, KdlEntry, KdlNode, KdlValue};
 
@@ -6,8 +6,8 @@ use std::collections::{BTreeMap, btree_map::Entry};
 
 pub struct KdlFormat;
 
-impl Format for KdlFormat {
-    fn decode(input: &str) -> Result<Value, SerializationError> {
+impl KdlFormat {
+    pub fn decode(input: &str) -> Result<Value, SerializationError> {
         let document = input
             .parse::<KdlDocument>()
             .map_err(|error| SerializationError::Parse(error.to_string()))?;
@@ -15,7 +15,7 @@ impl Format for KdlFormat {
         decode_document(&document)
     }
 
-    fn encode(value: &Value) -> Result<String, SerializationError> {
+    pub fn encode(value: &Value) -> Result<String, SerializationError> {
         let Value::Struct(values) = value else {
             return Err(SerializationError::invalid_structure(
                 "the root value must be a struct",

@@ -1,5 +1,5 @@
 use model::{EntryData, PageData, PageType, Value};
-use serialization::{Format, KdlFormat, RawEntry, RawPage, decode_page, encode_page};
+use serialization::{KdlFormat, RawEntry, RawPage, decode_page, encode_page};
 use std::collections::BTreeMap;
 #[test]
 fn primitives_round_trip() {

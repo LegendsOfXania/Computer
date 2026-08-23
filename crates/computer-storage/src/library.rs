@@ -13,34 +13,12 @@ use std::{
         PathBuf,
     },
 };
-
-pub trait Storage {
-    fn load_page(
-        &self,
-        id: &str,
-    ) -> Result<RawPage, StorageError>;
-
-    fn save_page(
-        &self,
-        page: &RawPage,
-    ) -> Result<(), StorageError>;
-
-    fn delete_page(
-        &self,
-        id: &str,
-    ) -> Result<(), StorageError>;
-
-    fn list_pages(
-        &self,
-    ) -> Result<Vec<String>, StorageError>;
-}
-
 #[derive(Debug, Clone)]
-pub struct FileStorage {
+pub struct Storage {
     root: PathBuf,
 }
 
-impl FileStorage {
+impl Storage {
     #[inline]
     pub fn new(
         root: impl Into<PathBuf>,
@@ -67,10 +45,8 @@ impl FileStorage {
                 .with_extension("kdl"),
         )
     }
-}
 
-impl Storage for FileStorage {
-    fn load_page(
+    pub fn load_page(
         &self,
         id: &str,
     ) -> Result<RawPage, StorageError> {
@@ -81,7 +57,7 @@ impl Storage for FileStorage {
         Ok(decode_page(&input)?)
     }
 
-    fn save_page(
+    pub fn save_page(
         &self,
         page: &RawPage,
     ) -> Result<(), StorageError> {
@@ -98,7 +74,7 @@ impl Storage for FileStorage {
         Ok(())
     }
 
-    fn delete_page(
+    pub fn delete_page(
         &self,
         id: &str,
     ) -> Result<(), StorageError> {
@@ -109,7 +85,7 @@ impl Storage for FileStorage {
         Ok(())
     }
 
-    fn list_pages(
+    pub fn list_pages(
         &self,
     ) -> Result<Vec<String>, StorageError> {
         let mut pages = Vec::new();

@@ -19,10 +19,12 @@
 
   --radius: 4px;
 
-  font-family:
-    Inter,
-    system-ui,
-    sans-serif;
+  --header-height: 64px;
+  --sidebar-width-collapsed: 20px;
+  --sidebar-width-expanded: 250px;
+  --sidebar-transition-duration: 0.3s;
+
+  font-family: Inter, system-ui, sans-serif;
 
   color: var(--text);
   background: var(--background);

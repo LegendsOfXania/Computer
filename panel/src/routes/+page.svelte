@@ -22,7 +22,7 @@
 
   main {
     display: grid;
-    min-height: calc(100vh - 64px);
+    min-height: calc(100vh - var(--header-height));
     place-items: center;
 
     color: var(--text-muted);

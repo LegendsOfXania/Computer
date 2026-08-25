@@ -1,6 +1,6 @@
-import type { Page } from "$lib/types/pages";
+import type { PageInfo } from "$lib/types/model";
 
-export const mockPages: Page[] = [
+export const mockPages: PageInfo[] = [
   {
     id: "01029942073P2",
     name: "Main Sequence",

@@ -1,16 +1,9 @@
 <script lang="ts">
   import { Plus } from "lucide-svelte";
-  import { mockPages } from "$lib/mocks/pages";
-  import { PAGE_ICONS, type Page } from "$lib/types/pages";
+  import { appStore } from "$lib/stores/app.svelte";
+  import { PAGE_ICONS } from "$lib/types/pages";
 
-  let {
-    hover = $bindable(false),
-    selectedPageId = $bindable<string | null>(mockPages[0]?.id ?? null),
-  } = $props<{ hover?: boolean; selectedPageId?: string | null }>();
-
-  function selectPage(pageId: string) {
-    selectedPageId = pageId;
-  }
+  let { hover = $bindable(false) } = $props<{ hover?: boolean }>();
 </script>
 
 <aside
@@ -23,20 +16,24 @@
     <div class="pages-header">
       <span class="header-title">PAGES</span>
 
-      <button type="button" class="create-page" title="Create page">
+      <button
+        type="button"
+        class="btn-brutalist create-page"
+        title="Create page"
+      >
         <Plus size={16} />
       </button>
     </div>
 
     <div class="pages">
-      {#each mockPages as page}
+      {#each appStore.pages as page (page.id)}
         {@const Icon = PAGE_ICONS[page.page_type]}
 
         <button
           type="button"
           class="page"
-          class:selected={page.id === selectedPageId}
-          onclick={() => selectPage(page.id)}
+          class:selected={page.id === appStore.selectedPageId}
+          onclick={() => appStore.selectPage(page.id)}
           title={page.name}
         >
           <div class="icon-wrapper">
@@ -59,27 +56,28 @@
     top: 0;
     bottom: 0;
 
-    width: 50px;
+    width: var(--sidebar-width-collapsed);
 
     background: var(--surface);
-    border-right: 2px solid #f97316;
+    border-right: 2px solid var(--accent);
 
     cursor: pointer;
 
-    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: width var(--sidebar-transition-duration)
+      cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden;
 
     z-index: 100;
   }
 
   .sidebar:hover {
-    width: 250px;
+    width: var(--sidebar-width-expanded);
   }
 
   .sidebar-content {
     box-sizing: border-box;
-    width: 250px;
-    padding: 16px 10px;
+    width: var(--sidebar-width-expanded);
+    padding: 32px 10px;
   }
 
   .pages-header {
@@ -90,8 +88,6 @@
 
     margin-bottom: 12px;
     padding-bottom: 8px;
-
-    border-bottom: 2px solid #f97316;
 
     color: var(--text-muted);
 
@@ -111,36 +107,10 @@
   }
 
   .create-page {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
     width: 28px;
     height: 28px;
     padding: 0;
     flex-shrink: 0;
-
-    border: none;
-    border-radius: var(--radius);
-
-    background: #f97316;
-    color: #1c1917;
-
-    cursor: pointer;
-
-    transform: translate(-1px, -1px);
-    box-shadow: 2px 2px 0px #c2410c;
-
-    transition:
-      transform 0.15s ease,
-      box-shadow 0.15s ease,
-      background-color 0.15s ease;
-  }
-
-  .create-page:hover {
-    background: #fb923c;
-    transform: translate(-2px, -2px);
-    box-shadow: 3px 3px 0px #c2410c;
   }
 
   .pages {
@@ -203,7 +173,7 @@
   }
 
   .page.selected {
-    background: #f97316;
-    color: #1c1917;
+    background: var(--accent);
+    color: var(--on-accent);
   }
 </style>

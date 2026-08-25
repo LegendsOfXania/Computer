@@ -1,15 +1,17 @@
 <script lang="ts">
   import { Copy } from "lucide-svelte";
-  import { PAGE_ICONS, type Page, type PageType } from "$lib/types/pages";
+  import { appStore } from "$lib/stores/app.svelte";
+  import { PAGE_ICONS } from "$lib/types/pages";
 
-  let { currentPage } = $props<{ currentPage: Page }>();
+  let page = $derived(appStore.selectedPage);
+  let Icon = $derived(page ? PAGE_ICONS[page.page_type] : null);
 
-  let Icon = $derived(PAGE_ICONS[currentPage.page_type as PageType]);
-
+  // Placeholder local state until the panel actually talks to a server.
   let isPublished = $state(false);
 
   async function copyPageId() {
-    await navigator.clipboard.writeText(currentPage.id);
+    if (page === null) return;
+    await navigator.clipboard.writeText(page.id);
   }
 
   function togglePublish() {
@@ -19,16 +21,20 @@
 
 <header class="header">
   <div class="informations">
-    <span class="page-icon">
-      {#if Icon}
-        <Icon size={18} />
-      {/if}
-    </span>
-    <span class="page-name">{currentPage.name}</span>
-    <button type="button" class="page-id" onclick={copyPageId}>
-      <span>{currentPage.id}</span>
-      <Copy size={12} />
-    </button>
+    {#if page !== null}
+      <span class="page-icon">
+        {#if Icon}
+          <Icon size={18} />
+        {/if}
+      </span>
+      <span class="page-name">{page.name}</span>
+      <button type="button" class="page-id" onclick={copyPageId}>
+        <span>{page.id}</span>
+        <Copy size={12} />
+      </button>
+    {:else}
+      <span class="page-name muted">No page selected</span>
+    {/if}
   </div>
 
   <div class="actions">
@@ -37,7 +43,11 @@
       <span>Online</span>
     </div>
 
-    <button class="publish" class:active={isPublished} onclick={togglePublish}>
+    <button
+      class="btn-brutalist publish"
+      class:active={isPublished}
+      onclick={togglePublish}
+    >
       <span>{isPublished ? "Published" : "Staging"}</span>
     </button>
   </div>
@@ -45,12 +55,12 @@
 
 <style>
   .header {
-    height: 50px;
+    height: var(--header-height);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 50px 0 70px;
-    border-bottom: 2px solid #f97316;
+    padding: 0 15px 0 25px;
+    border-bottom: 2px solid var(--accent);
     background: var(--surface);
   }
 
@@ -63,13 +73,18 @@
   .page-icon {
     display: flex;
     align-items: center;
-    color: #f97316;
+    color: var(--accent);
   }
 
   .page-name {
     font-weight: 700;
     font-size: 14px;
     color: var(--text);
+  }
+
+  .page-name.muted {
+    color: var(--text-muted);
+    font-weight: 600;
   }
 
   .page-id {
@@ -115,52 +130,13 @@
   }
 
   .status.connected {
-    background: #059669;
+    background: var(--success);
   }
 
   .publish {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
     min-height: 34px;
     min-width: 95px;
     padding: 0 14px;
-
-    border: none;
-    border-radius: var(--radius);
-
     font-size: 12px;
-    font-weight: 800;
-    cursor: pointer;
-
-    color: #1c1917;
-    background: #f97316;
-
-    transform: translate(-2px, -2px);
-    box-shadow: 3px 3px 0px #c2410c;
-
-    transition:
-      transform 0.15s ease,
-      box-shadow 0.15s ease,
-      background-color 0.15s ease;
-  }
-
-  .publish:hover {
-    background: #fb923c;
-    transform: translate(-3px, -3px);
-    box-shadow: 4px 4px 0px #c2410c;
-  }
-
-  .publish.active {
-    background: #059669;
-    transform: translate(1px, 1px);
-    box-shadow: 0px 0px 0px transparent;
-  }
-
-  .publish.active:hover {
-    background: #10b981;
-    transform: translate(1px, 1px);
-    box-shadow: 0px 0px 0px transparent;
   }
 </style>

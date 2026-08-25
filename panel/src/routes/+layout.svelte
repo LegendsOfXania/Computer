@@ -11,11 +11,7 @@
   <link rel="icon" href={favicon} />
 </svelte:head>
 
-<Sidebar bind:hover={sidebarHover}>
-  <nav>
-    <span>Navigation</span>
-  </nav>
-</Sidebar>
+<Sidebar bind:hover={sidebarHover} />
 
 <main class="main-content" class:sidebar-expanded={sidebarHover}>
   {@render children()}

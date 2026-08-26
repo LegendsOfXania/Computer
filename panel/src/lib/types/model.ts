@@ -15,6 +15,17 @@ export interface EntryData {
   fields: Record<string, Value>;
 }
 
+export interface Entry extends EntryData {
+  id: string;
+}
+
+export function getField(
+  fields: Record<string, Value>,
+  key: string,
+): Value | undefined {
+  return Object.hasOwn(fields, key) ? fields[key] : undefined;
+}
+
 export type PageType = "sequence" | "static";
 
 export interface PageInfo {
@@ -22,4 +33,24 @@ export interface PageInfo {
   name: string;
   page_type: PageType;
   priority: number;
+}
+
+export interface PageContent {
+  page: PageInfo;
+  entries: Entry[];
+}
+
+export function parseEntryReference(
+  currentPageId: string,
+  value: string,
+): { pageId: string; entryId: string } {
+  const separatorIndex = value.indexOf(":");
+  if (separatorIndex === -1) {
+    return { pageId: currentPageId, entryId: value };
+  }
+
+  return {
+    pageId: value.slice(0, separatorIndex),
+    entryId: value.slice(separatorIndex + 1),
+  };
 }

@@ -1,5 +1,6 @@
 <script lang="ts">
   import Header from "$lib/components/Header.svelte";
+  import Editor from "$lib/components/Editor.svelte";
 </script>
 
 <svelte:head>
@@ -10,7 +11,7 @@
   <Header />
 
   <main>
-    <span>PANEL</span>
+    <Editor />
   </main>
 </div>
 

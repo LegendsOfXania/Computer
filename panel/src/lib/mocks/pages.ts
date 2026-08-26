@@ -8,15 +8,15 @@ export const mockPages: PageInfo[] = [
     priority: 10,
   },
   {
-    id: "quest-sequence",
-    name: "Quest",
-    page_type: "sequence",
-    priority: 1,
-  },
-  {
     id: "server-configuration",
     name: "Server Configuration",
     page_type: "static",
+    priority: 200,
+  },
+  {
+    id: "quest-sequence",
+    name: "Quest",
+    page_type: "sequence",
     priority: 1,
   },
   {

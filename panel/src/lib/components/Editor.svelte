@@ -2,7 +2,6 @@
   import { SvelteFlow, Background, type Node, type Edge } from "@xyflow/svelte";
   import "@xyflow/svelte/dist/base.css";
   import { layoutSequenceEntries } from "$lib/editor/layout";
-  import { mockPageContent } from "$lib/mocks/page-content";
   import { appStore } from "$lib/stores/app.svelte";
 
   let nodes = $state.raw<Node[]>([]);
@@ -10,6 +9,7 @@
 
   $effect(() => {
     const page = appStore.selectedPage;
+    const entries = appStore.entries;
 
     if (page === null) {
       nodes = [];
@@ -17,10 +17,8 @@
       return;
     }
 
-    const content = mockPageContent(page);
-
-    if (content.page.page_type !== "sequence") {
-      nodes = content.entries.map((entry, index) => ({
+    if (page.page_type !== "sequence") {
+      nodes = entries.map((entry, index) => ({
         id: entry.id,
         type: "default",
         position: { x: (index % 4) * 260, y: Math.floor(index / 4) * 100 },
@@ -30,23 +28,29 @@
       return;
     }
 
-    const layout = layoutSequenceEntries(content.page.id, content.entries);
+    const layout = layoutSequenceEntries(page.id, entries);
     nodes = layout.nodes;
     edges = layout.edges;
   });
 </script>
 
 <div class="editor">
-  <SvelteFlow bind:nodes bind:edges fitView>
+  <SvelteFlow
+    bind:nodes
+    bind:edges
+    fitView
+    onnodeclick={({ node }) => appStore.selectEntry(node.id)}
+    onpaneclick={() => appStore.clearEntrySelection()}
+  >
     <Background gap={20} />
   </SvelteFlow>
 </div>
 
 <style>
   .editor {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
     height: 100%;
-    min-height: calc(100vh - var(--header-height));
 
     --xy-background-color: var(--surface);
     --xy-background-pattern-dots-color: var(--border-muted);

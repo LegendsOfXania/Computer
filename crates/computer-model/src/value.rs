@@ -15,6 +15,8 @@ pub enum Value {
     List(Vec<Value>),
 }
 
+//todo replace number with float and integer and remove Number
+
 impl Value {
     pub const NULL: Self = Self::Null;
     pub const fn integer(value: i64) -> Self {

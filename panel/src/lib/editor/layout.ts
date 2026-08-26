@@ -1,6 +1,6 @@
 import { Position, type Edge, type Node } from "@xyflow/svelte";
 import {
-  getField,
+  displayName,
   parseEntryReference,
   type Entry,
   type Value,
@@ -86,7 +86,7 @@ export function layoutSequenceEntries(
       },
       sourcePosition: Position.Right,
       targetPosition: Position.Left,
-      data: { label: entryLabel(entry) },
+      data: { label: displayName(entry) },
     };
   });
 
@@ -130,13 +130,4 @@ function collectReferences(value: Value): string[] {
     return Object.values(value.struct).flatMap(collectReferences);
   }
   return [];
-}
-
-function entryLabel(entry: Entry): string {
-  const name = getField(entry.fields, "name");
-  return isTextValue(name) ? name.text : entry.id;
-}
-
-function isTextValue(value: Value | undefined): value is { text: string } {
-  return typeof value === "object" && value !== null && "text" in value;
 }

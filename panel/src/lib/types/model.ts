@@ -2,7 +2,8 @@ export type NumberValue = { integer: number } | { float: number };
 
 export type Value =
   | "null"
-  | { number: NumberValue }
+  | { float: number }
+  | { integer: number }
   | { boolean: boolean }
   | { text: string }
   | { enum: string }
@@ -26,6 +27,13 @@ export function getField(
   return Object.hasOwn(fields, key) ? fields[key] : undefined;
 }
 
+export function displayName(entry: Entry): string {
+  const name = getField(entry.fields, "name");
+  return typeof name === "object" && name !== null && "text" in name
+    ? name.text
+    : entry.id;
+}
+
 export type PageType = "sequence" | "static";
 
 export interface PageInfo {
@@ -33,11 +41,6 @@ export interface PageInfo {
   name: string;
   page_type: PageType;
   priority: number;
-}
-
-export interface PageContent {
-  page: PageInfo;
-  entries: Entry[];
 }
 
 export function parseEntryReference(

@@ -1,6 +1,7 @@
 <script lang="ts">
   import Header from "$lib/components/Header.svelte";
   import Editor from "$lib/components/Editor.svelte";
+  import Inspector from "$lib/components/Inspector.svelte";
 </script>
 
 <svelte:head>
@@ -10,26 +11,23 @@
 <div class="panel">
   <Header />
 
-  <main>
+  <div class="workspace">
     <Editor />
-  </main>
+    <Inspector />
+  </div>
 </div>
 
 <style>
   .panel {
+    display: flex;
+    flex-direction: column;
     width: 100%;
-    min-height: 100vh;
+    height: 100vh;
   }
 
-  main {
-    display: grid;
-    min-height: calc(100vh - var(--header-height));
-    place-items: center;
-
-    color: var(--text-muted);
-    font-family: monospace;
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: 0.15em;
+  .workspace {
+    display: flex;
+    flex: 1;
+    min-height: 0;
   }
 </style>

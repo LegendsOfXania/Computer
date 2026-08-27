@@ -51,7 +51,7 @@
     min-width: 0;
     height: 100%;
 
-    --xy-background-color: var(--surface);
+    --xy-background-color: #131313;
     --xy-background-pattern-dots-color: var(--border-muted);
 
     --xy-edge-stroke: var(--accent);

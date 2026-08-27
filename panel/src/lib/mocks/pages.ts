@@ -25,4 +25,10 @@ export const mockPages: PageInfo[] = [
     page_type: "static",
     priority: 1,
   },
+  {
+    id: "value-types",
+    name: "Value Types",
+    page_type: "static",
+    priority: 999,
+  },
 ];

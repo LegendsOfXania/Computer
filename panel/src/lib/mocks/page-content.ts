@@ -116,4 +116,113 @@ export const mockEntriesByPageId: Record<string, Entry[]> = {
       },
     },
   ],
+  "value-types": [
+    {
+      id: "3000001",
+
+      entry_type: "value_test",
+
+      fields: {
+        null_value: "null",
+
+        float_value: {
+          float: 3.141592,
+        },
+
+        integer_value: {
+          integer: 42,
+        },
+
+        boolean_value: {
+          boolean: true,
+        },
+
+        text_value: {
+          text: "Hello, Computer!",
+        },
+
+        enum_value: {
+          enum: "production",
+        },
+
+        reference_value: {
+          reference: "1000001",
+        },
+
+        struct_value: {
+          struct: {
+            name: {
+              text: "Test Structure",
+            },
+
+            enabled: {
+              boolean: true,
+            },
+
+            priority: {
+              integer: 100,
+            },
+
+            multiplier: {
+              float: 1.5,
+            },
+          },
+        },
+
+        list_value: {
+          list: [
+            {
+              text: "First item",
+            },
+
+            {
+              integer: 42,
+            },
+
+            {
+              boolean: false,
+            },
+
+            {
+              float: 12.5,
+            },
+
+            {
+              enum: "example",
+            },
+
+            {
+              reference: "1000002",
+            },
+
+            "null",
+
+            {
+              struct: {
+                name: {
+                  text: "Nested structure",
+                },
+
+                value: {
+                  integer: 123,
+                },
+              },
+            },
+
+            {
+              list: [
+                {
+                  text: "Nested list item",
+                },
+
+                {
+                  integer: 999,
+                },
+              ],
+            },
+          ],
+        },
+      },
+    },
+  ],
 };

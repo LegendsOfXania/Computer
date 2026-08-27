@@ -1,7 +1,10 @@
 <script lang="ts">
   import { SvelteFlow, Background, type Node, type Edge } from "@xyflow/svelte";
   import "@xyflow/svelte/dist/base.css";
-  import { layoutSequenceEntries } from "$lib/editor/layout";
+  import {
+    layoutSequenceEntries,
+    layoutStaticEntries,
+  } from "$lib/editor/layout";
   import { appStore } from "$lib/stores/app.svelte";
 
   let nodes = $state.raw<Node[]>([]);
@@ -18,13 +21,9 @@
     }
 
     if (page.page_type !== "sequence") {
-      nodes = entries.map((entry, index) => ({
-        id: entry.id,
-        type: "default",
-        position: { x: (index % 4) * 260, y: Math.floor(index / 4) * 100 },
-        data: { label: entry.id },
-      }));
-      edges = [];
+      const layout = layoutStaticEntries(entries);
+      nodes = layout.nodes;
+      edges = layout.edges;
       return;
     }
 
@@ -98,5 +97,8 @@
 
   :global(.editor .svelte-flow__node.dragging) {
     transition: none !important;
+  }
+  :global(.editor .svelte-flow__handle:not(.connectable)) {
+    display: none;
   }
 </style>

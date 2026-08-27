@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Copy } from "lucide-svelte";
+  import { Copy, Check } from "lucide-svelte";
   import { appStore } from "$lib/stores/app.svelte";
   import { PAGE_ICONS } from "$lib/types/pages";
 
@@ -8,10 +8,15 @@
 
   // Placeholder local state until the panel actually talks to a server.
   let isPublished = $state(false);
+  let copied = $state(false);
 
   async function copyPageId() {
     if (page === null) return;
     await navigator.clipboard.writeText(page.id);
+    copied = true;
+    setTimeout(() => {
+      copied = false;
+    }, 1500);
   }
 
   function togglePublish() {
@@ -28,9 +33,18 @@
         {/if}
       </span>
       <span class="page-name">{page.name}</span>
-      <button type="button" class="page-id" onclick={copyPageId}>
+      <button
+        type="button"
+        class="page-id"
+        onclick={copyPageId}
+        title="Copy ID"
+      >
         <span>{page.id}</span>
-        <Copy size={12} />
+        {#if copied}
+          <Check size={12} />
+        {:else}
+          <Copy size={12} />
+        {/if}
       </button>
     {:else}
       <span class="page-name muted">No page selected</span>
@@ -99,12 +113,15 @@
     font-family: monospace;
     font-weight: 400;
     cursor: pointer;
-    transition: background 0.15s ease;
+    transition:
+      background 0.15s ease,
+      color 0.15s ease;
     border: none;
   }
 
   .page-id:hover {
     background: rgba(0, 0, 0, 0.12);
+    color: var(--text);
   }
 
   .actions {

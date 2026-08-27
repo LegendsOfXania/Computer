@@ -8,6 +8,25 @@ import {
 
 const RANK_GAP_X = 260;
 const NODE_GAP_Y = 100;
+const GRID_COLUMNS = 4;
+
+export function layoutStaticEntries(entries: Entry[]): {
+  nodes: Node[];
+  edges: Edge[];
+} {
+  const nodes: Node[] = entries.map((entry, index) => ({
+    id: entry.id,
+    type: "default",
+    position: {
+      x: (index % GRID_COLUMNS) * RANK_GAP_X,
+      y: Math.floor(index / GRID_COLUMNS) * NODE_GAP_Y,
+    },
+    connectable: false,
+    data: { label: displayName(entry) },
+  }));
+
+  return { nodes, edges: [] };
+}
 
 export function layoutSequenceEntries(
   pageId: string,

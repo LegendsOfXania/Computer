@@ -1,4 +1,4 @@
-import type { Entry, PageContent, PageInfo } from "$lib/types/model";
+import type { Entry } from "$lib/types/model";
 
 export const mockEntriesByPageId: Record<string, Entry[]> = {
   "01029942073P2": [
@@ -82,8 +82,38 @@ export const mockEntriesByPageId: Record<string, Entry[]> = {
       },
     },
   ],
+  "server-configuration": [
+    {
+      id: "2000001",
+      entry_type: "setting",
+      fields: {
+        name: { text: "Max Players" },
+        value: { integer: 20 },
+      },
+    },
+    {
+      id: "2000002",
+      entry_type: "setting",
+      fields: {
+        name: { text: "MOTD" },
+        value: { text: "Welcome to the server!" },
+      },
+    },
+    {
+      id: "2000003",
+      entry_type: "setting",
+      fields: {
+        name: { text: "PVP" },
+        value: { boolean: true },
+      },
+    },
+    {
+      id: "2000004",
+      entry_type: "setting",
+      fields: {
+        name: { text: "Difficulty" },
+        value: { enum: "normal" },
+      },
+    },
+  ],
 };
-
-export function mockPageContent(page: PageInfo): PageContent {
-  return { page, entries: mockEntriesByPageId[page.id] ?? [] };
-}

@@ -43,6 +43,33 @@ class AppStore {
       entry.fields[fieldKey] = value;
     }
   }
+
+  findEntry(reference: string): Entry | undefined {
+    if (!reference) return undefined;
+
+    const separatorIndex = reference.indexOf(":");
+    if (separatorIndex !== -1) {
+      const pageId = reference.slice(0, separatorIndex);
+      const entryId = reference.slice(separatorIndex + 1);
+
+      if (pageId === this.selectedPageId) {
+        const local = this.entries.find((e) => e.id === entryId);
+        if (local !== undefined) return local;
+      }
+
+      return mockEntriesByPageId[pageId]?.find((e) => e.id === entryId);
+    }
+
+    const local = this.entries.find((e) => e.id === reference);
+    if (local !== undefined) return local;
+
+    for (const pageEntries of Object.values(mockEntriesByPageId)) {
+      const found = pageEntries.find((e) => e.id === reference);
+      if (found !== undefined) return found;
+    }
+
+    return undefined;
+  }
 }
 
 export const appStore = new AppStore();

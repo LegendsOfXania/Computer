@@ -1,6 +1,32 @@
-import type { Entry } from "$lib/types/model";
-
-export const mockEntriesByPageId: Record<string, Entry[]> = {
+import type { Entry, PageInfo } from "$lib/types/model";
+export const pages: PageInfo[] = [
+  {
+    id: "01029942073P2",
+    name: "Main Sequence",
+    page_type: "sequence",
+    priority: 10,
+  },
+  {
+    id: "server-configuration",
+    name: "Server Configuration",
+    page_type: "static",
+    priority: 200,
+  },
+  { id: "quest-sequence", name: "Quest", page_type: "sequence", priority: 1 },
+  {
+    id: "game-settings",
+    name: "Game Settings",
+    page_type: "static",
+    priority: 1,
+  },
+  {
+    id: "value-types",
+    name: "Value Types",
+    page_type: "static",
+    priority: 999,
+  },
+];
+export const entriesByPage: Record<string, Entry[]> = {
   "01029942073P2": [
     {
       id: "1000001",
@@ -86,10 +112,7 @@ export const mockEntriesByPageId: Record<string, Entry[]> = {
     {
       id: "2000001",
       entry_type: "setting",
-      fields: {
-        name: { text: "Max Players" },
-        value: { integer: 20 },
-      },
+      fields: { name: { text: "Max Players" }, value: { integer: 20 } },
     },
     {
       id: "2000002",
@@ -102,124 +125,50 @@ export const mockEntriesByPageId: Record<string, Entry[]> = {
     {
       id: "2000003",
       entry_type: "setting",
-      fields: {
-        name: { text: "PVP" },
-        value: { boolean: true },
-      },
+      fields: { name: { text: "PVP" }, value: { boolean: true } },
     },
     {
       id: "2000004",
       entry_type: "setting",
-      fields: {
-        name: { text: "Difficulty" },
-        value: { enum: "normal" },
-      },
+      fields: { name: { text: "Difficulty" }, value: { enum: "normal" } },
     },
   ],
   "value-types": [
     {
       id: "3000001",
-
       entry_type: "value_test",
-
       fields: {
         null_value: "null",
-
-        float_value: {
-          float: 3.141592,
-        },
-
-        integer_value: {
-          integer: 42,
-        },
-
-        boolean_value: {
-          boolean: true,
-        },
-
-        text_value: {
-          text: "Hello, Computer!",
-        },
-
-        enum_value: {
-          enum: "production",
-        },
-
-        reference_value: {
-          reference: "1000001",
-        },
-
+        float_value: { float: 3.141592 },
+        integer_value: { integer: 42 },
+        boolean_value: { boolean: true },
+        text_value: { text: "Hello, Computer!" },
+        enum_value: { enum: "production" },
+        reference_value: { reference: "1000001" },
         struct_value: {
           struct: {
-            name: {
-              text: "Test Structure",
-            },
-
-            enabled: {
-              boolean: true,
-            },
-
-            priority: {
-              integer: 100,
-            },
-
-            multiplier: {
-              float: 1.5,
-            },
+            name: { text: "Test Structure" },
+            enabled: { boolean: true },
+            priority: { integer: 100 },
+            multiplier: { float: 1.5 },
           },
         },
-
         list_value: {
           list: [
-            {
-              text: "First item",
-            },
-
-            {
-              integer: 42,
-            },
-
-            {
-              boolean: false,
-            },
-
-            {
-              float: 12.5,
-            },
-
-            {
-              enum: "example",
-            },
-
-            {
-              reference: "1000002",
-            },
-
+            { text: "First item" },
+            { integer: 42 },
+            { boolean: false },
+            { float: 12.5 },
+            { enum: "example" },
+            { reference: "1000002" },
             "null",
-
             {
               struct: {
-                name: {
-                  text: "Nested structure",
-                },
-
-                value: {
-                  integer: 123,
-                },
+                name: { text: "Nested structure" },
+                value: { integer: 123 },
               },
             },
-
-            {
-              list: [
-                {
-                  text: "Nested list item",
-                },
-
-                {
-                  integer: 999,
-                },
-              ],
-            },
+            { list: [{ text: "Nested list item" }, { integer: 999 }] },
           ],
         },
       },

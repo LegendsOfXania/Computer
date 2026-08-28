@@ -4,17 +4,10 @@
   import Inspector from "$lib/components/Inspector.svelte";
 </script>
 
-<svelte:head>
-  <title>Computer</title>
-</svelte:head>
-
+<svelte:head><title>Computer</title></svelte:head>
 <div class="panel">
   <Header />
-
-  <div class="workspace">
-    <Editor />
-    <Inspector />
-  </div>
+  <div class="workspace"><Editor /><Inspector /></div>
 </div>
 
 <style>
@@ -24,7 +17,6 @@
     width: 100%;
     height: 100vh;
   }
-
   .workspace {
     display: flex;
     flex: 1;

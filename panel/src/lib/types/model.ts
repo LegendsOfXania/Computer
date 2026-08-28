@@ -1,5 +1,3 @@
-export type NumberValue = { integer: number } | { float: number };
-
 export type Value =
   | "null"
   | { float: number }
@@ -11,31 +9,12 @@ export type Value =
   | { struct: Record<string, Value> }
   | { list: Value[] };
 
-export interface EntryData {
+export interface Entry {
+  id: string;
   entry_type: string;
   fields: Record<string, Value>;
 }
-
-export interface Entry extends EntryData {
-  id: string;
-}
-
-export function getField(
-  fields: Record<string, Value>,
-  key: string,
-): Value | undefined {
-  return Object.hasOwn(fields, key) ? fields[key] : undefined;
-}
-
-export function displayName(entry: Entry): string {
-  const name = getField(entry.fields, "name");
-  return typeof name === "object" && name !== null && "text" in name
-    ? name.text
-    : entry.id;
-}
-
 export type PageType = "sequence" | "static";
-
 export interface PageInfo {
   id: string;
   name: string;
@@ -43,17 +22,30 @@ export interface PageInfo {
   priority: number;
 }
 
-export function parseEntryReference(
-  currentPageId: string,
-  value: string,
-): { pageId: string; entryId: string } {
-  const separatorIndex = value.indexOf(":");
-  if (separatorIndex === -1) {
-    return { pageId: currentPageId, entryId: value };
-  }
-
+export function displayName(entry: Entry): string {
+  const value = entry.fields.name;
+  return typeof value === "object" && value !== null && "text" in value
+    ? value.text
+    : entry.id;
+}
+export function parseEntryReference(currentPageId: string, value: string) {
+  const i = value.indexOf(":");
+  return i < 0
+    ? { pageId: currentPageId, entryId: value }
+    : { pageId: value.slice(0, i), entryId: value.slice(i + 1) };
+}
+export function blankLike(value: Value): Value {
+  if (value === "null") return "null";
+  if ("text" in value) return { text: "" };
+  if ("enum" in value) return { enum: "" };
+  if ("reference" in value) return { reference: "" };
+  if ("integer" in value) return { integer: 0 };
+  if ("float" in value) return { float: 0 };
+  if ("boolean" in value) return { boolean: false };
+  if ("list" in value) return { list: [] };
   return {
-    pageId: value.slice(0, separatorIndex),
-    entryId: value.slice(separatorIndex + 1),
+    struct: Object.fromEntries(
+      Object.entries(value.struct).map(([k, v]) => [k, blankLike(v)]),
+    ),
   };
 }

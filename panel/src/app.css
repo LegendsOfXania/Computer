@@ -2,48 +2,36 @@
   --background: #0d0d0d;
   --surface: #181818;
   --surface-raised: #1e1e1e;
-
-  --border: #ffffff;
+  --border: #fff;
   --border-muted: #2c2c2c;
-
   --text: #f5f5f5;
   --text-muted: #a0a0a0;
-
   --accent: #f97316;
   --accent-hover: #fb923c;
   --accent-shadow: #c2410c;
   --on-accent: #1c1917;
-
   --success: #059669;
   --success-hover: #10b981;
   --warning: #ffd600;
   --danger: #ff1744;
-
   --radius: 4px;
-
   --header-height: 64px;
   --sidebar-width-collapsed: 50px;
   --sidebar-width-expanded: 250px;
   --sidebar-transition-duration: 0.3s;
-
   font-family: Inter, system-ui, sans-serif;
-
   color: var(--text);
   background: var(--background);
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-
 *,
 *::before,
 *::after {
   box-sizing: border-box;
 }
-
 html,
 body {
   margin: 0;
@@ -53,18 +41,15 @@ body {
   background: var(--background);
   color: var(--text);
 }
-
 button,
 input,
 textarea,
 select {
   font: inherit;
 }
-
 button {
   color: inherit;
 }
-
 button:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
@@ -72,49 +57,39 @@ select:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
-
 .btn-brutalist {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-
-  border: none;
+  border: 0;
   border-radius: var(--radius);
-
   color: var(--on-accent);
   background: var(--accent);
-
   font-weight: 800;
   cursor: pointer;
-
   transform: translate(-2px, -2px);
   box-shadow: 3px 3px 0 var(--accent-shadow);
-
   transition:
     transform 0.15s ease,
     box-shadow 0.15s ease,
     background-color 0.15s ease;
 }
-
 .btn-brutalist:hover {
   background: var(--accent-hover);
   transform: translate(-3px, -3px);
   box-shadow: 4px 4px 0 var(--accent-shadow);
 }
-
 .btn-brutalist:disabled {
   cursor: not-allowed;
   opacity: 0.5;
   transform: none;
   box-shadow: none;
 }
-
 .btn-brutalist.active {
   background: var(--success);
   transform: translate(1px, 1px);
   box-shadow: none;
 }
-
 .btn-brutalist.active:hover {
   background: var(--success-hover);
 }

@@ -1,30 +1,20 @@
 <script lang="ts">
-  import favicon from "$lib/assets/favicon.svg";
   import "../app.css";
   import Sidebar from "$lib/components/Sidebar.svelte";
-
   let { children } = $props();
-  let sidebarHover = $state(false);
+  let hover = $state(false);
 </script>
 
-<svelte:head>
-  <link rel="icon" href={favicon} />
-</svelte:head>
-
-<Sidebar bind:hover={sidebarHover} />
-
-<main class="main-content" class:sidebar-expanded={sidebarHover}>
-  {@render children()}
-</main>
+<Sidebar bind:hover />
+<main class:expanded={hover}>{@render children()}</main>
 
 <style>
-  .main-content {
+  main {
     min-height: 100vh;
     padding-left: var(--sidebar-width-collapsed);
     transition: padding-left var(--sidebar-transition-duration) ease;
   }
-
-  .main-content.sidebar-expanded {
+  main.expanded {
     padding-left: var(--sidebar-width-expanded);
   }
 </style>

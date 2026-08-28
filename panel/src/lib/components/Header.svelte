@@ -1,69 +1,38 @@
 <script lang="ts">
-  import { Copy, Check } from "lucide-svelte";
+  import { Copy, Check, Route, FileText } from "lucide-svelte";
   import { appStore } from "$lib/stores/app.svelte";
-  import { PAGE_ICONS } from "$lib/types/pages";
-
-  let page = $derived(appStore.selectedPage);
-  let Icon = $derived(page ? PAGE_ICONS[page.page_type] : null);
-
-  // Placeholder local state until the panel actually talks to a server.
-  let isPublished = $state(false);
-  let copied = $state(false);
-
-  async function copyPageId() {
-    if (page === null) return;
-    await navigator.clipboard.writeText(page.id);
-    copied = true;
-    setTimeout(() => {
-      copied = false;
-    }, 1500);
-  }
-
-  function togglePublish() {
-    isPublished = !isPublished;
+  let page = $derived(appStore.selectedPage),
+    published = $state(false),
+    copied = $state(false);
+  async function copy() {
+    if (!page) return;
+    try {
+      await navigator.clipboard.writeText(page.id);
+      copied = true;
+      setTimeout(() => (copied = false), 1500);
+    } catch {}
   }
 </script>
 
 <header class="header">
-  <div class="informations">
-    {#if page !== null}
-      <span class="page-icon">
-        {#if Icon}
-          <Icon size={18} />
-        {/if}
-      </span>
-      <span class="page-name">{page.name}</span>
-      <button
-        type="button"
-        class="page-id"
-        onclick={copyPageId}
-        title="Copy ID"
-      >
-        <span>{page.id}</span>
-        {#if copied}
-          <Check size={12} />
-        {:else}
-          <Copy size={12} />
-        {/if}
-      </button>
-    {:else}
-      <span class="page-name muted">No page selected</span>
-    {/if}
+  <div class="info">
+    {#if page}{@const Icon =
+        page.page_type === "sequence" ? Route : FileText}<span class="icon"
+        ><Icon size={18} /></span
+      ><span class="name">{page.name}</span><button class="id" onclick={copy}
+        ><span>{page.id}</span>{#if copied}<Check size={12} />{:else}<Copy
+            size={12}
+          />{/if}</button
+      >{:else}<span class="name muted">No page selected</span>{/if}
   </div>
-
   <div class="actions">
-    <div class="connection">
-      <span class="status connected"></span>
-      <span>Online</span>
-    </div>
-
+    <div class="connection"><span></span>Online</div>
     <button
       class="btn-brutalist publish"
-      class:active={isPublished}
-      onclick={togglePublish}
+      class:active={published}
+      onclick={() => (published = !published)}
+      >{published ? "Published" : "Staging"}</button
     >
-      <span>{isPublished ? "Published" : "Staging"}</span>
-    </button>
   </div>
 </header>
 
@@ -77,82 +46,62 @@
     border-bottom: 2px solid var(--accent);
     background: var(--surface);
   }
-
-  .informations {
+  .info,
+  .actions,
+  .connection {
     display: flex;
     align-items: center;
+  }
+  .info {
     gap: 12px;
   }
-
-  .page-icon {
+  .actions {
+    gap: 20px;
+  }
+  .icon {
     display: flex;
-    align-items: center;
     color: var(--accent);
   }
-
-  .page-name {
-    font-weight: 700;
+  .name {
     font-size: 14px;
-    color: var(--text);
+    font-weight: 700;
   }
-
-  .page-name.muted {
+  .muted,
+  .connection {
     color: var(--text-muted);
-    font-weight: 600;
   }
-
-  .page-id {
+  .id {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     padding: 2px 6px;
+    border: 0;
     border-radius: 4px;
     background: rgba(0, 0, 0, 0.08);
     color: var(--text-muted);
-    font-size: 12px;
-    font-family: monospace;
-    font-weight: 400;
+    font:
+      400 12px ui-monospace,
+      monospace;
     cursor: pointer;
-    transition:
-      background 0.15s ease,
-      color 0.15s ease;
-    border: none;
   }
-
-  .page-id:hover {
-    background: rgba(0, 0, 0, 0.12);
+  .id:hover {
     color: var(--text);
+    background: rgba(0, 0, 0, 0.12);
   }
-
-  .actions {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-  }
-
   .connection {
-    display: flex;
-    align-items: center;
     gap: 8px;
-    color: var(--text-muted);
     font-size: 13px;
     font-weight: 600;
   }
-
-  .status {
+  .connection span {
     width: 10px;
     height: 10px;
     border: 1px solid var(--border);
-    background: var(--danger);
-  }
-
-  .status.connected {
     background: var(--success);
   }
-
   .publish {
-    min-height: 34px;
     min-width: 95px;
+    min-height: 34px;
     padding: 0 14px;
     font-size: 12px;
   }

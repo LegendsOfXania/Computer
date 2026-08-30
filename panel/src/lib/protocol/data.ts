@@ -1,4 +1,5 @@
 import type { Entry, PageInfo } from "$lib/types/model";
+
 export const pages: PageInfo[] = [
   {
     id: "01029942073P2",
@@ -12,7 +13,12 @@ export const pages: PageInfo[] = [
     page_type: "static",
     priority: 200,
   },
-  { id: "quest-sequence", name: "Quest", page_type: "sequence", priority: 1 },
+  {
+    id: "quest-sequence",
+    name: "Quest",
+    page_type: "sequence",
+    priority: 1,
+  },
   {
     id: "game-settings",
     name: "Game Settings",
@@ -26,6 +32,7 @@ export const pages: PageInfo[] = [
     priority: 999,
   },
 ];
+
 export const entriesByPage: Record<string, Entry[]> = {
   "01029942073P2": [
     {
@@ -108,11 +115,15 @@ export const entriesByPage: Record<string, Entry[]> = {
       },
     },
   ],
+
   "server-configuration": [
     {
       id: "2000001",
       entry_type: "setting",
-      fields: { name: { text: "Max Players" }, value: { integer: 20 } },
+      fields: {
+        name: { text: "Max Players" },
+        value: { integer: 20 },
+      },
     },
     {
       id: "2000002",
@@ -125,14 +136,21 @@ export const entriesByPage: Record<string, Entry[]> = {
     {
       id: "2000003",
       entry_type: "setting",
-      fields: { name: { text: "PVP" }, value: { boolean: true } },
+      fields: {
+        name: { text: "PVP" },
+        value: { boolean: true },
+      },
     },
     {
       id: "2000004",
       entry_type: "setting",
-      fields: { name: { text: "Difficulty" }, value: { enum: "normal" } },
+      fields: {
+        name: { text: "Difficulty" },
+        value: { enum: "normal" },
+      },
     },
   ],
+
   "value-types": [
     {
       id: "3000001",
@@ -145,6 +163,7 @@ export const entriesByPage: Record<string, Entry[]> = {
         text_value: { text: "Hello, Computer!" },
         enum_value: { enum: "production" },
         reference_value: { reference: "1000001" },
+
         struct_value: {
           struct: {
             name: { text: "Test Structure" },
@@ -153,6 +172,7 @@ export const entriesByPage: Record<string, Entry[]> = {
             multiplier: { float: 1.5 },
           },
         },
+
         list_value: {
           list: [
             { text: "First item" },
@@ -168,7 +188,9 @@ export const entriesByPage: Record<string, Entry[]> = {
                 value: { integer: 123 },
               },
             },
-            { list: [{ text: "Nested list item" }, { integer: 999 }] },
+            {
+              list: [{ text: "Nested list item" }, { integer: 999 }],
+            },
           ],
         },
       },

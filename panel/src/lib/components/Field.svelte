@@ -31,6 +31,7 @@
         : "";
   const numeric = (v: Value) =>
     typeof v === "object" && v && ("integer" in v || "float" in v);
+
   function update(raw: string) {
     if (typeof value === "object" && value) {
       if ("integer" in value) {
@@ -50,14 +51,17 @@
     }
     onchange({ text: raw });
   }
+
   function updateList(i: number, v: Value) {
     if (typeof value === "object" && value && "list" in value)
       onchange({ list: value.list.map((x, n) => (n === i ? v : x)) });
   }
+
   function updateStruct(k: string, v: Value) {
     if (typeof value === "object" && value && "struct" in value)
       onchange({ struct: { ...value.struct, [k]: v } });
   }
+
   function add() {
     if (typeof value === "object" && value && "list" in value) {
       onchange({
@@ -66,6 +70,7 @@
       expanded = true;
     }
   }
+
   function remove(i: number) {
     if (typeof value === "object" && value && "list" in value)
       onchange({ list: value.list.filter((_, n) => n !== i) });
@@ -216,12 +221,57 @@
     align-items: center;
     gap: 10px;
     cursor: pointer;
+    user-select: none;
   }
+
   .toggle input {
+    appearance: none;
+    position: relative;
     width: 34px;
     height: 20px;
     margin: 0;
-    accent-color: var(--accent);
+    flex: 0 0 auto;
+    border: 1px solid var(--border-muted);
+    border-radius: 999px;
+    background: var(--surface);
+    cursor: pointer;
+    transition:
+      background 120ms ease,
+      border-color 120ms ease;
+  }
+
+  .toggle input::before {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    transition:
+      transform 120ms ease,
+      background 120ms ease;
+  }
+
+  .toggle input:checked {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .toggle input:checked::before {
+    transform: translateX(14px);
+    background: var(--on-accent);
+  }
+
+  .toggle input:focus-visible {
+    outline: 0;
+    box-shadow: 2px 2px 0 var(--accent-shadow);
+  }
+
+  .toggle span {
+    font-size: 13px;
+    color: var(--text);
   }
   .nested {
     display: flex;

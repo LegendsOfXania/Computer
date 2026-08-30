@@ -1,14 +1,11 @@
 use model::{EntryData, PageType, Value};
 use serde::{Deserialize, Serialize};
 
-pub const PROTOCOL_VERSION: u32 = 1;
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ClientMessage {
     Connect {
         token: String,
-        protocol_version: u32,
     },
 
     CreateEntry {
@@ -18,10 +15,7 @@ pub enum ClientMessage {
     },
 
     CreatePage {
-        id: String,
-        name: String,
-        page_type: PageType,
-        priority: u32,
+        page: PageInfo,
     },
 
     ClosePage {
@@ -59,7 +53,6 @@ pub enum ClientMessage {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ServerMessage {
     ConnectionResult {
-        protocol_version: u32,
         result: ConnectionResult,
     },
 
@@ -83,6 +76,7 @@ pub enum ServerMessage {
 
     PageContent {
         page_id: String,
+        // todo json PAS kdl
         content: String,
     },
 

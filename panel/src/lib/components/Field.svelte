@@ -2,7 +2,7 @@
   import { ChevronDown, ChevronRight, Plus, X } from "lucide-svelte";
   import Field from "./Field.svelte";
   import { appStore } from "$lib/stores/app.svelte";
-  import { displayName, blankLike, type Value } from "$lib/types/model";
+  import { defaultValue, displayName, type Value } from "$lib/types/model";
 
   let {
     label = "",
@@ -61,7 +61,7 @@
   function add() {
     if (typeof value === "object" && value && "list" in value) {
       onchange({
-        list: [...value.list, blankLike(value.list[0] ?? { text: "" })],
+        list: [...value.list, defaultValue(value.list[0] ?? { text: "" })],
       });
       expanded = true;
     }

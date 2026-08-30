@@ -1,7 +1,7 @@
 export type Value =
   | "null"
-  | { float: number }
   | { integer: number }
+  | { float: number }
   | { boolean: boolean }
   | { text: string }
   | { enum: string }
@@ -9,12 +9,17 @@ export type Value =
   | { struct: Record<string, Value> }
   | { list: Value[] };
 
-export interface Entry {
-  id: string;
+export interface EntryData {
   entry_type: string;
   fields: Record<string, Value>;
 }
+
+export interface Entry extends EntryData {
+  id: string;
+}
+
 export type PageType = "sequence" | "static";
+
 export interface PageInfo {
   id: string;
   name: string;
@@ -24,17 +29,11 @@ export interface PageInfo {
 
 export function displayName(entry: Entry): string {
   const value = entry.fields.name;
-  return typeof value === "object" && value !== null && "text" in value
-    ? value.text
-    : entry.id;
+
+  return typeof value === "object" && "text" in value ? value.text : entry.id;
 }
-export function parseEntryReference(currentPageId: string, value: string) {
-  const i = value.indexOf(":");
-  return i < 0
-    ? { pageId: currentPageId, entryId: value }
-    : { pageId: value.slice(0, i), entryId: value.slice(i + 1) };
-}
-export function blankLike(value: Value): Value {
+
+export function defaultValue(value: Value): Value {
   if (value === "null") return "null";
   if ("text" in value) return { text: "" };
   if ("enum" in value) return { enum: "" };
@@ -43,9 +42,13 @@ export function blankLike(value: Value): Value {
   if ("float" in value) return { float: 0 };
   if ("boolean" in value) return { boolean: false };
   if ("list" in value) return { list: [] };
+
   return {
     struct: Object.fromEntries(
-      Object.entries(value.struct).map(([k, v]) => [k, blankLike(v)]),
+      Object.entries(value.struct).map(([key, child]) => [
+        key,
+        defaultValue(child),
+      ]),
     ),
   };
 }

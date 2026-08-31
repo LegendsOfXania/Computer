@@ -64,6 +64,7 @@
         {#each Object.entries(entry.fields) as [key, value] (key)}<Field
             label={key}
             {value}
+            schema={appStore.fieldSchema(entry.entry_type, key)?.schema}
             onchange={(v) => appStore.updateEntryField(entry!.id, key, v)}
           />{/each}
       </div>{/if}

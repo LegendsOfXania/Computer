@@ -1,4 +1,9 @@
-import type { EntryData, PageInfo, Value } from "$lib/types/model";
+import type {
+  EntryData,
+  EntryDefinition,
+  PageInfo,
+  Value,
+} from "$lib/types/model";
 
 export type ClientMessage =
   | {
@@ -56,6 +61,7 @@ export type ServerMessage =
   | {
       type: "library";
       pages: PageInfo[];
+      entry_definitions: EntryDefinition[];
     }
   | {
       type: "page_content";

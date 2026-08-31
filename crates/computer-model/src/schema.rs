@@ -20,15 +20,19 @@ impl Schema {
             values: values.into_iter().map(Into::into).collect(),
         }
     }
+
     pub fn reference() -> ReferenceSchema {
         ReferenceSchema::default()
     }
+
     pub fn structure(fields: impl IntoIterator<Item = Field>) -> Self {
         Self::Struct(StructSchema::new(fields))
     }
+
     pub fn list(element: Self) -> Self {
         Self::List(Box::new(element))
     }
+
     pub fn accepts(&self, value: &Value) -> bool {
         match (self, value) {
             (Self::Null, Value::Null)
@@ -54,26 +58,32 @@ pub struct ReferenceSchema {
     entry_type: Option<String>,
     tags: Vec<String>,
 }
+
 impl ReferenceSchema {
     pub fn with_entry_type(mut self, entry_type: impl Into<String>) -> Self {
         self.entry_type = Some(entry_type.into());
         self
     }
+
     pub fn with_tag(mut self, tag: impl Into<String>) -> Self {
         self.tags.push(tag.into());
         self
     }
+
     pub fn with_tags(mut self, tags: impl IntoIterator<Item = impl Into<String>>) -> Self {
         self.tags.extend(tags.into_iter().map(Into::into));
         self
     }
+
     pub fn entry_type(&self) -> Option<&str> {
         self.entry_type.as_deref()
     }
+
     pub fn tags(&self) -> &[String] {
         &self.tags
     }
 }
+
 impl From<ReferenceSchema> for Schema {
     fn from(value: ReferenceSchema) -> Self {
         Self::Reference(value)
@@ -95,9 +105,11 @@ impl Field {
             schema: schema.into(),
         }
     }
+
     pub fn name(&self) -> &str {
         &self.name
     }
+
     pub fn schema(&self) -> &Schema {
         &self.schema
     }
@@ -107,18 +119,22 @@ impl Field {
 pub struct StructSchema {
     fields: Vec<Field>,
 }
+
 impl StructSchema {
     pub fn new(fields: impl IntoIterator<Item = Field>) -> Self {
         Self {
             fields: fields.into_iter().collect(),
         }
     }
+
     pub fn fields(&self) -> &[Field] {
         &self.fields
     }
+
     pub fn get(&self, name: &str) -> Option<&Field> {
         self.fields.iter().find(|field| field.name == name)
     }
+    
     fn accepts(&self, values: &BTreeMap<String, Value>) -> bool {
         values.keys().all(|name| self.get(name).is_some())
             && self

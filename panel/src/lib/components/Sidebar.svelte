@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Plus, Route, FileText } from "lucide-svelte";
   import { appStore } from "$lib/stores/app.svelte";
-  import CreatePage from "./dialog/CreatePage.svelte";
+  import CreatePage from "./dialogs/CreatePage.svelte";
 
   let { hover = $bindable(false) } = $props<{ hover?: boolean }>();
 

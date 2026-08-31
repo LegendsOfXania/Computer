@@ -2,21 +2,47 @@
   import { ChevronDown, ChevronRight, Plus, X } from "lucide-svelte";
   import Field from "./Field.svelte";
   import { appStore } from "$lib/stores/app.svelte";
-  import { defaultValue, displayName, type Value } from "$lib/types/model";
+  import {
+    defaultSchema,
+    defaultValue,
+    displayName,
+    type Schema,
+    type Value,
+  } from "$lib/types/model";
 
   let {
     label = "",
     value,
     onchange,
-    options = [],
+    schema,
   }: {
     label?: string;
     value: Value;
     onchange: (value: Value) => void;
-    options?: string[];
+    schema?: Schema;
   } = $props();
 
   let expanded = $state(false);
+
+  const enumOptions = $derived(
+    schema && typeof schema === "object" && "enumeration" in schema
+      ? schema.enumeration
+      : [],
+  );
+
+  const listElementSchema = $derived(
+    schema && typeof schema === "object" && "list" in schema
+      ? schema.list
+      : undefined,
+  );
+
+  function structFieldSchema(key: string): Schema | undefined {
+    if (!schema || typeof schema !== "object" || !("struct" in schema)) {
+      return undefined;
+    }
+
+    return schema.struct.find((field) => field.name === key)?.schema;
+  }
 
   const reference = $derived(
     typeof value === "object" && value && "reference" in value
@@ -127,8 +153,12 @@
 
   function add() {
     if (typeof value === "object" && value !== null && "list" in value) {
+      const next = listElementSchema
+        ? defaultSchema(listElementSchema)
+        : defaultValue(value.list[0] ?? { text: "" });
+
       onchange({
-        list: [...value.list, defaultValue(value.list[0] ?? { text: "" })],
+        list: [...value.list, next],
       });
 
       expanded = true;
@@ -177,7 +207,11 @@
       <div class="nested">
         {#each value.list as item, i (i)}
           <div class="list-item">
-            <Field value={item} onchange={(next) => updateList(i, next)} />
+            <Field
+              value={item}
+              schema={listElementSchema}
+              onchange={(next) => updateList(i, next)}
+            />
 
             <button
               type="button"
@@ -204,6 +238,7 @@
         <Field
           label={key}
           value={nested}
+          schema={structFieldSchema(key)}
           onchange={(next) => updateStruct(key, next)}
         />
       {/each}
@@ -259,7 +294,7 @@
       <span>{value.boolean ? "True" : "False"}</span>
     </label>
   </div>
-{:else if typeof value === "object" && value !== null && "enum" in value && options.length > 0}
+{:else if typeof value === "object" && value !== null && "enum" in value && enumOptions.length > 0}
   <div class="field">
     {#if label}
       <span class="field-label">{label}</span>
@@ -274,7 +309,7 @@
         });
       }}
     >
-      {#each options as option}
+      {#each enumOptions as option}
         <option value={option}>{option}</option>
       {/each}
     </select>

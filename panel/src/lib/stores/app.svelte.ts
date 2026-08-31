@@ -1,7 +1,14 @@
 import { SvelteMap } from "svelte/reactivity";
 import { MockServer } from "$lib/protocol/mock";
 import type { ServerMessage } from "$lib/protocol/messages";
-import type { Entry, EntryData, PageInfo, Value } from "$lib/types/model";
+import type {
+  Entry,
+  EntryData,
+  EntryDefinition,
+  Field,
+  PageInfo,
+  Value,
+} from "$lib/types/model";
 
 const mockServer = new MockServer();
 
@@ -18,6 +25,7 @@ class AppStore {
   private pendingSelection: string | null = null;
 
   pages = $state<PageInfo[]>([]);
+  entryDefinitions = $state<Record<string, EntryDefinition>>({});
   selectedPageId = $state<string | null>(null);
 
   get selectedPage() {
@@ -123,6 +131,12 @@ class AppStore {
     return key ? this.cache.get(key) : undefined;
   }
 
+  fieldSchema(entryType: string, key: string): Field | undefined {
+    return this.entryDefinitions[entryType]?.fields.find(
+      (field) => field.name === key,
+    );
+  }
+
   requestEntry(key: string) {
     if (!key || this.cache.has(key) || this.requested.has(key)) return;
 
@@ -134,6 +148,9 @@ class AppStore {
     switch (message.type) {
       case "library":
         this.pages = message.pages;
+        this.entryDefinitions = Object.fromEntries(
+          message.entry_definitions.map((d) => [d.entry_type, d]),
+        );
         if (!this.selectedPageId && this.pages.length > 0) {
           this.selectPage(this.pages[0].id);
         }

@@ -1,4 +1,4 @@
-import type { Entry, PageInfo } from "$lib/types/model";
+import type { Entry, EntryDefinition, PageInfo } from "$lib/types/model";
 
 export const pages: PageInfo[] = [
   {
@@ -91,7 +91,7 @@ export const entriesByPage: Record<string, Entry[]> = {
       entry_type: "action",
       fields: {
         name: { text: "Give Quest" },
-        quest: { text: "first_steps" },
+        action: { text: "first_steps" },
         triggers: {
           list: [{ reference: "01029942073P2:1000006" }],
         },
@@ -134,7 +134,7 @@ export const entriesByPage: Record<string, Entry[]> = {
   "server-configuration": [
     {
       id: "2000001",
-      entry_type: "setting",
+      entry_type: "setting_integer",
       fields: {
         name: { text: "Max Players" },
         value: { integer: 20 },
@@ -142,7 +142,7 @@ export const entriesByPage: Record<string, Entry[]> = {
     },
     {
       id: "2000002",
-      entry_type: "setting",
+      entry_type: "setting_text",
       fields: {
         name: { text: "MOTD" },
         value: { text: "Welcome to the server!" },
@@ -150,7 +150,7 @@ export const entriesByPage: Record<string, Entry[]> = {
     },
     {
       id: "2000003",
-      entry_type: "setting",
+      entry_type: "setting_boolean",
       fields: {
         name: { text: "PVP" },
         value: { boolean: true },
@@ -158,7 +158,7 @@ export const entriesByPage: Record<string, Entry[]> = {
     },
     {
       id: "2000004",
-      entry_type: "setting",
+      entry_type: "setting_enum",
       fields: {
         name: { text: "Difficulty" },
         value: { enum: "normal" },
@@ -178,6 +178,7 @@ export const entriesByPage: Record<string, Entry[]> = {
         introduction: {
           reference: "01029942073P2:1000004",
         },
+        previous: { reference: "" },
       },
     },
     {
@@ -188,6 +189,7 @@ export const entriesByPage: Record<string, Entry[]> = {
         description: {
           text: "Terminer l'introduction du village.",
         },
+        introduction: { reference: "" },
         previous: {
           reference: "quest-sequence:4000001",
         },
@@ -198,7 +200,7 @@ export const entriesByPage: Record<string, Entry[]> = {
   "game-settings": [
     {
       id: "5000001",
-      entry_type: "setting",
+      entry_type: "setting_reference",
       fields: {
         name: { text: "Default Quest" },
         value: {
@@ -208,7 +210,7 @@ export const entriesByPage: Record<string, Entry[]> = {
     },
     {
       id: "5000002",
-      entry_type: "setting",
+      entry_type: "setting_reference",
       fields: {
         name: { text: "Welcome Dialogue" },
         value: {
@@ -283,4 +285,95 @@ export const entriesByPage: Record<string, Entry[]> = {
       },
     },
   ],
+};
+
+export const entryDefinitions: Record<string, EntryDefinition> = {
+  dialogue: {
+    entry_type: "dialogue",
+    tags: ["sequence"],
+    fields: [
+      { name: "name", schema: "text" },
+      { name: "text", schema: "text" },
+      { name: "speaker", schema: "text" },
+      {
+        name: "triggers",
+        schema: { list: { reference: { tags: ["sequence"] } } },
+      },
+    ],
+  },
+
+  action: {
+    entry_type: "action",
+    tags: ["sequence"],
+    fields: [
+      { name: "name", schema: "text" },
+      { name: "action", schema: "text" },
+      {
+        name: "triggers",
+        schema: { list: { reference: { tags: ["sequence"] } } },
+      },
+    ],
+  },
+
+  quest: {
+    entry_type: "quest",
+    tags: ["manifest"],
+    fields: [
+      { name: "name", schema: "text" },
+      { name: "description", schema: "text" },
+      { name: "introduction", schema: { reference: { tags: ["sequence"] } } },
+      {
+        name: "previous",
+        schema: { reference: { entry_type: "quest", tags: [] } },
+      },
+    ],
+  },
+
+  setting_integer: {
+    entry_type: "setting_integer",
+    tags: [],
+    fields: [
+      { name: "name", schema: "text" },
+      { name: "value", schema: "integer" },
+    ],
+  },
+
+  setting_text: {
+    entry_type: "setting_text",
+    tags: [],
+    fields: [
+      { name: "name", schema: "text" },
+      { name: "value", schema: "text" },
+    ],
+  },
+
+  setting_boolean: {
+    entry_type: "setting_boolean",
+    tags: [],
+    fields: [
+      { name: "name", schema: "text" },
+      { name: "value", schema: "boolean" },
+    ],
+  },
+
+  setting_enum: {
+    entry_type: "setting_enum",
+    tags: [],
+    fields: [
+      { name: "name", schema: "text" },
+      {
+        name: "value",
+        schema: { enumeration: ["peaceful", "easy", "normal", "hard"] },
+      },
+    ],
+  },
+
+  setting_reference: {
+    entry_type: "setting_reference",
+    tags: [],
+    fields: [
+      { name: "name", schema: "text" },
+      { name: "value", schema: { reference: { tags: [] } } },
+    ],
+  },
 };

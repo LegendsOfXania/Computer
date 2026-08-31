@@ -1,6 +1,6 @@
 import type { Entry, EntryData, PageInfo, Value } from "$lib/types/model";
 import type { ClientMessage, ServerMessage } from "./messages";
-import { entriesByPage, pages } from "./data";
+import { entriesByPage, entryDefinitions, pages } from "./data";
 
 type Handler = (message: ServerMessage) => void;
 
@@ -75,6 +75,7 @@ export class MockServer {
         this.send(sender, {
           type: "library",
           pages: [...this.pages.values()],
+          entry_definitions: Object.values(entryDefinitions),
         });
         break;
 

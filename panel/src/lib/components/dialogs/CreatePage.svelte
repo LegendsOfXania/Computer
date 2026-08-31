@@ -1,7 +1,12 @@
 <script lang="ts">
   import { X } from "lucide-svelte";
   import { appStore } from "$lib/stores/app.svelte";
-  import { PAGE_TYPES, type PageType, type Value } from "$lib/types/model";
+  import {
+    PAGE_TYPES,
+    type PageType,
+    type Schema,
+    type Value,
+  } from "$lib/types/model";
   import Field from "../Field.svelte";
 
   let { open = $bindable(false) } = $props<{ open?: boolean }>();
@@ -9,6 +14,8 @@
   let name = $state<Value>({ text: "Nouvelle page" });
   let pageType = $state<Value>({ enum: PAGE_TYPES[0] });
   let priority = $state<Value>({ integer: 0 });
+
+  const pageTypeSchema: Schema = { enumeration: PAGE_TYPES };
 
   function close() {
     open = false;
@@ -96,7 +103,7 @@
         <Field
           label="Type"
           value={pageType}
-          options={PAGE_TYPES}
+          schema={pageTypeSchema}
           onchange={(value) => (pageType = value)}
         />
 

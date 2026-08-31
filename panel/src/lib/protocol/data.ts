@@ -42,7 +42,9 @@ export const entriesByPage: Record<string, Entry[]> = {
         name: { text: "Arrival" },
         text: { text: "Bienvenue dans le village, voyageur." },
         speaker: { text: "Village Elder" },
-        triggers: { list: [{ reference: "1000002" }] },
+        triggers: {
+          list: [{ reference: "01029942073P2:1000002" }],
+        },
       },
     },
     {
@@ -53,7 +55,10 @@ export const entriesByPage: Record<string, Entry[]> = {
         text: { text: "Que souhaites-tu faire ?" },
         speaker: { text: "Village Elder" },
         triggers: {
-          list: [{ reference: "1000003" }, { reference: "1000004" }],
+          list: [
+            { reference: "01029942073P2:1000003" },
+            { reference: "01029942073P2:1000004" },
+          ],
         },
       },
     },
@@ -64,7 +69,9 @@ export const entriesByPage: Record<string, Entry[]> = {
         name: { text: "Explore" },
         text: { text: "Très bien. Le village est à toi." },
         speaker: { text: "Village Elder" },
-        triggers: { list: [{ reference: "1000007" }] },
+        triggers: {
+          list: [{ reference: "01029942073P2:1000007" }],
+        },
       },
     },
     {
@@ -74,7 +81,9 @@ export const entriesByPage: Record<string, Entry[]> = {
         name: { text: "Accept Quest" },
         text: { text: "Excellent. J'ai justement besoin de ton aide." },
         speaker: { text: "Village Elder" },
-        triggers: { list: [{ reference: "1000005" }] },
+        triggers: {
+          list: [{ reference: "01029942073P2:1000005" }],
+        },
       },
     },
     {
@@ -83,7 +92,9 @@ export const entriesByPage: Record<string, Entry[]> = {
       fields: {
         name: { text: "Give Quest" },
         quest: { text: "first_steps" },
-        triggers: { list: [{ reference: "1000006" }] },
+        triggers: {
+          list: [{ reference: "01029942073P2:1000006" }],
+        },
       },
     },
     {
@@ -93,7 +104,9 @@ export const entriesByPage: Record<string, Entry[]> = {
         name: { text: "Quest Started" },
         text: { text: "Ton aventure commence maintenant." },
         speaker: { text: "Village Elder" },
-        triggers: { list: [{ reference: "1000007" }] },
+        triggers: {
+          list: [{ reference: "01029942073P2:1000007" }],
+        },
       },
     },
     {
@@ -102,7 +115,9 @@ export const entriesByPage: Record<string, Entry[]> = {
       fields: {
         name: { text: "Finish Introduction" },
         action: { text: "complete_intro" },
-        triggers: { list: [{ reference: "1000008" }] },
+        triggers: {
+          list: [{ reference: "01029942073P2:1000008" }],
+        },
       },
     },
     {
@@ -151,6 +166,58 @@ export const entriesByPage: Record<string, Entry[]> = {
     },
   ],
 
+  "quest-sequence": [
+    {
+      id: "4000001",
+      entry_type: "quest",
+      fields: {
+        name: { text: "First Steps" },
+        description: {
+          text: "La première quête du joueur.",
+        },
+        introduction: {
+          reference: "01029942073P2:1000004",
+        },
+      },
+    },
+    {
+      id: "4000002",
+      entry_type: "quest",
+      fields: {
+        name: { text: "Village Hero" },
+        description: {
+          text: "Terminer l'introduction du village.",
+        },
+        previous: {
+          reference: "quest-sequence:4000001",
+        },
+      },
+    },
+  ],
+
+  "game-settings": [
+    {
+      id: "5000001",
+      entry_type: "setting",
+      fields: {
+        name: { text: "Default Quest" },
+        value: {
+          reference: "quest-sequence:4000001",
+        },
+      },
+    },
+    {
+      id: "5000002",
+      entry_type: "setting",
+      fields: {
+        name: { text: "Welcome Dialogue" },
+        value: {
+          reference: "01029942073P2:1000001",
+        },
+      },
+    },
+  ],
+
   "value-types": [
     {
       id: "3000001",
@@ -162,7 +229,10 @@ export const entriesByPage: Record<string, Entry[]> = {
         boolean_value: { boolean: true },
         text_value: { text: "Hello, Computer!" },
         enum_value: { enum: "production" },
-        reference_value: { reference: "1000001" },
+
+        reference_value: {
+          reference: "01029942073P2:1000001",
+        },
 
         struct_value: {
           struct: {
@@ -170,6 +240,9 @@ export const entriesByPage: Record<string, Entry[]> = {
             enabled: { boolean: true },
             priority: { integer: 100 },
             multiplier: { float: 1.5 },
+            reference: {
+              reference: "server-configuration:2000001",
+            },
           },
         },
 
@@ -180,16 +253,30 @@ export const entriesByPage: Record<string, Entry[]> = {
             { boolean: false },
             { float: 12.5 },
             { enum: "example" },
-            { reference: "1000002" },
+            {
+              reference: "01029942073P2:1000002",
+            },
+            {
+              reference: "server-configuration:2000002",
+            },
             "null",
             {
               struct: {
                 name: { text: "Nested structure" },
                 value: { integer: 123 },
+                reference: {
+                  reference: "quest-sequence:4000001",
+                },
               },
             },
             {
-              list: [{ text: "Nested list item" }, { integer: 999 }],
+              list: [
+                { text: "Nested list item" },
+                { integer: 999 },
+                {
+                  reference: "game-settings:5000002",
+                },
+              ],
             },
           ],
         },

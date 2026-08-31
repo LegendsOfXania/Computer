@@ -45,6 +45,7 @@
     --xy-edge-stroke: var(--accent);
     --xy-edge-stroke-width: 2px;
   }
+
   :global(.editor .svelte-flow__node) {
     display: inline-flex;
     align-items: center;
@@ -59,14 +60,17 @@
     box-shadow: 3px 3px 0 var(--accent-shadow) !important;
     cursor: pointer;
   }
+
   :global(.editor .svelte-flow__node:hover) {
     background: var(--accent-hover) !important;
     box-shadow: 4px 4px 0 var(--accent-shadow) !important;
   }
+
   :global(.editor .svelte-flow__node.selected) {
     background: var(--accent-hover) !important;
     box-shadow: none !important;
   }
+
   :global(.editor .svelte-flow__handle:not(.connectable)) {
     display: none;
   }

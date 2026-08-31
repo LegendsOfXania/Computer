@@ -13,6 +13,7 @@
     value: Value;
     onchange: (value: Value) => void;
   } = $props();
+
   let expanded = $state(false);
 
   const scalar = (v: Value) =>
@@ -29,6 +30,7 @@
                 ? String(v.float)
                 : ""
         : "";
+
   const numeric = (v: Value) =>
     typeof v === "object" && v && ("integer" in v || "float" in v);
 
@@ -39,27 +41,39 @@
         onchange({ integer: Number.isNaN(n) ? 0 : n });
         return;
       }
+
       if ("float" in value) {
         const n = Number.parseFloat(raw);
         onchange({ float: Number.isNaN(n) ? 0 : n });
         return;
       }
+
       if ("enum" in value) {
         onchange({ enum: raw });
         return;
       }
     }
+
     onchange({ text: raw });
   }
 
   function updateList(i: number, v: Value) {
-    if (typeof value === "object" && value && "list" in value)
-      onchange({ list: value.list.map((x, n) => (n === i ? v : x)) });
+    if (typeof value === "object" && value && "list" in value) {
+      onchange({
+        list: value.list.map((x, n) => (n === i ? v : x)),
+      });
+    }
   }
 
   function updateStruct(k: string, v: Value) {
-    if (typeof value === "object" && value && "struct" in value)
-      onchange({ struct: { ...value.struct, [k]: v } });
+    if (typeof value === "object" && value && "struct" in value) {
+      onchange({
+        struct: {
+          ...value.struct,
+          [k]: v,
+        },
+      });
+    }
   }
 
   function add() {
@@ -67,13 +81,17 @@
       onchange({
         list: [...value.list, defaultValue(value.list[0] ?? { text: "" })],
       });
+
       expanded = true;
     }
   }
 
   function remove(i: number) {
-    if (typeof value === "object" && value && "list" in value)
-      onchange({ list: value.list.filter((_, n) => n !== i) });
+    if (typeof value === "object" && value && "list" in value) {
+      onchange({
+        list: value.list.filter((_, n) => n !== i),
+      });
+    }
   }
 </script>
 
@@ -85,25 +103,35 @@
         class="list-toggle"
         onclick={() => (expanded = !expanded)}
       >
-        {#if expanded}<ChevronDown size={14} />{:else}<ChevronRight
-            size={14}
-          />{/if}
-        <span>{label}</span><span class="muted">({value.list.length})</span>
+        {#if expanded}
+          <ChevronDown size={14} />
+        {:else}
+          <ChevronRight size={14} />
+        {/if}
+
+        <span>{label}</span>
+        <span class="muted">({value.list.length})</span>
       </button>
-      <button type="button" class="list-add" onclick={add} title="Add item"
-        ><Plus size={14} /></button
-      >
+
+      <button type="button" class="list-add" onclick={add} title="Add item">
+        <Plus size={14} />
+      </button>
     </div>
+
     {#if expanded && value.list.length}
       <div class="nested">
         {#each value.list as item, i (i)}
           <div class="list-item">
-            <Field value={item} onchange={(v) => updateList(i, v)} /><button
+            <Field value={item} onchange={(v) => updateList(i, v)} />
+
+            <button
               type="button"
               class="remove"
               onclick={() => remove(i)}
-              title="Remove item"><X size={14} /></button
+              title="Remove item"
             >
+              <X size={14} />
+            </button>
           </div>
         {/each}
       </div>
@@ -111,46 +139,78 @@
   </div>
 {:else if typeof value === "object" && value && "struct" in value}
   <div class="field">
-    {#if label}<span class="field-label">{label}</span>{/if}
+    {#if label}
+      <span class="field-label">{label}</span>
+    {/if}
+
     <div class="nested">
-      {#each Object.entries(value.struct) as [key, nested] (key)}<Field
+      {#each Object.entries(value.struct) as [key, nested] (key)}
+        <Field
           label={key}
           value={nested}
           onchange={(v) => updateStruct(key, v)}
-        />{/each}
+        />
+      {/each}
     </div>
   </div>
 {:else if typeof value === "object" && value && "reference" in value}
   {@const target = value.reference
-    ? appStore.findEntry(value.reference)
+    ? appStore.getEntryData(value.reference)
     : undefined}
+
   <div class="field">
-    {#if label}<span class="field-label">{label}</span>{/if}
+    {#if label}
+      <span class="field-label">{label}</span>
+    {/if}
+
+    {#if value.reference}
+      {@const _ = appStore.getEntryData(value.reference)}
+    {/if}
+
     <div class:broken={!!value.reference && !target} class="reference">
-      {#if target}<span class="dot"></span><span class="type"
-          >{target.entry_type}</span
-        ><span class="name">{displayName(target)}</span>{:else}<span
-          class="name muted"
-          >{value.reference ? "Introuvable" : "Aucune référence"}</span
-        >{#if value.reference}<span class="id">{value.reference}</span
-          >{/if}{/if}
+      {#if target}
+        <span class="dot"></span>
+
+        <span class="type">
+          {target.entry_type}
+        </span>
+
+        <span class="name">
+          {displayName(target)}
+        </span>
+      {:else if value.reference}
+        <span class="name muted"> Chargement... </span>
+      {:else}
+        <span class="name muted"> Aucune référence </span>
+      {/if}
     </div>
   </div>
 {:else if typeof value === "object" && value && "boolean" in value}
   <div class="field">
-    {#if label}<span class="field-label">{label}</span>{/if}<label
-      class="field-box toggle"
-      ><input
+    {#if label}
+      <span class="field-label">{label}</span>
+    {/if}
+
+    <label class="field-box toggle">
+      <input
         type="checkbox"
         checked={value.boolean}
         onchange={(e) =>
-          onchange({ boolean: (e.currentTarget as HTMLInputElement).checked })}
-      /><span>{value.boolean ? "True" : "False"}</span></label
-    >
+          onchange({
+            boolean: (e.currentTarget as HTMLInputElement).checked,
+          })}
+      />
+
+      <span>{value.boolean ? "True" : "False"}</span>
+    </label>
   </div>
 {:else}
   <div class="field">
-    {#if label}<span class="field-label">{label}</span>{/if}<input
+    {#if label}
+      <span class="field-label">{label}</span>
+    {/if}
+
+    <input
       class="field-box"
       type={numeric(value) ? "number" : "text"}
       step={typeof value === "object" && value && "float" in value
@@ -171,6 +231,7 @@
     gap: 6px;
     width: 100%;
   }
+
   .field-label,
   .list-toggle {
     font-family: ui-monospace, monospace;
@@ -180,11 +241,13 @@
     text-transform: uppercase;
     color: var(--text-muted);
   }
+
   .field-label {
     display: flex;
     align-items: center;
     gap: 6px;
   }
+
   .field-label::before {
     content: "";
     width: 5px;
@@ -192,6 +255,7 @@
     background: var(--accent);
     opacity: 0.6;
   }
+
   .field-box,
   .reference {
     width: 100%;
@@ -203,19 +267,23 @@
     color: var(--text);
     font-size: 13px;
   }
+
   .field-box:focus,
   .field-box:focus-within {
     border-color: var(--accent);
     outline: 0;
     box-shadow: 2px 2px 0 var(--accent-shadow);
   }
+
   .field-box:disabled {
     color: var(--text-muted);
     border-style: dashed;
   }
+
   .field-box[type="number"] {
     appearance: textfield;
   }
+
   .toggle {
     display: flex;
     align-items: center;
@@ -273,6 +341,7 @@
     font-size: 13px;
     color: var(--text);
   }
+
   .nested {
     display: flex;
     flex-direction: column;
@@ -280,6 +349,7 @@
     padding: 2px 0 2px 14px;
     border-left: 2px solid var(--border-muted);
   }
+
   .list-header {
     display: flex;
     align-items: center;
@@ -288,6 +358,7 @@
     padding-bottom: 8px;
     border-bottom: 1px solid var(--border-muted);
   }
+
   .list-toggle {
     display: flex;
     align-items: center;
@@ -299,13 +370,16 @@
     color: var(--text);
     cursor: pointer;
   }
+
   .list-toggle:hover {
     color: var(--accent);
   }
+
   .muted {
     color: var(--text-muted);
     font-weight: 400;
   }
+
   .list-add {
     display: grid;
     place-items: center;
@@ -317,17 +391,20 @@
     color: var(--text-muted);
     cursor: pointer;
   }
+
   .list-add:hover {
     color: var(--on-accent);
     background: var(--accent);
     border-color: var(--accent);
   }
+
   .list-item {
     display: flex;
     align-items: flex-start;
     gap: 6px;
     width: 100%;
   }
+
   .remove {
     width: 28px;
     height: 36px;
@@ -337,17 +414,21 @@
     opacity: 0.5;
     cursor: pointer;
   }
+
   .list-item:hover .remove {
     opacity: 1;
   }
+
   .remove:hover {
     color: var(--danger);
   }
+
   .reference {
     display: flex;
     align-items: center;
     gap: 8px;
   }
+
   .dot {
     width: 6px;
     height: 6px;
@@ -355,6 +436,7 @@
     background: var(--accent);
     flex: 0 0 auto;
   }
+
   .type {
     font-family: ui-monospace, monospace;
     font-size: 10px;
@@ -363,6 +445,7 @@
     text-transform: uppercase;
     color: var(--accent);
   }
+
   .name {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -370,12 +453,7 @@
     font-size: 13px;
     font-weight: 600;
   }
-  .id {
-    margin-left: auto;
-    font-family: ui-monospace, monospace;
-    font-size: 11px;
-    color: var(--text-muted);
-  }
+
   .reference.broken {
     border-style: dashed;
     border-color: var(--warning);

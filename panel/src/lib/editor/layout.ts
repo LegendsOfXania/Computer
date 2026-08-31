@@ -15,7 +15,9 @@ export function layoutStaticEntries(entries: Entry[]) {
         y: Math.floor(index / COLS) * Y,
       },
       connectable: false,
-      data: { label: displayName(entry) },
+      data: {
+        label: displayName(entry),
+      },
     })),
     edges: [] as Edge[],
   };
@@ -27,15 +29,15 @@ export function layoutSequenceEntries(pageId: string, entries: Entry[]) {
   const outgoing = new Map(
     entries.map((entry) => [
       entry.id,
-      references(pageId, entry).filter((id) => ids.has(id)),
+      references(pageId, entry).filter((entryId) => ids.has(entryId)),
     ]),
   );
 
   const indegree = new Map(entries.map((entry) => [entry.id, 0]));
 
   for (const targets of outgoing.values()) {
-    for (const id of targets) {
-      indegree.set(id, (indegree.get(id) ?? 0) + 1);
+    for (const target of targets) {
+      indegree.set(target, (indegree.get(target) ?? 0) + 1);
     }
   }
 
@@ -108,15 +110,32 @@ export function layoutSequenceEntries(pageId: string, entries: Entry[]) {
     })),
   );
 
-  return { nodes, edges };
+  return {
+    nodes,
+    edges,
+  };
 }
 
 function references(pageId: string, entry: Entry): string[] {
   return Object.values(entry.fields)
-    .flatMap((value) => collect(value))
-    .filter((entryId) => {
-      return entryId.length > 0;
-    });
+    .flatMap(collect)
+    .filter((entryKey) => {
+      if (!entryKey) {
+        return false;
+      }
+
+      const separator = entryKey.indexOf(":");
+
+      if (separator === -1) {
+        return false;
+      }
+
+      const referencePageId = entryKey.slice(0, separator);
+      const referenceEntryId = entryKey.slice(separator + 1);
+
+      return referencePageId === pageId && referenceEntryId.length > 0;
+    })
+    .map((entryKey) => entryKey.slice(entryKey.indexOf(":") + 1));
 }
 
 function collect(value: Value): string[] {

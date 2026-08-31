@@ -7,8 +7,7 @@ export type ClientMessage =
     }
   | {
       type: "create_entry";
-      page_id: string;
-      entry_id: string;
+      entry_key: string;
       data: EntryData;
     }
   | {
@@ -21,8 +20,7 @@ export type ClientMessage =
     }
   | {
       type: "delete_entry";
-      page_id: string;
-      entry_id: string;
+      entry_key: string;
     }
   | {
       type: "delete_page";
@@ -30,14 +28,17 @@ export type ClientMessage =
     }
   | {
       type: "edit_entry";
-      page_id: string;
-      entry_id: string;
+      entry_key: string;
       field: string;
       value: Value;
     }
   | {
       type: "edit_page";
       page: PageInfo;
+    }
+  | {
+      type: "get_entry_data";
+      entry_key: string;
     }
   | {
       type: "open_page";
@@ -53,22 +54,8 @@ export type ServerMessage =
       result: ConnectionResult;
     }
   | {
-      type: "entry_created";
-      page_id: string;
-      entry_id: string;
-      data: EntryData;
-    }
-  | {
-      type: "entry_deleted";
-      page_id: string;
-      entry_id: string;
-    }
-  | {
-      type: "entry_edited";
-      page_id: string;
-      entry_id: string;
-      field: string;
-      value: Value;
+      type: "library";
+      pages: PageInfo[];
     }
   | {
       type: "page_content";
@@ -88,8 +75,24 @@ export type ServerMessage =
       page: PageInfo;
     }
   | {
-      type: "page_tree";
-      pages: PageInfo[];
+      type: "entry_data";
+      entry_key: string;
+      data: EntryData;
+    }
+  | {
+      type: "entry_created";
+      entry_key: string;
+      data: EntryData;
+    }
+  | {
+      type: "entry_deleted";
+      entry_key: string;
+    }
+  | {
+      type: "entry_edited";
+      entry_key: string;
+      field: string;
+      value: Value;
     };
 
 export type ConnectionResult =

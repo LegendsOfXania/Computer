@@ -1,11 +1,14 @@
 <script lang="ts">
-  import { Copy, Check, Route, FileText } from "lucide-svelte";
+  import { Copy, Check, Route, FileText, Search } from "lucide-svelte";
   import { appStore } from "$lib/stores/app.svelte";
+
   let page = $derived(appStore.selectedPage),
     published = $state(false),
     copied = $state(false);
+
   async function copy() {
     if (!page) return;
+
     try {
       await navigator.clipboard.writeText(page.id);
       copied = true;
@@ -16,23 +19,40 @@
 
 <header class="header">
   <div class="info">
-    {#if page}{@const Icon =
-        page.page_type === "sequence" ? Route : FileText}<span class="icon"
-        ><Icon size={18} /></span
-      ><span class="name">{page.name}</span><button class="id" onclick={copy}
-        ><span>{page.id}</span>{#if copied}<Check size={12} />{:else}<Copy
-            size={12}
-          />{/if}</button
-      >{:else}<span class="name muted">No page selected</span>{/if}
+    {#if page}
+      {@const Icon = page.page_type === "sequence" ? Route : FileText}
+      <span class="icon">
+        <Icon size={18} />
+      </span>
+
+      <span class="name">{page.name}</span>
+
+      <button class="id" onclick={copy}>
+        <span>{page.id}</span>
+        {#if copied}
+          <Check size={12} />
+        {:else}
+          <Copy size={12} />
+        {/if}
+      </button>
+    {:else}
+      <span class="name muted">No page selected</span>
+    {/if}
   </div>
+
   <div class="actions">
-    <div class="connection"><span></span>Online</div>
+    <button class="search" type="button">
+      <Search size={14} />
+      <span>Add entry...</span>
+    </button>
+
     <button
       class="btn-brutalist publish"
       class:active={published}
       onclick={() => (published = !published)}
-      >{published ? "Published" : "Staging"}</button
     >
+      {published ? "Published" : "Staging"}
+    </button>
   </div>
 </header>
 
@@ -46,30 +66,35 @@
     border-bottom: 2px solid var(--accent);
     background: var(--surface);
   }
+
   .info,
-  .actions,
-  .connection {
+  .actions {
     display: flex;
     align-items: center;
   }
+
   .info {
     gap: 12px;
   }
+
   .actions {
     gap: 20px;
   }
+
   .icon {
     display: flex;
     color: var(--accent);
   }
+
   .name {
     font-size: 14px;
     font-weight: 700;
   }
-  .muted,
-  .connection {
+
+  .muted {
     color: var(--text-muted);
   }
+
   .id {
     display: inline-flex;
     align-items: center;
@@ -84,21 +109,38 @@
       monospace;
     cursor: pointer;
   }
+
   .id:hover {
     color: var(--text);
     background: rgba(0, 0, 0, 0.12);
   }
-  .connection {
+
+  .search {
+    display: flex;
+    align-items: center;
     gap: 8px;
-    font-size: 13px;
-    font-weight: 600;
+    width: 180px;
+    height: 30px;
+    padding: 0 10px;
+
+    border: 1px solid var(--border-muted);
+    border-radius: 5px;
+
+    background: var(--surface-raised);
+    color: var(--text-muted);
+
+    font-size: 12px;
+    font-weight: 500;
+    text-align: left;
+
+    cursor: pointer;
   }
-  .connection span {
-    width: 10px;
-    height: 10px;
-    border: 1px solid var(--border);
-    background: var(--success);
+
+  .search:hover {
+    border-color: var(--accent);
+    color: var(--accent);
   }
+
   .publish {
     min-width: 95px;
     min-height: 34px;

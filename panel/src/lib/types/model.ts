@@ -20,6 +20,8 @@ export interface Entry extends EntryData {
 
 export type PageType = "sequence" | "static";
 
+export const PAGE_TYPES: PageType[] = ["sequence", "static"];
+
 export interface PageInfo {
   id: string;
   name: string;
@@ -35,6 +37,7 @@ export function displayName(entry: Entry): string {
 
 export function defaultValue(value: Value): Value {
   if (value === "null") return "null";
+
   if ("text" in value) return { text: "" };
   if ("enum" in value) return { enum: "" };
   if ("reference" in value) return { reference: "" };

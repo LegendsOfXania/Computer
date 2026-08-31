@@ -15,6 +15,7 @@ class AppStore {
   private readonly order = new SvelteMap<string, string[]>();
   private readonly requested = new Set<string>();
   private selectedKey = $state<string | null>(null);
+  private pendingSelection: string | null = null;
 
   pages = $state<PageInfo[]>([]);
   selectedPageId = $state<string | null>(null);
@@ -54,6 +55,23 @@ class AppStore {
     this.connection.send({ type: "connect", token: "mock-token" });
   }
 
+  createPage(name: string, pageType: PageInfo["page_type"], priority: number) {
+    const pageName = name.trim();
+    if (!pageName) return;
+
+    const page: PageInfo = {
+      id: crypto.randomUUID(),
+      name: pageName,
+      page_type: pageType,
+      priority,
+    };
+
+    this.connection.send({
+      type: "create_page",
+      page,
+    });
+  }
+
   selectPage(pageId: string) {
     if (pageId === this.selectedPageId) return;
     if (!this.pages.some((p) => p.id === pageId)) return;
@@ -72,6 +90,15 @@ class AppStore {
 
   openReference(key: string) {
     if (!key) return;
+
+    const [pageId] = key.split(":");
+
+    if (pageId !== this.selectedPageId) {
+      this.pendingSelection = key;
+      this.selectPage(pageId);
+      return;
+    }
+
     this.selectedKey = key;
     this.requestEntry(key);
   }
@@ -92,12 +119,10 @@ class AppStore {
     });
   }
 
-  // Lecture pure, sans effet de bord — utilisable dans un template/$derived.
   getEntryData(key: string): Entry | undefined {
     return key ? this.cache.get(key) : undefined;
   }
 
-  // Effet de bord — à appeler depuis un $effect ou un handler, jamais pendant le rendu.
   requestEntry(key: string) {
     if (!key || this.cache.has(key) || this.requested.has(key)) return;
 
@@ -118,6 +143,8 @@ class AppStore {
         if (!this.pages.some((p) => p.id === message.page.id)) {
           this.pages = [...this.pages, message.page];
         }
+
+        this.selectPage(message.page.id);
         break;
 
       case "page_deleted":
@@ -220,6 +247,13 @@ class AppStore {
       this.order.set(pageId, ids);
     } catch {
       this.order.set(pageId, []);
+    }
+
+    if (this.pendingSelection?.startsWith(`${pageId}:`)) {
+      const key = this.pendingSelection;
+      this.pendingSelection = null;
+      this.selectedKey = key;
+      this.requestEntry(key);
     }
   }
 }

@@ -1,7 +1,11 @@
 <script lang="ts">
   import { Plus, Route, FileText } from "lucide-svelte";
   import { appStore } from "$lib/stores/app.svelte";
+  import CreatePage from "./dialog/CreatePage.svelte";
+
   let { hover = $bindable(false) } = $props<{ hover?: boolean }>();
+
+  let createOpen = $state(false);
 </script>
 
 <aside
@@ -11,27 +15,42 @@
 >
   <div class="content">
     <div class="pages-header">
-      <span>PAGES</span><button
+      <span>PAGES</span>
+
+      <button
         type="button"
         class="btn-brutalist create"
-        title="Create page"><Plus size={16} /></button
+        title="Create page"
+        aria-label="Create page"
+        onclick={() => (createOpen = true)}
       >
+        <Plus size={16} />
+      </button>
     </div>
+
     <div class="pages">
-      {#each appStore.pages as page (page.id)}{@const Icon =
-          page.page_type === "sequence" ? Route : FileText}<button
+      {#each appStore.pages as page (page.id)}
+        {@const Icon = page.page_type === "sequence" ? Route : FileText}
+
+        <button
           type="button"
           class:selected={page.id === appStore.selectedPageId}
           class="page"
           onclick={() => appStore.selectPage(page.id)}
           title={page.name}
-          ><span class="icon"><Icon size={16} /></span><span class="name"
-            >{page.name}</span
-          ></button
-        >{/each}
+        >
+          <span class="icon">
+            <Icon size={16} />
+          </span>
+
+          <span class="name">{page.name}</span>
+        </button>
+      {/each}
     </div>
   </div>
 </aside>
+
+<CreatePage bind:open={createOpen} />
 
 <style>
   .sidebar {
@@ -45,14 +64,18 @@
       cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 100;
   }
+
   .sidebar:hover {
     width: var(--sidebar-width-expanded);
   }
+
   .content {
     width: var(--sidebar-width-expanded);
     padding: 32px 10px;
   }
+
   .pages-header {
+    position: relative;
     height: 32px;
     display: flex;
     align-items: center;
@@ -64,26 +87,31 @@
     font-weight: 800;
     letter-spacing: 0.12em;
   }
+
   .pages-header > span,
   .name {
     opacity: 0;
     white-space: nowrap;
     transition: opacity 0.2s;
   }
+
   .sidebar:hover .pages-header > span,
   .sidebar:hover .name {
     opacity: 1;
   }
+
   .create {
     width: 28px;
     height: 28px;
     padding: 0;
   }
+
   .pages {
     display: flex;
     flex-direction: column;
     gap: 4px;
   }
+
   .page {
     display: flex;
     align-items: center;
@@ -97,14 +125,17 @@
     text-align: left;
     cursor: pointer;
   }
+
   .page:hover {
     background: rgba(0, 0, 0, 0.05);
     color: var(--text);
   }
+
   .page.selected {
     background: var(--accent);
     color: var(--on-accent);
   }
+
   .icon {
     display: grid;
     place-items: center;
@@ -112,6 +143,7 @@
     height: 30px;
     flex: 0 0 auto;
   }
+
   .name {
     overflow: hidden;
     text-overflow: ellipsis;

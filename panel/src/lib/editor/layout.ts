@@ -23,15 +23,37 @@ export function layoutStaticEntries(entries: Entry[]) {
   };
 }
 
-export function layoutSequenceEntries(pageId: string, entries: Entry[]) {
+export function layoutSequenceEntries(
+  pageId: string,
+  entries: Entry[],
+  resolveExternal: (key: string) => string,
+) {
   const ids = new Set(entries.map((entry) => entry.id));
 
-  const outgoing = new Map(
-    entries.map((entry) => [
-      entry.id,
-      references(pageId, entry).filter((entryId) => ids.has(entryId)),
-    ]),
-  );
+  const outgoing = new Map<string, string[]>();
+  const external = new Map<string, string[]>();
+
+  for (const entry of entries) {
+    const local: string[] = [];
+    const ext: string[] = [];
+
+    for (const key of references(entry)) {
+      const separator = key.indexOf(":");
+      if (separator === -1) continue;
+
+      const refPageId = key.slice(0, separator);
+      const refEntryId = key.slice(separator + 1);
+
+      if (refPageId === pageId && ids.has(refEntryId)) {
+        local.push(refEntryId);
+      } else {
+        ext.push(key);
+      }
+    }
+
+    outgoing.set(entry.id, local);
+    external.set(entry.id, ext);
+  }
 
   const indegree = new Map(entries.map((entry) => [entry.id, 0]));
 
@@ -107,35 +129,44 @@ export function layoutSequenceEntries(pageId: string, entries: Entry[]) {
       id: `${entry.id}->${target}`,
       source: entry.id,
       target,
+      selectable: false,
+    })),
+  );
+
+  const maxRank = Math.max(0, ...[...rank.values()]);
+  const externalX = (maxRank + 1) * X;
+  const externalKeys = [...new Set([...external.values()].flat())];
+
+  const externalNodes: Node[] = externalKeys.map((key, index) => ({
+    id: key,
+    type: "default",
+    class: "external",
+    position: { x: externalX, y: index * Y },
+    targetPosition: Position.Left,
+    draggable: false,
+    data: {
+      label: resolveExternal(key),
+    },
+  }));
+
+  const externalEdges: Edge[] = entries.flatMap((entry) =>
+    (external.get(entry.id) ?? []).map((key) => ({
+      id: `${entry.id}->${key}`,
+      source: entry.id,
+      target: key,
+      selectable: false,
+      style: "stroke-dasharray: 4;",
     })),
   );
 
   return {
-    nodes,
-    edges,
+    nodes: [...nodes, ...externalNodes],
+    edges: [...edges, ...externalEdges],
   };
 }
 
-function references(pageId: string, entry: Entry): string[] {
-  return Object.values(entry.fields)
-    .flatMap(collect)
-    .filter((entryKey) => {
-      if (!entryKey) {
-        return false;
-      }
-
-      const separator = entryKey.indexOf(":");
-
-      if (separator === -1) {
-        return false;
-      }
-
-      const referencePageId = entryKey.slice(0, separator);
-      const referenceEntryId = entryKey.slice(separator + 1);
-
-      return referencePageId === pageId && referenceEntryId.length > 0;
-    })
-    .map((entryKey) => entryKey.slice(entryKey.indexOf(":") + 1));
+function references(entry: Entry): string[] {
+  return Object.values(entry.fields).flatMap(collect);
 }
 
 function collect(value: Value): string[] {

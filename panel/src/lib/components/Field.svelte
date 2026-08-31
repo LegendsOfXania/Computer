@@ -8,10 +8,12 @@
     label = "",
     value,
     onchange,
+    options = [],
   }: {
     label?: string;
     value: Value;
     onchange: (value: Value) => void;
+    options?: string[];
   } = $props();
 
   let expanded = $state(false);
@@ -27,71 +29,104 @@
   );
 
   $effect(() => {
-    if (reference && !target) appStore.requestEntry(reference);
+    if (reference && !target) {
+      appStore.requestEntry(reference);
+    }
   });
 
-  const scalar = (v: Value) =>
-    v === "null"
-      ? ""
-      : typeof v === "object" && v
-        ? "text" in v
-          ? v.text
-          : "enum" in v
-            ? v.enum
-            : "integer" in v
-              ? String(v.integer)
-              : "float" in v
-                ? String(v.float)
-                : ""
-        : "";
+  function scalar(value: Value): string {
+    if (value === "null") {
+      return "";
+    }
 
-  const numeric = (v: Value) =>
-    typeof v === "object" && v && ("integer" in v || "float" in v);
+    if (typeof value !== "object" || value === null) {
+      return "";
+    }
+
+    if ("text" in value) {
+      return value.text;
+    }
+
+    if ("enum" in value) {
+      return value.enum;
+    }
+
+    if ("integer" in value) {
+      return String(value.integer);
+    }
+
+    if ("float" in value) {
+      return String(value.float);
+    }
+
+    return "";
+  }
+
+  function numeric(value: Value): boolean {
+    return (
+      typeof value === "object" &&
+      value !== null &&
+      ("integer" in value || "float" in value)
+    );
+  }
 
   function update(raw: string) {
-    if (typeof value === "object" && value) {
+    if (typeof value === "object" && value !== null) {
       if ("integer" in value) {
-        const n = Number.parseInt(raw, 10);
-        onchange({ integer: Number.isNaN(n) ? 0 : n });
+        const number = Number.parseInt(raw, 10);
+
+        onchange({
+          integer: Number.isNaN(number) ? 0 : number,
+        });
+
         return;
       }
 
       if ("float" in value) {
-        const n = Number.parseFloat(raw);
-        onchange({ float: Number.isNaN(n) ? 0 : n });
+        const number = Number.parseFloat(raw);
+
+        onchange({
+          float: Number.isNaN(number) ? 0 : number,
+        });
+
         return;
       }
 
       if ("enum" in value) {
-        onchange({ enum: raw });
+        onchange({
+          enum: raw,
+        });
+
         return;
       }
     }
 
-    onchange({ text: raw });
+    onchange({
+      text: raw,
+    });
   }
 
-  function updateList(i: number, v: Value) {
-    if (typeof value === "object" && value && "list" in value) {
+  function updateList(index: number, next: Value) {
+    if (typeof value === "object" && value !== null && "list" in value) {
       onchange({
-        list: value.list.map((x, n) => (n === i ? v : x)),
+        list: value.list.map((item, i) => (i === index ? next : item)),
       });
     }
   }
 
-  function updateStruct(k: string, v: Value) {
-    if (typeof value === "object" && value && "struct" in value) {
+  function updateStruct(key: string, next: Value) {
+    if (typeof value === "object" && value !== null && "struct" in value) {
       onchange({
         struct: {
           ...value.struct,
-          [k]: v,
+          [key]: next,
         },
       });
     }
   }
 
   function add() {
-    if (typeof value === "object" && value && "list" in value) {
+    if (typeof value === "object" && value !== null && "list" in value) {
       onchange({
         list: [...value.list, defaultValue(value.list[0] ?? { text: "" })],
       });
@@ -100,16 +135,16 @@
     }
   }
 
-  function remove(i: number) {
-    if (typeof value === "object" && value && "list" in value) {
+  function remove(index: number) {
+    if (typeof value === "object" && value !== null && "list" in value) {
       onchange({
-        list: value.list.filter((_, n) => n !== i),
+        list: value.list.filter((_, i) => i !== index),
       });
     }
   }
 </script>
 
-{#if typeof value === "object" && value && "list" in value}
+{#if typeof value === "object" && value !== null && "list" in value}
   <div class="field">
     <div class="list-header">
       <button
@@ -127,22 +162,29 @@
         <span class="muted">({value.list.length})</span>
       </button>
 
-      <button type="button" class="list-add" onclick={add} title="Add item">
+      <button
+        type="button"
+        class="list-add"
+        onclick={add}
+        title="Add item"
+        aria-label="Add item"
+      >
         <Plus size={14} />
       </button>
     </div>
 
-    {#if expanded && value.list.length}
+    {#if expanded && value.list.length > 0}
       <div class="nested">
         {#each value.list as item, i (i)}
           <div class="list-item">
-            <Field value={item} onchange={(v) => updateList(i, v)} />
+            <Field value={item} onchange={(next) => updateList(i, next)} />
 
             <button
               type="button"
               class="remove"
               onclick={() => remove(i)}
               title="Remove item"
+              aria-label="Remove item"
             >
               <X size={14} />
             </button>
@@ -151,7 +193,7 @@
       </div>
     {/if}
   </div>
-{:else if typeof value === "object" && value && "struct" in value}
+{:else if typeof value === "object" && value !== null && "struct" in value}
   <div class="field">
     {#if label}
       <span class="field-label">{label}</span>
@@ -162,7 +204,7 @@
         <Field
           label={key}
           value={nested}
-          onchange={(v) => updateStruct(key, v)}
+          onchange={(next) => updateStruct(key, next)}
         />
       {/each}
     </div>
@@ -191,13 +233,13 @@
           {displayName(target)}
         </span>
       {:else if reference}
-        <span class="name muted"> Chargement... </span>
+        <span class="name muted">Chargement...</span>
       {:else}
-        <span class="name muted"> Aucune référence </span>
+        <span class="name muted">Aucune référence</span>
       {/if}
     </button>
   </div>
-{:else if typeof value === "object" && value && "boolean" in value}
+{:else if typeof value === "object" && value !== null && "boolean" in value}
   <div class="field">
     {#if label}
       <span class="field-label">{label}</span>
@@ -207,14 +249,35 @@
       <input
         type="checkbox"
         checked={value.boolean}
-        onchange={(e) =>
+        onchange={(event) => {
           onchange({
-            boolean: (e.currentTarget as HTMLInputElement).checked,
-          })}
+            boolean: event.currentTarget.checked,
+          });
+        }}
       />
 
       <span>{value.boolean ? "True" : "False"}</span>
     </label>
+  </div>
+{:else if typeof value === "object" && value !== null && "enum" in value && options.length > 0}
+  <div class="field">
+    {#if label}
+      <span class="field-label">{label}</span>
+    {/if}
+
+    <select
+      class="field-box"
+      value={value.enum}
+      onchange={(event) => {
+        onchange({
+          enum: event.currentTarget.value,
+        });
+      }}
+    >
+      {#each options as option}
+        <option value={option}>{option}</option>
+      {/each}
+    </select>
   </div>
 {:else}
   <div class="field">
@@ -225,13 +288,15 @@
     <input
       class="field-box"
       type={numeric(value) ? "number" : "text"}
-      step={typeof value === "object" && value && "float" in value
+      step={typeof value === "object" && value !== null && "float" in value
         ? "any"
         : undefined}
       value={scalar(value)}
       disabled={value === "null"}
       placeholder="—"
-      oninput={(e) => update((e.currentTarget as HTMLInputElement).value)}
+      oninput={(event) => {
+        update(event.currentTarget.value);
+      }}
     />
   </div>
 {/if}
@@ -272,6 +337,7 @@
   .reference {
     width: 100%;
     min-height: 36px;
+    box-sizing: border-box;
     padding: 0 10px;
     border: 1px solid var(--border-muted);
     border-radius: var(--radius);

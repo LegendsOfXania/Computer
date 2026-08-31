@@ -16,6 +16,20 @@
 
   let expanded = $state(false);
 
+  const reference = $derived(
+    typeof value === "object" && value && "reference" in value
+      ? value.reference
+      : undefined,
+  );
+
+  const target = $derived(
+    reference ? appStore.getEntryData(reference) : undefined,
+  );
+
+  $effect(() => {
+    if (reference && !target) appStore.requestEntry(reference);
+  });
+
   const scalar = (v: Value) =>
     v === "null"
       ? ""
@@ -153,21 +167,19 @@
       {/each}
     </div>
   </div>
-{:else if typeof value === "object" && value && "reference" in value}
-  {@const target = value.reference
-    ? appStore.getEntryData(value.reference)
-    : undefined}
-
+{:else if reference !== undefined}
   <div class="field">
     {#if label}
       <span class="field-label">{label}</span>
     {/if}
 
-    {#if value.reference}
-      {@const _ = appStore.getEntryData(value.reference)}
-    {/if}
-
-    <div class:broken={!!value.reference && !target} class="reference">
+    <button
+      type="button"
+      class="reference"
+      class:broken={!!reference && !target}
+      disabled={!reference}
+      onclick={() => reference && appStore.openReference(reference)}
+    >
       {#if target}
         <span class="dot"></span>
 
@@ -178,12 +190,12 @@
         <span class="name">
           {displayName(target)}
         </span>
-      {:else if value.reference}
+      {:else if reference}
         <span class="name muted"> Chargement... </span>
       {:else}
         <span class="name muted"> Aucune référence </span>
       {/if}
-    </div>
+    </button>
   </div>
 {:else if typeof value === "object" && value && "boolean" in value}
   <div class="field">
@@ -427,6 +439,17 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .reference:disabled {
+    cursor: default;
+  }
+
+  .reference:not(:disabled):hover {
+    border-color: var(--accent);
   }
 
   .dot {

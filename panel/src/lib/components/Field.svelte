@@ -61,10 +61,6 @@
   });
 
   function scalar(value: Value): string {
-    if (value === "null") {
-      return "";
-    }
-
     if (typeof value !== "object" || value === null) {
       return "";
     }
@@ -327,7 +323,6 @@
         ? "any"
         : undefined}
       value={scalar(value)}
-      disabled={value === "null"}
       placeholder="—"
       oninput={(event) => {
         update(event.currentTarget.value);

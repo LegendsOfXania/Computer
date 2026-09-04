@@ -1,15 +1,18 @@
 <script lang="ts">
-  import { Plus, Route, FileText, Pencil } from "lucide-svelte";
+  import { Plus, Route, FileText, Pencil, Trash2 } from "lucide-svelte";
   import { appStore } from "$lib/stores/app.svelte";
   import type { PageInfo } from "$lib/types/model";
-  import CreatePage from "./dialogs/CreatePage.svelte";
+  import PageDialog from "./dialogs/Page.svelte";
+  import ConfirmDialog from "./dialogs/Confirm.svelte";
 
   let { hover = $bindable(false) } = $props<{ hover?: boolean }>();
 
   let dialogOpen = $state(false);
   let editingPage = $state<PageInfo | null>(null);
 
-  // État pour le menu contextuel
+  let confirmDialogOpen = $state(false);
+  let pageToDelete = $state<PageInfo | null>(null);
+
   let contextMenu = $state<{
     visible: boolean;
     x: number;
@@ -21,6 +24,8 @@
     y: 0,
     page: null,
   });
+
+  const expanded = $derived(hover || contextMenu.visible);
 
   function openCreate() {
     editingPage = null;
@@ -48,12 +53,28 @@
     }
     closeContextMenu();
   }
+
+  function triggerDelete() {
+    if (contextMenu.page) {
+      pageToDelete = contextMenu.page;
+      confirmDialogOpen = true;
+    }
+    closeContextMenu();
+  }
+
+  function handleConfirmDelete() {
+    if (pageToDelete) {
+      appStore.removePage(pageToDelete.id);
+      pageToDelete = null;
+    }
+  }
 </script>
 
 <svelte:window onclick={closeContextMenu} />
 
 <aside
   class="sidebar"
+  class:expanded
   onmouseenter={() => (hover = true)}
   onmouseleave={() => (hover = false)}
 >
@@ -113,12 +134,31 @@
       onclick={triggerEdit}
     >
       <Pencil size={14} />
-      <span>Éditer</span>
+      <span>Edit</span>
+    </button>
+
+    <button
+      type="button"
+      class="context-menu-item"
+      role="menuitem"
+      onclick={triggerDelete}
+    >
+      <Trash2 size={14} />
+      <span>Delete</span>
     </button>
   </div>
 {/if}
 
-<CreatePage bind:open={dialogOpen} page={editingPage} />
+<PageDialog bind:open={dialogOpen} page={editingPage} />
+
+<ConfirmDialog
+  bind:open={confirmDialogOpen}
+  title="Delete Page"
+  message={`Are you sure you want to delete "${pageToDelete?.name ?? ""}"?`}
+  confirmLabel="Delete"
+  danger={true}
+  onconfirm={handleConfirmDelete}
+/>
 
 <style>
   .sidebar {
@@ -133,7 +173,7 @@
     z-index: 100;
   }
 
-  .sidebar:hover {
+  .sidebar.expanded {
     width: var(--sidebar-width-expanded);
   }
 
@@ -163,8 +203,8 @@
     transition: opacity 0.2s;
   }
 
-  .sidebar:hover .pages-header > span,
-  .sidebar:hover .name {
+  .sidebar.expanded .pages-header > span,
+  .sidebar.expanded .name {
     opacity: 1;
   }
 
@@ -219,7 +259,6 @@
     font-weight: 700;
   }
 
-  /* Styles du menu contextuel */
   .context-menu {
     position: fixed;
     z-index: 1000;

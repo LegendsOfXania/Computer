@@ -1,5 +1,4 @@
 export type Value =
-  | "null"
   | { integer: number }
   | { float: number }
   | { boolean: boolean }
@@ -24,7 +23,6 @@ export interface ReferenceSchema {
 }
 
 export type Schema =
-  | "null"
   | "integer"
   | "float"
   | "boolean"
@@ -71,8 +69,6 @@ export function displayName(entry: Entry): string {
 }
 
 export function defaultValue(value: Value): Value {
-  if (value === "null") return "null";
-
   if ("text" in value) return { text: "" };
   if ("enum" in value) return { enum: "" };
   if ("reference" in value) return { reference: "" };
@@ -92,7 +88,6 @@ export function defaultValue(value: Value): Value {
 }
 
 export function defaultSchema(schema: Schema): Value {
-  if (schema === "null") return "null";
   if (schema === "text") return { text: "" };
   if (schema === "integer") return { integer: 0 };
   if (schema === "float") return { float: 0 };

@@ -250,7 +250,7 @@ class AppStore {
     if (this.selectedKey === key) this.selectedKey = null;
   }
 
-  private removePage(pageId: string) {
+  removePage(pageId: string) {
     this.pages = this.pages.filter((p) => p.id !== pageId);
     this.order.delete(pageId);
 

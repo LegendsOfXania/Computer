@@ -8,9 +8,11 @@
   } from "$lib/editor/layout";
   import { appStore } from "$lib/stores/app.svelte";
   import { displayName } from "$lib/types/model";
+  import EntrySearch from "./dialogs/EntrySearch.svelte";
 
   let nodes = $state.raw<Node[]>([]);
   let edges = $state.raw<Edge[]>([]);
+  let createEntryOpen = $state(false);
 
   function externalLabel(key: string): string {
     appStore.requestEntry(key);
@@ -83,10 +85,14 @@
   {#if nodes.length === 0 && appStore.selectedPage}
     <div class="empty">
       <span>There's not much here...</span>
-      <button type="button">Add entry</button>
+      <button type="button" onclick={() => (createEntryOpen = true)}>
+        Add entry
+      </button>
     </div>
   {/if}
 </div>
+
+<EntrySearch bind:open={createEntryOpen} />
 
 <style>
   .editor {

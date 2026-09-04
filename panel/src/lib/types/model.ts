@@ -56,6 +56,14 @@ export interface PageInfo {
   priority: number;
 }
 
+export function formatEntryTypeName(entryType: string): string {
+  const words = entryType
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1));
+
+  return `${words.join(" ")} Entry`;
+}
+
 export function displayName(entry: Entry): string {
   const value = entry.fields.name;
 

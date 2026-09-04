@@ -317,7 +317,7 @@ export const entryDefinitions: Record<string, EntryDefinition> = {
 
   quest: {
     entry_type: "quest",
-    tags: ["manifest"],
+    tags: ["sequence"],
     fields: [
       { name: "name", schema: "text" },
       { name: "description", schema: "text" },
@@ -331,7 +331,7 @@ export const entryDefinitions: Record<string, EntryDefinition> = {
 
   setting_integer: {
     entry_type: "setting_integer",
-    tags: [],
+    tags: ["static"],
     fields: [
       { name: "name", schema: "text" },
       { name: "value", schema: "integer" },
@@ -340,7 +340,7 @@ export const entryDefinitions: Record<string, EntryDefinition> = {
 
   setting_text: {
     entry_type: "setting_text",
-    tags: [],
+    tags: ["static"],
     fields: [
       { name: "name", schema: "text" },
       { name: "value", schema: "text" },
@@ -349,7 +349,7 @@ export const entryDefinitions: Record<string, EntryDefinition> = {
 
   setting_boolean: {
     entry_type: "setting_boolean",
-    tags: [],
+    tags: ["static"],
     fields: [
       { name: "name", schema: "text" },
       { name: "value", schema: "boolean" },
@@ -358,7 +358,7 @@ export const entryDefinitions: Record<string, EntryDefinition> = {
 
   setting_enum: {
     entry_type: "setting_enum",
-    tags: [],
+    tags: ["static"],
     fields: [
       { name: "name", schema: "text" },
       {
@@ -370,7 +370,7 @@ export const entryDefinitions: Record<string, EntryDefinition> = {
 
   setting_reference: {
     entry_type: "setting_reference",
-    tags: [],
+    tags: ["static"],
     fields: [
       { name: "name", schema: "text" },
       { name: "value", schema: { reference: { tags: [] } } },

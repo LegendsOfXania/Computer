@@ -1,10 +1,12 @@
 <script lang="ts">
   import { Copy, Check, Route, FileText, Search } from "lucide-svelte";
   import { appStore } from "$lib/stores/app.svelte";
+  import EntrySearch from "./dialogs/EntrySearch.svelte";
 
   let page = $derived(appStore.selectedPage),
     published = $state(false),
-    copied = $state(false);
+    copied = $state(false),
+    createEntryOpen = $state(false);
 
   async function copy() {
     if (!page) return;
@@ -41,7 +43,12 @@
   </div>
 
   <div class="actions">
-    <button class="search" type="button">
+    <button
+      class="search"
+      type="button"
+      disabled={!page}
+      onclick={() => (createEntryOpen = true)}
+    >
       <Search size={14} />
       <span>Add entry...</span>
     </button>
@@ -55,6 +62,8 @@
     </button>
   </div>
 </header>
+
+<EntrySearch bind:open={createEntryOpen} />
 
 <style>
   .header {
@@ -139,6 +148,13 @@
   .search:hover {
     border-color: var(--accent);
     color: var(--accent);
+  }
+
+  .search:disabled {
+    opacity: 0.5;
+    cursor: default;
+    border-color: var(--border-muted);
+    color: var(--text-muted);
   }
 
   .publish {

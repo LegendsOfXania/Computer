@@ -1,12 +1,56 @@
 <script lang="ts">
-  import { Plus, Route, FileText } from "lucide-svelte";
+  import { Plus, Route, FileText, Pencil } from "lucide-svelte";
   import { appStore } from "$lib/stores/app.svelte";
+  import type { PageInfo } from "$lib/types/model";
   import CreatePage from "./dialogs/CreatePage.svelte";
 
   let { hover = $bindable(false) } = $props<{ hover?: boolean }>();
 
-  let createOpen = $state(false);
+  let dialogOpen = $state(false);
+  let editingPage = $state<PageInfo | null>(null);
+
+  // État pour le menu contextuel
+  let contextMenu = $state<{
+    visible: boolean;
+    x: number;
+    y: number;
+    page: PageInfo | null;
+  }>({
+    visible: false,
+    x: 0,
+    y: 0,
+    page: null,
+  });
+
+  function openCreate() {
+    editingPage = null;
+    dialogOpen = true;
+  }
+
+  function handleContextMenu(event: MouseEvent, page: PageInfo) {
+    event.preventDefault();
+    contextMenu = {
+      visible: true,
+      x: event.clientX,
+      y: event.clientY,
+      page,
+    };
+  }
+
+  function closeContextMenu() {
+    contextMenu.visible = false;
+  }
+
+  function triggerEdit() {
+    if (contextMenu.page) {
+      editingPage = contextMenu.page;
+      dialogOpen = true;
+    }
+    closeContextMenu();
+  }
 </script>
+
+<svelte:window onclick={closeContextMenu} />
 
 <aside
   class="sidebar"
@@ -22,7 +66,7 @@
         class="btn-brutalist create"
         title="Create page"
         aria-label="Create page"
-        onclick={() => (createOpen = true)}
+        onclick={openCreate}
       >
         <Plus size={16} />
       </button>
@@ -37,6 +81,7 @@
           class:selected={page.id === appStore.selectedPageId}
           class="page"
           onclick={() => appStore.selectPage(page.id)}
+          oncontextmenu={(event) => handleContextMenu(event, page)}
           title={page.name}
         >
           <span class="icon">
@@ -50,7 +95,30 @@
   </div>
 </aside>
 
-<CreatePage bind:open={createOpen} />
+{#if contextMenu.visible}
+  <div
+    class="context-menu"
+    role="menu"
+    tabindex="-1"
+    style="top: {contextMenu.y}px; left: {contextMenu.x}px;"
+    onclick={(e) => e.stopPropagation()}
+    onkeydown={(e) => {
+      if (e.key === "Escape") closeContextMenu();
+    }}
+  >
+    <button
+      type="button"
+      class="context-menu-item"
+      role="menuitem"
+      onclick={triggerEdit}
+    >
+      <Pencil size={14} />
+      <span>Éditer</span>
+    </button>
+  </div>
+{/if}
+
+<CreatePage bind:open={dialogOpen} page={editingPage} />
 
 <style>
   .sidebar {
@@ -149,5 +217,38 @@
     text-overflow: ellipsis;
     font-size: 13px;
     font-weight: 700;
+  }
+
+  /* Styles du menu contextuel */
+  .context-menu {
+    position: fixed;
+    z-index: 1000;
+    background: var(--surface);
+    border: 2px solid var(--accent);
+    border-radius: var(--radius);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    padding: 4px;
+    min-width: 120px;
+  }
+
+  .context-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 10px;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    border-radius: calc(var(--radius) - 2px);
+  }
+
+  .context-menu-item:hover {
+    background: var(--accent);
+    color: var(--on-accent);
   }
 </style>

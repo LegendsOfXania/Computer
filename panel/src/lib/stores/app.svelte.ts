@@ -80,6 +80,31 @@ class AppStore {
     });
   }
 
+  createEntry(entryType: string, fields: Record<string, Value>): string | null {
+    const pageId = this.selectedPageId;
+    if (!pageId) return null;
+
+    const key = entryKey(pageId, crypto.randomUUID());
+
+    this.connection.send({
+      type: "create_entry",
+      entry_key: key,
+      data: { entry_type: entryType, fields },
+    });
+
+    return key;
+  }
+
+  editPage(pageId: string, name: string, priority: number) {
+    const page = this.pages.find((p) => p.id === pageId);
+    if (!page) return;
+
+    this.connection.send({
+      type: "edit_page",
+      page: { ...page, name, priority },
+    });
+  }
+
   selectPage(pageId: string) {
     if (pageId === this.selectedPageId) return;
     if (!this.pages.some((p) => p.id === pageId)) return;

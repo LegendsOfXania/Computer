@@ -3,13 +3,20 @@
   import { appStore } from "$lib/stores/app.svelte";
   import {
     PAGE_TYPES,
+    type PageInfo,
     type PageType,
     type Schema,
     type Value,
   } from "$lib/types/model";
   import Field from "../Field.svelte";
 
-  let { open = $bindable(false) } = $props<{ open?: boolean }>();
+  let {
+    open = $bindable(false),
+    page = null,
+  }: {
+    open?: boolean;
+    page?: PageInfo | null;
+  } = $props();
 
   let name = $state<Value>({ text: "Nouvelle page" });
   let pageType = $state<Value>({ enum: PAGE_TYPES[0] });
@@ -17,24 +24,30 @@
 
   const pageTypeSchema: Schema = { enumeration: PAGE_TYPES };
 
+  $effect(() => {
+    if (!open) return;
+
+    if (page) {
+      name = { text: page.name };
+      pageType = { enum: page.page_type };
+      priority = { integer: page.priority };
+    } else {
+      name = { text: "Nouvelle page" };
+      pageType = { enum: PAGE_TYPES[0] };
+      priority = { integer: 0 };
+    }
+  });
+
   function close() {
     open = false;
   }
 
-  function create() {
+  function submitPage() {
     if (
       typeof name !== "object" ||
       name === null ||
       !("text" in name) ||
       !name.text.trim()
-    )
-      return;
-
-    if (
-      typeof pageType !== "object" ||
-      pageType === null ||
-      !("enum" in pageType) ||
-      !PAGE_TYPES.includes(pageType.enum as PageType)
     )
       return;
 
@@ -45,18 +58,30 @@
     )
       return;
 
-    appStore.createPage(
-      name.text.trim(),
-      pageType.enum as PageType,
-      priority.integer,
-    );
+    if (page) {
+      appStore.editPage(page.id, name.text.trim(), priority.integer);
+    } else {
+      if (
+        typeof pageType !== "object" ||
+        pageType === null ||
+        !("enum" in pageType) ||
+        !PAGE_TYPES.includes(pageType.enum as PageType)
+      )
+        return;
+
+      appStore.createPage(
+        name.text.trim(),
+        pageType.enum as PageType,
+        priority.integer,
+      );
+    }
 
     close();
   }
 
   function submit(event: SubmitEvent) {
     event.preventDefault();
-    create();
+    submitPage();
   }
 </script>
 
@@ -84,7 +109,7 @@
       tabindex="-1"
     >
       <div class="header">
-        <h2 id="create-page-title">New page</h2>
+        <h2 id="create-page-title">{page ? "Edit page" : "New page"}</h2>
 
         <button
           type="button"
@@ -100,12 +125,14 @@
       <form onsubmit={submit}>
         <Field label="Name" value={name} onchange={(value) => (name = value)} />
 
-        <Field
-          label="Type"
-          value={pageType}
-          schema={pageTypeSchema}
-          onchange={(value) => (pageType = value)}
-        />
+        {#if !page}
+          <Field
+            label="Type"
+            value={pageType}
+            schema={pageTypeSchema}
+            onchange={(value) => (pageType = value)}
+          />
+        {/if}
 
         <Field
           label="Priority"
@@ -114,7 +141,9 @@
         />
 
         <div class="actions">
-          <button type="submit" class="btn-brutalist create"> Create </button>
+          <button type="submit" class="btn-brutalist create">
+            {page ? "Save" : "Create"}
+          </button>
         </div>
       </form>
     </div>

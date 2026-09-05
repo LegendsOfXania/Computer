@@ -8,7 +8,7 @@
   } from "$lib/editor/layout";
   import { appStore } from "$lib/stores/app.svelte";
   import { displayName } from "$lib/types/model";
-  import EntrySearch from "./dialogs/EntrySearch.svelte";
+  import SearchDialog from "./dialogs/Search.svelte";
 
   let nodes = $state.raw<Node[]>([]);
   let edges = $state.raw<Edge[]>([]);
@@ -92,7 +92,10 @@
   {/if}
 </div>
 
-<EntrySearch bind:open={createEntryOpen} />
+<SearchDialog
+  bind:open={createEntryOpen}
+  fixedQuery={`!entry !new !type:${appStore.selectedPage?.page_type ?? ""}`}
+/>
 
 <style>
   .editor {

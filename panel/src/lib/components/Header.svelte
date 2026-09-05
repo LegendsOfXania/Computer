@@ -1,12 +1,16 @@
 <script lang="ts">
   import { Copy, Check, Route, FileText, Search } from "lucide-svelte";
   import { appStore } from "$lib/stores/app.svelte";
-  import EntrySearch from "./dialogs/EntrySearch.svelte";
+  import SearchDialog from "./dialogs/Search.svelte";
 
   let page = $derived(appStore.selectedPage),
     published = $state(false),
     copied = $state(false),
     createEntryOpen = $state(false);
+
+  const createEntryQuery = $derived(
+    page ? `!entry !new !type:${page.page_type}` : "",
+  );
 
   async function copy() {
     if (!page) return;
@@ -63,7 +67,7 @@
   </div>
 </header>
 
-<EntrySearch bind:open={createEntryOpen} />
+<SearchDialog bind:open={createEntryOpen} fixedQuery={createEntryQuery} />
 
 <style>
   .header {

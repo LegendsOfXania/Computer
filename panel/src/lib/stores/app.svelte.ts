@@ -58,6 +58,14 @@ class AppStore {
       : null;
   }
 
+  get allCachedEntries(): { key: string; pageId: string; entry: Entry }[] {
+    return Array.from(this.cache.entries()).map(([key, entry]) => ({
+      key,
+      pageId: key.split(":")[0],
+      entry,
+    }));
+  }
+
   constructor() {
     this.connection.subscribe((msg) => this.handleMessage(msg));
     this.connection.send({ type: "connect", token: "mock-token" });

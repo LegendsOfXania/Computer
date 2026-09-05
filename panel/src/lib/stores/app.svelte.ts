@@ -103,6 +103,52 @@ class AppStore {
     return key;
   }
 
+  deleteEntry(entryId: string) {
+    const pageId = this.selectedPageId;
+    if (!pageId) return;
+
+    this.connection.send({
+      type: "delete_entry",
+      entry_key: entryKey(pageId, entryId),
+    });
+  }
+
+  duplicateEntry(entryId: string) {
+    const pageId = this.selectedPageId;
+    const entry = pageId
+      ? this.cache.get(entryKey(pageId, entryId))
+      : undefined;
+    if (!pageId || !entry) return;
+
+    const key = this.createEntry(
+      entry.entry_type,
+      structuredClone(entry.fields),
+    );
+    if (key) this.openReference(key);
+  }
+
+  moveEntry(entryId: string, targetPageId: string) {
+    const pageId = this.selectedPageId;
+    if (!pageId || pageId === targetPageId) return;
+
+    this.connection.send({
+      type: "move_entry",
+      entry_key: entryKey(pageId, entryId),
+      target_page_id: targetPageId,
+    });
+  }
+
+  replaceEntry(entryId: string, entryType: string) {
+    const pageId = this.selectedPageId;
+    if (!pageId) return;
+
+    this.connection.send({
+      type: "replace_entry",
+      entry_key: entryKey(pageId, entryId),
+      entry_type: entryType,
+    });
+  }
+
   editPage(pageId: string, name: string, priority: number) {
     const page = this.pages.find((p) => p.id === pageId);
     if (!page) return;
@@ -224,12 +270,21 @@ class AppStore {
       }
 
       case "entry_deleted":
-        this.removeEntry(message.entry_key);
+        this.removeEntryFromCache(message.entry_key);
         break;
 
       case "entry_edited": {
         const entry = this.cache.get(message.entry_key);
         if (entry) entry.fields[message.field] = message.value;
+        break;
+      }
+
+      case "entry_replaced": {
+        const entry = this.cache.get(message.entry_key);
+        if (entry) {
+          entry.entry_type = message.data.entry_type;
+          entry.fields = message.data.fields;
+        }
         break;
       }
     }
@@ -243,7 +298,7 @@ class AppStore {
     this.requested.delete(key);
   }
 
-  private removeEntry(key: string) {
+  private removeEntryFromCache(key: string) {
     const [pageId, entryId] = key.split(":");
     this.cache.delete(key);
     this.requested.delete(key);

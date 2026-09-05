@@ -9,9 +9,19 @@
   let {
     open = $bindable(false),
     fixedQuery = "",
+    //todo remove everything under this
+    excludePageIds = [],
+    newEntriesLabel = "Create new",
+    onSelectPage,
+    onSelectType,
+    //stop here
   }: {
     open?: boolean;
     fixedQuery?: string;
+    excludePageIds?: string[];
+    newEntriesLabel?: string;
+    onSelectPage?: (id: string) => void;
+    onSelectType?: (type: string) => void;
   } = $props();
 
   let query = $state("");
@@ -24,8 +34,12 @@
 
   const results = $derived(search(parsedQuery));
 
+  const visiblePages = $derived(
+    results.pages.filter((page) => !excludePageIds.includes(page.id)),
+  );
+
   const hasResults = $derived(
-    results.pages.length > 0 ||
+    visiblePages.length > 0 ||
       results.entries.length > 0 ||
       results.newEntries.length > 0,
   );
@@ -49,7 +63,11 @@
   }
 
   function openPage(id: string) {
-    appStore.selectPage(id);
+    if (onSelectPage) {
+      onSelectPage(id);
+    } else {
+      appStore.selectPage(id);
+    }
     close();
   }
 
@@ -58,9 +76,14 @@
     close();
   }
 
-  function createEntry(type: string) {
-    const definition = appStore.entryDefinitions[type];
+  function selectType(type: string) {
+    if (onSelectType) {
+      onSelectType(type);
+      close();
+      return;
+    }
 
+    const definition = appStore.entryDefinitions[type];
     if (!definition) return;
 
     const fields = Object.fromEntries(
@@ -128,10 +151,10 @@
   </div>
 
   <div class="results">
-    {#if results.pages.length}
+    {#if visiblePages.length}
       <div class="section-label">Pages</div>
 
-      {#each results.pages as page (page.id)}
+      {#each visiblePages as page (page.id)}
         <button type="button" class="result" onclick={() => openPage(page.id)}>
           <FileText size={14} />
 
@@ -175,10 +198,10 @@
     {/if}
 
     {#if results.newEntries.length}
-      <div class="section-label">Create new</div>
+      <div class="section-label">{newEntriesLabel}</div>
 
       {#each results.newEntries as type (type)}
-        <button type="button" class="result" onclick={() => createEntry(type)}>
+        <button type="button" class="result" onclick={() => selectType(type)}>
           <Plus size={14} />
 
           <div class="result-info">

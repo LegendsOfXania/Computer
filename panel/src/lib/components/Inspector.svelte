@@ -1,14 +1,27 @@
 <script lang="ts">
-  import { Copy, Check } from "lucide-svelte";
+  import {
+    Copy,
+    Check,
+    Trash2,
+    CopyPlus,
+    FolderInput,
+    Replace,
+  } from "lucide-svelte";
   import Field from "./Field.svelte";
   import { appStore } from "$lib/stores/app.svelte";
   import { displayName } from "$lib/types/model";
+  import SearchDialog from "./dialogs/Search.svelte";
+
   let entry = $derived(appStore.selectedEntry),
     copied = $state(false),
     width = $state(320),
-    resizing = $state(false);
+    resizing = $state(false),
+    showMove = $state(false),
+    showReplace = $state(false);
+
   const min = 280,
     max = 720;
+
   async function copy() {
     if (!entry) return;
     try {
@@ -17,6 +30,7 @@
       setTimeout(() => (copied = false), 1500);
     } catch {}
   }
+
   function resize(e: PointerEvent) {
     e.preventDefault();
     resizing = true;
@@ -31,6 +45,24 @@
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
+  }
+
+  function remove() {
+    if (entry) appStore.deleteEntry(entry.id);
+  }
+
+  function duplicate() {
+    if (entry) appStore.duplicateEntry(entry.id);
+  }
+
+  function move(pageId: string) {
+    if (entry) appStore.moveEntry(entry.id, pageId);
+  }
+
+  function replace(entryType: string) {
+    if (entry && entryType !== entry.entry_type) {
+      appStore.replaceEntry(entry.id, entryType);
+    }
   }
 </script>
 
@@ -47,8 +79,10 @@
     onpointerdown={resize}
     ondblclick={() => (width = 320)}
   ></button>
-  <div class="content" style:width={`${width}px`}>
-    {#if entry}<header>
+
+  {#if entry}
+    <div class="content" style:width={`${width}px`}>
+      <header>
         <h2>{displayName(entry)}</h2>
         <div class="meta">
           <span class="type">{entry.entry_type}</span><button
@@ -60,6 +94,7 @@
           >
         </div>
       </header>
+
       <div class="fields">
         {#each Object.entries(entry.fields) as [key, value] (key)}<Field
             label={key}
@@ -67,13 +102,52 @@
             schema={appStore.fieldSchema(entry.entry_type, key)?.schema}
             onchange={(v) => appStore.updateEntryField(entry!.id, key, v)}
           />{/each}
-      </div>{/if}
-  </div>
+      </div>
+
+      <footer class="toolbar">
+        <button type="button" onclick={duplicate}>
+          <CopyPlus size={14} />
+          <span>Dupliquer</span>
+        </button>
+
+        <button type="button" onclick={() => (showMove = true)}>
+          <FolderInput size={14} />
+          <span>Déplacer</span>
+        </button>
+
+        <button type="button" onclick={() => (showReplace = true)}>
+          <Replace size={14} />
+          <span>Remplacer</span>
+        </button>
+
+        <button type="button" onclick={remove} class="danger">
+          <Trash2 size={14} />
+          <span>Supprimer</span>
+        </button>
+      </footer>
+    </div>
+  {/if}
 </aside>
+
+<SearchDialog
+  bind:open={showMove}
+  fixedQuery="!page !type:"
+  excludePageIds={appStore.selectedPageId ? [appStore.selectedPageId] : []}
+  onSelectPage={move}
+/>
+
+<SearchDialog
+  bind:open={showReplace}
+  fixedQuery="!entry !new"
+  newEntriesLabel="Remplacer par"
+  onSelectType={replace}
+/>
 
 <style>
   .inspector {
     position: relative;
+    display: flex;
+    flex-direction: column;
     flex: 0 0 auto;
     height: 100%;
     overflow: hidden;
@@ -108,9 +182,13 @@
     opacity: 0.4;
   }
   .content {
-    height: 100%;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 100%;
     overflow-y: auto;
     padding: 20px;
+    box-sizing: border-box;
   }
   header {
     margin-bottom: 20px;
@@ -157,5 +235,40 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
+  }
+  .toolbar {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    margin-top: auto;
+    padding-top: 24px;
+    border-top: 1px solid var(--border-muted);
+  }
+  .toolbar button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border: 0;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text-muted);
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+    width: 100%;
+  }
+  .toolbar button:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text);
+  }
+  .toolbar button.danger {
+    margin-left: 0;
+    color: var(--danger, #ff4d4d);
+  }
+  .toolbar button.danger:hover {
+    background: color-mix(in srgb, red 15%, transparent);
+    color: red;
   }
 </style>

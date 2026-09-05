@@ -50,6 +50,16 @@ export type ClientMessage =
       page_id: string;
     }
   | {
+      type: "move_entry";
+      entry_key: string;
+      target_page_id: string;
+    }
+  | {
+      type: "replace_entry";
+      entry_key: string;
+      entry_type: string;
+    }
+  | {
       type: "publish";
     };
 
@@ -93,6 +103,11 @@ export type ServerMessage =
   | {
       type: "entry_deleted";
       entry_key: string;
+    }
+  | {
+      type: "entry_replaced";
+      entry_key: string;
+      data: EntryData;
     }
   | {
       type: "entry_edited";

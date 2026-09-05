@@ -1,6 +1,8 @@
 import type { Entry, EntryData, PageInfo, Value } from "$lib/types/model";
+import { defaultSchema, schemaEqual } from "$lib/types/model";
 import type { ClientMessage, ServerMessage } from "./messages";
 import { entriesByPage, entryDefinitions, pages } from "./data";
+import { mapRefs, removeRefs } from "./refs";
 
 type Handler = (message: ServerMessage) => void;
 
@@ -8,6 +10,10 @@ export interface MockConnection {
   send(message: ClientMessage): void;
   subscribe(handler: Handler): () => void;
   disconnect(): void;
+}
+
+function toKey(pageId: string, entryId: string): string {
+  return `${pageId}:${entryId}`;
 }
 
 export class MockServer {
@@ -112,6 +118,14 @@ export class MockServer {
 
       case "edit_entry":
         this.editEntry(message.entry_key, message.field, message.value);
+        break;
+
+      case "move_entry":
+        this.moveEntry(message.entry_key, message.target_page_id);
+        break;
+
+      case "replace_entry":
+        this.replaceEntry(message.entry_key, message.entry_type);
         break;
 
       case "publish":
@@ -238,10 +252,41 @@ export class MockServer {
       return;
     }
 
+    this.clearRefs(pageId, entryId);
+
     this.broadcast({
       type: "entry_deleted",
       entry_key: entryKey,
     });
+  }
+
+  private clearRefs(pageId: string, entryId: string): void {
+    for (const [ownerPageId, pageEntries] of this.entries) {
+      for (const other of pageEntries.values()) {
+        for (const [field, value] of Object.entries(other.fields)) {
+          const result = removeRefs(value, (ref) => {
+            const [refPage, refId] = ref.includes(":")
+              ? ref.split(":")
+              : [ownerPageId, ref];
+
+            return refId === entryId && refPage === pageId;
+          });
+
+          if (!result.changed) {
+            continue;
+          }
+
+          other.fields[field] = result.value;
+
+          this.broadcast({
+            type: "entry_edited",
+            entry_key: toKey(ownerPageId, other.id),
+            field,
+            value: result.value,
+          });
+        }
+      }
+    }
   }
 
   private editEntry(entryKey: string, field: string, value: Value): void {
@@ -264,6 +309,119 @@ export class MockServer {
       entry_key: entryKey,
       field,
       value,
+    });
+  }
+
+  private moveEntry(entryKey: string, targetPageId: string): void {
+    const { pageId, entryId } = this.parseEntryKey(entryKey);
+
+    if (!pageId || !entryId || pageId === targetPageId) {
+      return;
+    }
+
+    const source = this.entries.get(pageId);
+    const target = this.entries.get(targetPageId);
+    const entry = source?.get(entryId);
+
+    if (!source || !target || !entry || target.has(entryId)) {
+      return;
+    }
+
+    source.delete(entryId);
+    target.set(entryId, entry);
+    this.rewriteRefs(pageId, entryId, targetPageId);
+
+    this.broadcast({
+      type: "entry_deleted",
+      entry_key: entryKey,
+    });
+
+    this.broadcast({
+      type: "entry_created",
+      entry_key: toKey(targetPageId, entryId),
+      data: { entry_type: entry.entry_type, fields: entry.fields },
+    });
+  }
+
+  private rewriteRefs(
+    fromPageId: string,
+    entryId: string,
+    toPageId: string,
+  ): void {
+    for (const [ownerPageId, pageEntries] of this.entries) {
+      for (const other of pageEntries.values()) {
+        for (const [field, value] of Object.entries(other.fields)) {
+          let changed = false;
+
+          const updated = mapRefs(value, (ref) => {
+            const [refPage, refId] = ref.includes(":")
+              ? ref.split(":")
+              : [ownerPageId, ref];
+
+            if (refId !== entryId || refPage !== fromPageId) {
+              return ref;
+            }
+
+            changed = true;
+            return ownerPageId === toPageId
+              ? entryId
+              : `${toPageId}:${entryId}`;
+          });
+
+          if (!changed) {
+            continue;
+          }
+
+          other.fields[field] = updated;
+
+          this.broadcast({
+            type: "entry_edited",
+            entry_key: toKey(ownerPageId, other.id),
+            field,
+            value: updated,
+          });
+        }
+      }
+    }
+  }
+
+  private replaceEntry(entryKey: string, entryType: string): void {
+    const { pageId, entryId } = this.parseEntryKey(entryKey);
+
+    if (!pageId || !entryId) {
+      return;
+    }
+
+    const entry = this.entries.get(pageId)?.get(entryId);
+    const definition = entryDefinitions[entryType];
+
+    if (!entry || !definition) {
+      return;
+    }
+
+    const previousDefinition = entryDefinitions[entry.entry_type];
+    const fields: Record<string, Value> = {};
+
+    for (const field of definition.fields) {
+      const previousField = previousDefinition?.fields.find(
+        (f) => f.name === field.name,
+      );
+
+      fields[field.name] =
+        previousField &&
+        schemaEqual(previousField.schema, field.schema) &&
+        field.name in entry.fields
+          ? entry.fields[field.name]
+          : defaultSchema(field.schema);
+    }
+
+    entry.entry_type = entryType;
+    entry.fields = fields;
+
+    this.broadcast({
+      type: "entry_replaced",
+      entry_key: entryKey,
+      data: { entry_type: entry.entry_type, fields: entry.fields },
     });
   }
 

@@ -4,7 +4,7 @@ import {
   type Entry,
   type PageInfo,
 } from "$lib/types/model";
-import { parseSearchQuery, valuesOf, type SearchQuery } from "./query";
+import { valuesOf, type SearchQuery } from "./query";
 
 export type SearchEntryResult = {
   key: string;

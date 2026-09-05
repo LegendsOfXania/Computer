@@ -155,6 +155,15 @@
     display: none;
   }
 
+  :global(.editor .svelte-flow__attribution) {
+    background: #000000 !important;
+    color: var(--text-muted) !important;
+  }
+
+  :global(.editor .svelte-flow__attribution a) {
+    color: inherit !important;
+  }
+
   :global(.editor .svelte-flow__edge) {
     pointer-events: none;
   }

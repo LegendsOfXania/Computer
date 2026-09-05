@@ -102,3 +102,37 @@ export function defaultSchema(schema: Schema): Value {
     ),
   };
 }
+
+export function schemaEqual(a: Schema, b: Schema): boolean {
+  if (a === b) return true;
+  if (typeof a === "string" || typeof b === "string") return false;
+
+  if ("enumeration" in a && "enumeration" in b) {
+    return (
+      a.enumeration.length === b.enumeration.length &&
+      a.enumeration.every((value, i) => value === b.enumeration[i])
+    );
+  }
+
+  if ("reference" in a && "reference" in b) {
+    return (
+      a.reference.entry_type === b.reference.entry_type &&
+      a.reference.tags.length === b.reference.tags.length &&
+      a.reference.tags.every((tag) => b.reference.tags.includes(tag))
+    );
+  }
+
+  if ("list" in a && "list" in b) return schemaEqual(a.list, b.list);
+
+  if ("struct" in a && "struct" in b) {
+    return (
+      a.struct.length === b.struct.length &&
+      a.struct.every((field) => {
+        const match = b.struct.find((f) => f.name === field.name);
+        return match !== undefined && schemaEqual(field.schema, match.schema);
+      })
+    );
+  }
+
+  return false;
+}

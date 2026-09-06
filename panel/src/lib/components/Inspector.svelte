@@ -19,6 +19,8 @@
     showMove = $state(false),
     showReplace = $state(false);
 
+  let page = $derived(appStore.selectedPage);
+
   const min = 280,
     max = 720;
 
@@ -131,15 +133,13 @@
 
 <SearchDialog
   bind:open={showMove}
-  fixedQuery="!page !type:"
-  excludePageIds={appStore.selectedPageId ? [appStore.selectedPageId] : []}
+  fixedQuery={page ? `!page !type:${page.page_type}` : "!page"}
   onSelectPage={move}
 />
 
 <SearchDialog
   bind:open={showReplace}
-  fixedQuery="!entry !new"
-  newEntriesLabel="Remplacer par"
+  fixedQuery={page ? `!entry !new !type:${page.page_type}` : "!entry !new"}
   onSelectType={replace}
 />
 

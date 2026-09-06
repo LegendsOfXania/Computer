@@ -1,6 +1,8 @@
 import type { Value } from "$lib/types/model";
 
 export function mapRefs(value: Value, fn: (ref: string) => string): Value {
+  if (value === null || typeof value !== "object") return value;
+
   if ("reference" in value) return { reference: fn(value.reference) };
 
   if ("list" in value) {
@@ -25,6 +27,10 @@ export function removeRefs(
   value: Value,
   matches: (ref: string) => boolean,
 ): { value: Value; changed: boolean } {
+  if (value === null || typeof value !== "object") {
+    return { value, changed: false };
+  }
+
   if ("reference" in value) {
     if (!matches(value.reference)) return { value, changed: false };
     return { value: { reference: "" }, changed: true };
@@ -35,7 +41,12 @@ export function removeRefs(
     const list: Value[] = [];
 
     for (const item of value.list) {
-      if ("reference" in item && matches(item.reference)) {
+      if (
+        item !== null &&
+        typeof item === "object" &&
+        "reference" in item &&
+        matches(item.reference)
+      ) {
         changed = true;
         continue;
       }

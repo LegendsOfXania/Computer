@@ -154,7 +154,7 @@
 <ConfirmDialog
   bind:open={confirmDialogOpen}
   title="Delete Page"
-  message={`Are you sure you want to delete "${pageToDelete?.name ?? ""}"?`}
+  message={`Are you sure you want to delete the page: "${pageToDelete?.name ?? ""}"? YOU WON'T BE ABLE TO REVERSE`}
   confirmLabel="Delete"
   danger={true}
   onconfirm={handleConfirmDelete}

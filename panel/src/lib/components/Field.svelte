@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { ChevronDown, ChevronRight, Plus, X } from "lucide-svelte";
+  import { ChevronDown, ChevronRight, Plus, Search, X } from "lucide-svelte";
   import Field from "./Field.svelte";
+  import SearchDialog from "./dialogs/Search.svelte";
   import { appStore } from "$lib/stores/app.svelte";
   import {
     defaultSchema,
@@ -23,6 +24,7 @@
   } = $props();
 
   let expanded = $state(false);
+  let showPicker = $state(false);
 
   const enumOptions = $derived(
     schema && typeof schema === "object" && "enumeration" in schema
@@ -54,11 +56,27 @@
     reference ? appStore.getEntryData(reference) : undefined,
   );
 
+  const referenceSchema = $derived(
+    schema && typeof schema === "object" && "reference" in schema
+      ? schema.reference
+      : undefined,
+  );
+
+  const pickerQuery = $derived(
+    referenceSchema?.tags?.length
+      ? `!entry !existing !tags:${referenceSchema.tags.join(",")}`
+      : "!entry !existing",
+  );
+
   $effect(() => {
     if (reference && !target) {
       appStore.requestEntry(reference);
     }
   });
+
+  function pickReference(key: string) {
+    onchange({ reference: key });
+  }
 
   function scalar(value: Value): string {
     if (typeof value !== "object" || value === null) {
@@ -246,29 +264,49 @@
       <span class="field-label">{label}</span>
     {/if}
 
-    <button
-      type="button"
-      class="reference"
-      class:broken={!!reference && !target}
-      disabled={!reference}
-      onclick={() => reference && appStore.openReference(reference)}
-    >
-      {#if target}
-        <span class="dot"></span>
+    <div class="reference-row">
+      <button
+        type="button"
+        class="reference"
+        class:broken={!!reference && !target}
+        disabled={!reference}
+        onclick={() => reference && appStore.openReference(reference)}
+      >
+        {#if target}
+          <span class="dot"></span>
 
-        <span class="type">
-          {target.entry_type}
-        </span>
+          <span class="type">
+            {target.entry_type}
+          </span>
 
-        <span class="name">
-          {displayName(target)}
-        </span>
-      {:else if reference}
-        <span class="name muted">Chargement...</span>
-      {:else}
-        <span class="name muted">Aucune référence</span>
-      {/if}
-    </button>
+          <span class="name">
+            {displayName(target)}
+          </span>
+        {:else if reference}
+          <span class="name muted">Chargement...</span>
+        {:else}
+          <span class="name muted">Aucune référence</span>
+        {/if}
+      </button>
+
+      <button
+        type="button"
+        class="reference-pick"
+        onclick={() => (showPicker = true)}
+        aria-label={reference
+          ? "Changer la référence"
+          : "Choisir une référence"}
+        title={reference ? "Changer la référence" : "Choisir une référence"}
+      >
+        <Search size={14} />
+      </button>
+    </div>
+
+    <SearchDialog
+      bind:open={showPicker}
+      fixedQuery={pickerQuery}
+      onSelectEntry={pickReference}
+    />
   </div>
 {:else if typeof value === "object" && value !== null && "boolean" in value}
   <div class="field">
@@ -531,10 +569,18 @@
     color: var(--danger);
   }
 
+  .reference-row {
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+  }
+
   .reference {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex: 1;
+    min-width: 0;
     font-family: inherit;
     text-align: left;
     cursor: pointer;
@@ -545,6 +591,24 @@
   }
 
   .reference:not(:disabled):hover {
+    border-color: var(--accent);
+  }
+
+  .reference-pick {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--border-muted);
+    border-radius: var(--radius);
+    background: var(--surface-raised);
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+
+  .reference-pick:hover {
+    color: var(--text);
     border-color: var(--accent);
   }
 

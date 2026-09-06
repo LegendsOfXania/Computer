@@ -1,5 +1,6 @@
 import { SvelteMap } from "svelte/reactivity";
 import { MockServer } from "$lib/protocol/mock";
+import { removeRefs } from "$lib/protocol/refs";
 import type { ServerMessage } from "$lib/protocol/messages";
 import type {
   Entry,
@@ -120,10 +121,15 @@ class AppStore {
       : undefined;
     if (!pageId || !entry) return;
 
-    const key = this.createEntry(
-      entry.entry_type,
-      structuredClone(entry.fields),
+    const cloned = structuredClone(entry.fields);
+    const fields = Object.fromEntries(
+      Object.entries(cloned).map(([field, value]) => [
+        field,
+        removeRefs(value, () => true).value,
+      ]),
     );
+
+    const key = this.createEntry(entry.entry_type, fields);
     if (key) this.openReference(key);
   }
 
@@ -275,15 +281,23 @@ class AppStore {
 
       case "entry_edited": {
         const entry = this.cache.get(message.entry_key);
-        if (entry) entry.fields[message.field] = message.value;
+        if (entry) {
+          this.cache.set(message.entry_key, {
+            ...entry,
+            fields: { ...entry.fields, [message.field]: message.value },
+          });
+        }
         break;
       }
 
       case "entry_replaced": {
         const entry = this.cache.get(message.entry_key);
         if (entry) {
-          entry.entry_type = message.data.entry_type;
-          entry.fields = message.data.fields;
+          this.cache.set(message.entry_key, {
+            ...entry,
+            entry_type: message.data.entry_type,
+            fields: message.data.fields,
+          });
         }
         break;
       }

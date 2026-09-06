@@ -261,16 +261,12 @@ export class MockServer {
   }
 
   private clearRefs(pageId: string, entryId: string): void {
+    const target = toKey(pageId, entryId);
+
     for (const [ownerPageId, pageEntries] of this.entries) {
       for (const other of pageEntries.values()) {
         for (const [field, value] of Object.entries(other.fields)) {
-          const result = removeRefs(value, (ref) => {
-            const [refPage, refId] = ref.includes(":")
-              ? ref.split(":")
-              : [ownerPageId, ref];
-
-            return refId === entryId && refPage === pageId;
-          });
+          const result = removeRefs(value, (ref) => ref === target);
 
           if (!result.changed) {
             continue;
@@ -348,24 +344,18 @@ export class MockServer {
     entryId: string,
     toPageId: string,
   ): void {
+    const source = toKey(fromPageId, entryId);
+    const target = toKey(toPageId, entryId);
+
     for (const [ownerPageId, pageEntries] of this.entries) {
       for (const other of pageEntries.values()) {
         for (const [field, value] of Object.entries(other.fields)) {
           let changed = false;
 
           const updated = mapRefs(value, (ref) => {
-            const [refPage, refId] = ref.includes(":")
-              ? ref.split(":")
-              : [ownerPageId, ref];
-
-            if (refId !== entryId || refPage !== fromPageId) {
-              return ref;
-            }
-
+            if (ref !== source) return ref;
             changed = true;
-            return ownerPageId === toPageId
-              ? entryId
-              : `${toPageId}:${entryId}`;
+            return target;
           });
 
           if (!changed) {

@@ -54,12 +54,7 @@
   <p class="message">{message}</p>
 
   <div class="actions">
-    <button
-      type="button"
-      class="btn-brutalist confirm"
-      class:danger
-      onclick={confirm}
-    >
+    <button type="button" class="btn-brutalist confirm" onclick={confirm}>
       {confirmLabel}
     </button>
   </div>
@@ -128,10 +123,5 @@
     min-height: 32px;
     padding: 0 12px;
     font-size: 13px;
-  }
-
-  .confirm.danger {
-    background: var(--danger);
-    border-color: var(--danger);
   }
 </style>

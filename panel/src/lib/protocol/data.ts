@@ -225,7 +225,6 @@ export const entriesByPage: Record<string, Entry[]> = {
       id: "3000001",
       entry_type: "value_test",
       fields: {
-        null_value: "null",
         float_value: { float: 3.141592 },
         integer_value: { integer: 42 },
         boolean_value: { boolean: true },
@@ -261,7 +260,6 @@ export const entriesByPage: Record<string, Entry[]> = {
             {
               reference: "server-configuration:2000002",
             },
-            "null",
             {
               struct: {
                 name: { text: "Nested structure" },

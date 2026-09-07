@@ -1,9 +1,9 @@
 <script lang="ts">
   import { Plus, Route, FileText, Pencil, Trash2 } from "lucide-svelte";
   import { appStore } from "$lib/stores/app.svelte";
-  import type { PageInfo } from "$lib/domain/model";
-  import PageDialog from "$lib/ui/PageDialog.svelte";
-  import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
+  import type { PageInfo } from "$lib/types/model";
+  import PageDialog from "./dialogs/Page.svelte";
+  import ConfirmDialog from "./dialogs/Confirm.svelte";
 
   let { hover = $bindable(false) } = $props<{ hover?: boolean }>();
 
@@ -25,7 +25,6 @@
     page: null,
   });
 
-  let contextMenuElement = $state<HTMLDivElement | null>(null);
   const expanded = $derived(hover || contextMenu.visible);
 
   function openCreate() {
@@ -42,14 +41,6 @@
       page,
     };
   }
-
-  $effect(() => {
-    if (contextMenu.visible) {
-      queueMicrotask(() =>
-        contextMenuElement?.querySelector<HTMLButtonElement>("button")?.focus(),
-      );
-    }
-  });
 
   function closeContextMenu() {
     contextMenu.visible = false;
@@ -79,44 +70,13 @@
   }
 </script>
 
-<svelte:window
-  onclick={(event) => {
-    const target = event.target;
-    if (!(target instanceof Element) || !target.closest(".context-menu"))
-      closeContextMenu();
-  }}
-  onkeydown={(event) => {
-    if (event.key === "Escape") closeContextMenu();
-    if (
-      contextMenu.visible &&
-      (event.key === "ArrowDown" || event.key === "ArrowUp")
-    ) {
-      event.preventDefault();
-      const items =
-        contextMenuElement?.querySelectorAll<HTMLButtonElement>("button");
-      if (!items?.length) return;
-      const current = Array.from(items).indexOf(
-        document.activeElement as HTMLButtonElement,
-      );
-      const next =
-        event.key === "ArrowDown"
-          ? (current + 1) % items.length
-          : (current - 1 + items.length) % items.length;
-      items[next].focus();
-    }
-  }}
-/>
+<svelte:window onclick={closeContextMenu} />
 
 <aside
   class="sidebar"
   class:expanded
   onmouseenter={() => (hover = true)}
   onmouseleave={() => (hover = false)}
-  onfocusin={() => (hover = true)}
-  onfocusout={(event) => {
-    const current = event.currentTarget as HTMLElement;
-    if (!current.contains(event.relatedTarget as Node | null)) hover = false;
-  }}
 >
   <div class="content">
     <div class="pages-header">
@@ -158,11 +118,14 @@
 
 {#if contextMenu.visible}
   <div
-    bind:this={contextMenuElement}
     class="context-menu"
     role="menu"
     tabindex="-1"
     style="top: {contextMenu.y}px; left: {contextMenu.x}px;"
+    onclick={(e) => e.stopPropagation()}
+    onkeydown={(e) => {
+      if (e.key === "Escape") closeContextMenu();
+    }}
   >
     <button
       type="button"
@@ -191,7 +154,7 @@
 <ConfirmDialog
   bind:open={confirmDialogOpen}
   title="Delete Page"
-  message={`Are you sure you want to delete the page: "${pageToDelete?.name ?? ""}"?`}
+  message={`Are you sure you want to delete the page: "${pageToDelete?.name ?? ""}"? YOU WON'T BE ABLE TO REVERSE`}
   confirmLabel="Delete"
   danger={true}
   onconfirm={handleConfirmDelete}

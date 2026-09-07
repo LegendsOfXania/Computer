@@ -1,5 +1,3 @@
-@import "./lib/ui/dialog.css";
-
 :root {
   --background: #0d0d0d;
   --surface: #181818;
@@ -95,4 +93,3 @@ select:focus-visible {
 .btn-brutalist.active:hover {
   background: var(--success-hover);
 }
-

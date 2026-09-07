@@ -1,0 +1,178 @@
+export type Value =
+  | { integer: number }
+  | { float: number }
+  | { boolean: boolean }
+  | { text: string }
+  | { enum: string }
+  | { reference: string }
+  | { struct: Record<string, Value> }
+  | { list: Value[] };
+
+export interface EntryData {
+  entry_type: string;
+  fields: Record<string, Value>;
+}
+
+export interface Entry extends EntryData {
+  id: string;
+}
+
+export type EntryKey = string;
+
+export interface EntrySummary {
+  key: EntryKey;
+  entryType: string;
+  name: string;
+  tags: string[];
+}
+
+export interface ReferenceSchema {
+  entry_type?: string;
+  tags: string[];
+}
+
+export type Schema =
+  | "integer"
+  | "float"
+  | "boolean"
+  | "text"
+  | { enumeration: string[] }
+  | { reference: ReferenceSchema }
+  | { struct: Field[] }
+  | { list: Schema };
+
+export interface Field {
+  name: string;
+  schema: Schema;
+}
+
+export interface EntryDefinition {
+  entry_type: string;
+  tags: string[];
+  fields: Field[];
+}
+
+export type PageType = "sequence" | "static";
+
+export const PAGE_TYPES: PageType[] = ["sequence", "static"];
+
+export interface PageInfo {
+  id: string;
+  name: string;
+  page_type: PageType;
+  priority: number;
+}
+
+export function entryKey(pageId: string, entryId: string): EntryKey {
+  return `${pageId}:${entryId}`;
+}
+
+export function parseEntryKey(key: EntryKey): {
+  pageId: string;
+  entryId: string;
+} | null {
+  const separator = key.indexOf(":");
+
+  if (separator <= 0 || separator === key.length - 1) return null;
+
+  return {
+    pageId: key.slice(0, separator),
+    entryId: key.slice(separator + 1),
+  };
+}
+
+export function formatEntryTypeName(entryType: string): string {
+  const words = entryType
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1));
+
+  return `${words.join(" ")} Entry`;
+}
+
+export function displayName(entry: Entry): string {
+  const value = entry.fields.name;
+
+  return typeof value === "object" && "text" in value ? value.text : entry.id;
+}
+
+export function summarizeEntry(
+  pageId: string,
+  entry: Entry,
+  definition?: EntryDefinition,
+): EntrySummary {
+  return {
+    key: entryKey(pageId, entry.id),
+    entryType: entry.entry_type,
+    name: displayName(entry),
+    tags: definition?.tags ?? [],
+  };
+}
+
+export function defaultValue(value: Value): Value {
+  if ("text" in value) return { text: "" };
+  if ("enum" in value) return { enum: "" };
+  if ("reference" in value) return { reference: "" };
+  if ("integer" in value) return { integer: 0 };
+  if ("float" in value) return { float: 0 };
+  if ("boolean" in value) return { boolean: false };
+  if ("list" in value) return { list: [] };
+
+  return {
+    struct: Object.fromEntries(
+      Object.entries(value.struct).map(([key, child]) => [
+        key,
+        defaultValue(child),
+      ]),
+    ),
+  };
+}
+
+export function defaultSchema(schema: Schema): Value {
+  if (schema === "text") return { text: "" };
+  if (schema === "integer") return { integer: 0 };
+  if (schema === "float") return { float: 0 };
+  if (schema === "boolean") return { boolean: false };
+  if ("enumeration" in schema) return { enum: schema.enumeration[0] ?? "" };
+  if ("reference" in schema) return { reference: "" };
+  if ("list" in schema) return { list: [] };
+
+  return {
+    struct: Object.fromEntries(
+      schema.struct.map((field) => [field.name, defaultSchema(field.schema)]),
+    ),
+  };
+}
+
+export function schemaEqual(a: Schema, b: Schema): boolean {
+  if (a === b) return true;
+  if (typeof a === "string" || typeof b === "string") return false;
+
+  if ("enumeration" in a && "enumeration" in b) {
+    return (
+      a.enumeration.length === b.enumeration.length &&
+      a.enumeration.every((value, i) => value === b.enumeration[i])
+    );
+  }
+
+  if ("reference" in a && "reference" in b) {
+    return (
+      a.reference.entry_type === b.reference.entry_type &&
+      a.reference.tags.length === b.reference.tags.length &&
+      a.reference.tags.every((tag) => b.reference.tags.includes(tag))
+    );
+  }
+
+  if ("list" in a && "list" in b) return schemaEqual(a.list, b.list);
+
+  if ("struct" in a && "struct" in b) {
+    return (
+      a.struct.length === b.struct.length &&
+      a.struct.every((field) => {
+        const match = b.struct.find((f) => f.name === field.name);
+        return match !== undefined && schemaEqual(field.schema, match.schema);
+      })
+    );
+  }
+
+  return false;
+}

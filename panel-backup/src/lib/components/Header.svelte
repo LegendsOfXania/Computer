@@ -1,22 +1,16 @@
 <script lang="ts">
   import { Copy, Check, Route, FileText, Search } from "lucide-svelte";
   import { appStore } from "$lib/stores/app.svelte";
-  import SearchDialog from "$lib/ui/SearchDialog.svelte";
+  import SearchDialog from "./dialogs/Search.svelte";
 
   let page = $derived(appStore.selectedPage),
+    published = $state(false),
     copied = $state(false),
     createEntryOpen = $state(false);
 
   const createEntryQuery = $derived(
     page ? `!entry !new !type:${page.page_type}` : "",
   );
-
-  function handleGlobalKeydown(event: KeyboardEvent) {
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
-      event.preventDefault();
-      if (page) createEntryOpen = true;
-    }
-  }
 
   async function copy() {
     if (!page) return;
@@ -62,10 +56,16 @@
       <Search size={14} />
       <span>Add entry...</span>
     </button>
+
+    <button
+      class="btn-brutalist publish"
+      class:active={published}
+      onclick={() => (published = !published)}
+    >
+      {published ? "Published" : "Staging"}
+    </button>
   </div>
 </header>
-
-<svelte:window onkeydown={handleGlobalKeydown} />
 
 <SearchDialog bind:open={createEntryOpen} fixedQuery={createEntryQuery} />
 
@@ -159,5 +159,12 @@
     cursor: default;
     border-color: var(--border-muted);
     color: var(--text-muted);
+  }
+
+  .publish {
+    min-width: 95px;
+    min-height: 34px;
+    padding: 0 14px;
+    font-size: 12px;
   }
 </style>

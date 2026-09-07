@@ -7,19 +7,17 @@
     FolderInput,
     Replace,
   } from "lucide-svelte";
-  import Field from "$lib/features/fields/Field.svelte";
+  import Field from "./Field.svelte";
   import { appStore } from "$lib/stores/app.svelte";
-  import { displayName } from "$lib/domain/model";
-  import SearchDialog from "$lib/ui/SearchDialog.svelte";
-  import ConfirmDialog from "$lib/ui/ConfirmDialog.svelte";
+  import { displayName } from "$lib/types/model";
+  import SearchDialog from "./dialogs/Search.svelte";
 
   let entry = $derived(appStore.selectedEntry),
     copied = $state(false),
     width = $state(320),
     resizing = $state(false),
     showMove = $state(false),
-    showReplace = $state(false),
-    confirmDeleteOpen = $state(false);
+    showReplace = $state(false);
 
   let page = $derived(appStore.selectedPage);
 
@@ -52,10 +50,6 @@
   }
 
   function remove() {
-    if (entry) confirmDeleteOpen = true;
-  }
-
-  function confirmRemove() {
     if (entry) appStore.deleteEntry(entry.id);
   }
 
@@ -141,15 +135,6 @@
   bind:open={showMove}
   fixedQuery={page ? `!page !type:${page.page_type}` : "!page"}
   onSelectPage={move}
-/>
-
-<ConfirmDialog
-  bind:open={confirmDeleteOpen}
-  title="Delete Entry"
-  message={`Are you sure you want to delete "${entry ? displayName(entry) : ""}"?`}
-  confirmLabel="Delete"
-  danger={true}
-  onconfirm={confirmRemove}
 />
 
 <SearchDialog

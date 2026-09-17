@@ -1,0 +1,6 @@
+[application]
+name = "computer-panel"
+default_platform = "web"
+
+[web.app]
+title = "Computer Panel"

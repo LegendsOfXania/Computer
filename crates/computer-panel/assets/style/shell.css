@@ -1,0 +1,50 @@
+:root {
+  --tone-strong: #0e0e10;
+  --tone-primary: #18181b;
+  --tone-secondary: #2a292b;
+  --tone-muted: #6f6b63;
+  --tone-light: #ebe7df;
+  --tone-soft: #f5f2eb;
+
+  --accent: #ff7000;
+  --accent-strong: #b84a00;
+  --accent-soft: #ff9a4d;
+
+  --font-mono: "JetBrains Mono", "Geist Mono", "Fira Code", monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#main {
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  background: var(--tone-strong);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow: hidden;
+}
+
+.shell {
+  position: absolute;
+  inset: 15px;
+
+  background: var(--tone-primary);
+
+  border: 3px solid var(--accent);
+  box-shadow: 8px 8px 0 var(--accent-strong);
+
+  overflow: hidden;
+
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+}

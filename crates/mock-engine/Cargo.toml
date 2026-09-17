@@ -1,0 +1,11 @@
+
+[package]
+name = "mock-engine"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+computer-model = { path = "../computer-model" }
+tokio = { version = "1", features = ["rt-multi-thread", "net", "macros", "io-util"] }
+tokio-tungstenite = "0.24"
+futures-util = "0.3"

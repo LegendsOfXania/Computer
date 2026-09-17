@@ -1,0 +1,12 @@
+[package]
+name = "computer-panel"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+computer-model = { path = "../computer-model" }
+dioxus.workspace = true
+gloo-net.workspace = true
+futures-util.workspace = true
+tracing.workspace = true

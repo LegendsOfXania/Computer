@@ -1,0 +1,10 @@
+.sidebar {
+  min-width: 450px;
+  flex-shrink: 0;
+
+  border: 2px dashed var(--tone-secondary);
+}
+
+.sidebar.focused {
+  border-color: var(--accent);
+}

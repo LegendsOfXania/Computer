@@ -1,0 +1,27 @@
+page id=0000000001 name="Forest" kind="sequence" priority=3 {
+    entry id=0000000002 kind="npc" version=1 {
+        name "Gorgoth" //string
+        level 12 //int
+        speed 1.5 //float
+        hostile #true //bool
+        home (ref)"0000000003:0000000009" //reference
+        rarity (enum)"Rare" //enum
+        stats { //struct
+            hp 42  //int
+            mana 7.0 //float
+        }
+        aliases { // list<string>
+            - "Gor"
+            - "Big G"
+        }
+        inventory { //map
+            - "sword" 1 
+            - 5 1.0
+            - #true "yes"
+            - (enum)"Epic" "hoo"
+        }
+        loot "gold" { //variant
+            amount 100
+        }
+    }
+}

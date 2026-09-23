@@ -1,166 +1,205 @@
-use std::collections::HashMap;
-
-use computer_model::{key::EntryKey, value::Value};
 use dioxus::prelude::*;
 
-use crate::{
-    i18n::use_i18n,
-    state::AppState,
-};
+use computer_model::{key::EntryKey, page::PageKind};
 
-const NODE_W: f32 = 150.0;
-const NODE_H: f32 = 56.0;
-const X: f32 = 260.0;
-const Y: f32 = 100.0;
-const COLS: usize = 4;
+use crate::{components::editor::layout::Edges, i18n::use_i18n, nav::Nav, state::AppState};
 
-fn layout_static(entries: &[EntryKey]) -> HashMap<EntryKey, (f32, f32)> {
-    entries
+use super::{layout, layout::Positions, node::EntryNode};
+
+const MIN_ZOOM: f64 = 0.3;
+const MAX_ZOOM: f64 = 2.0;
+const ZOOM_STEP: f64 = 1.15;
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+struct Camera {
+    x: f64,
+    y: f64,
+    zoom: f64,
+}
+
+impl Default for Camera {
+    fn default() -> Self {
+        Self { x: 0.0, y: 0.0, zoom: 1.0 }
+    }
+}
+
+impl Camera {
+    fn zoomed(self, factor: f64, anchor: (f64, f64)) -> Camera {
+        let zoom = (self.zoom * factor).clamp(MIN_ZOOM, MAX_ZOOM);
+        let world = ((anchor.0 - self.x) / self.zoom, (anchor.1 - self.y) / self.zoom);
+        Camera { x: anchor.0 - world.0 * zoom, y: anchor.1 - world.1 * zoom, zoom }
+    }
+
+    fn centered_on(pos: (f64, f64), container: (f64, f64)) -> Camera {
+        Camera {
+            x: container.0 / 2.0 - (pos.0 + layout::NODE_W / 2.0),
+            y: container.1 / 2.0 - (pos.1 + layout::NODE_H / 2.0),
+            zoom: 1.0,
+        }
+    }
+
+    fn screen(self, pos: (f64, f64)) -> (f64, f64) {
+        (pos.0 * self.zoom + self.x, pos.1 * self.zoom + self.y)
+    }
+}
+
+fn is_visible(cam: Camera, container: (f64, f64), pos: (f64, f64)) -> bool {
+    let (sx, sy) = cam.screen(pos);
+    let (w, h) = (layout::NODE_W * cam.zoom, layout::NODE_H * cam.zoom);
+    sx + w >= 0.0 && sx <= container.0 && sy + h >= 0.0 && sy <= container.1
+}
+
+fn nearest(positions: &Positions, from: EntryKey, dir: (f64, f64)) -> Option<EntryKey> {
+    let (cx, cy) = *positions.get(&from)?;
+    positions
         .iter()
-        .enumerate()
-        .map(|(i, key)| {
-            let (col, row) = (i % COLS, i / COLS);
-            let x = col as f32 * X;
-            let y = row as f32 * Y;
-            (*key, (x, y))
+        .filter(|(k, _)| **k != from)
+        .filter_map(|(k, &(x, y))| {
+            let (dx, dy) = (x - cx, y - cy);
+            let along = dx * dir.0 + dy * dir.1;
+            (along > 0.0).then(|| (*k, along + (dx * dir.1 - dy * dir.0).abs() * 2.0))
         })
-        .collect()
+        .min_by(|a, b| a.1.total_cmp(&b.1))
+        .map(|(k, _)| k)
 }
 
 #[component]
-pub fn Graph(entries: Vec<EntryKey>, links: bool) -> Element {
+pub fn Graph(entries: Vec<EntryKey>, kind: PageKind, nav: Nav) -> Element {
     let i18n = use_i18n();
-    let mut selected = use_signal::<Option<EntryKey>>(|| entries.first().copied());
-    let mut pan = use_signal(|| (0.0_f32, 0.0_f32));
-    let mut dragging = use_signal(|| false);
-    let mut last_mouse = use_signal(|| (0.0_f32, 0.0_f32));
+    let app_state = use_context::<AppState>();
 
-    let positions = layout_static(&entries);
+    let mut container = use_signal(|| (0.0_f64, 0.0_f64));
+    let mut camera = use_signal(Camera::default);
+    let mut selected = use_signal(|| entries.first().copied());
+    let mut drag_from = use_signal(|| None::<(f64, f64)>);
 
-    let (width, height) = if entries.is_empty() {
-        (0.0, 0.0)
-    } else {
-        positions.values().fold((0.0_f32, 0.0_f32), |(w, h), (x, y)| {
-            (w.max(x + NODE_W), h.max(y + NODE_H))
-        })
-    };
-
-    let (pan_x, pan_y) = *pan.read();
-    let tx = pan_x;
-    let ty = pan_y;
-    
-    let positions_for_effect = positions.clone();
-
-    // Auto-pan when selection changes - center the selection in the viewport
-    use_effect(move || {
-        let Some(sel_key) = *selected.read() else { return };
-        let Some(&(sel_x, sel_y)) = positions_for_effect.get(&sel_key) else { return };
-        
-        // Approximate viewport size - use a reasonable default
-        // This will be refined when we have access to actual viewport dimensions
-        let vw = 800.0; // Default viewport width approximation
-        let vh = 600.0; // Default viewport height approximation
-        
-        let margin = 20.0;
-        let mut p = pan.write();
-
-        // Calculate visible area bounds
-        let visible_left = p.0;
-        let visible_right = p.0 + vw;
-        let visible_top = p.1;
-        let visible_bottom = p.1 + vh;
-
-        // Check if selection is outside visible area (with margin) or near edges
-        let needs_adjust_x = sel_x < visible_left + margin 
-            || sel_x + NODE_W > visible_right - margin;
-        let needs_adjust_y = sel_y < visible_top + margin 
-            || sel_y + NODE_H > visible_bottom - margin;
-        
-        if needs_adjust_x || needs_adjust_y {
-            // Center the selection in the viewport
-            if needs_adjust_x {
-                p.0 = sel_x - (vw - NODE_W) / 2.0;
-            }
-            if needs_adjust_y {
-                p.1 = sel_y - (vh - NODE_H) / 2.0;
-            }
-            
-            // Clamp pan to canvas bounds
-            p.0 = p.0.clamp(0.0, (width - vw).max(0.0));
-            p.1 = p.1.clamp(0.0, (height - vh).max(0.0));
-        }
+    let entries_for_layout = entries.clone();
+    let app_state_for_layout = app_state;
+    let layout_result = use_memo(move || {
+        layout::compute(kind, &entries_for_layout, &app_state_for_layout, container.read().0)
     });
 
-    let entries_for_move = entries.clone();
-    let mut move_selection = move |dc: i32, dr: i32| {
-        let Some(cur) = *selected.read() else { return };
-        let Some(idx) = entries_for_move.iter().position(|k| *k == cur) else { return };
-        let (col, row) = (idx % COLS, idx / COLS);
-        let (ncol, nrow) = (col as i32 + dc, row as i32 + dr);
-        if ncol < 0 || nrow < 0 {
-            return;
-        }
-        let nidx = nrow as usize * COLS + ncol as usize;
-        if let Some(next) = entries_for_move.get(nidx) {
-            selected.set(Some(*next));
-        }
-    };
+    let entries_for_mount = entries.clone();
 
-    let empty_key = "editor.no_entries";
-    rsx! {
-        if entries.is_empty() {
-            div {
-                class: "graph-empty",
-                "{i18n.t(empty_key)}"
+    use_effect(move || {
+        nav.on_key(Callback::new(move |(key, modifiers): (Key, Modifiers)| {
+            let size = *container.read();
+            let center = (size.0 / 2.0, size.1 / 2.0);
+
+            if modifiers.ctrl() {
+                let factor = match &key {
+                    Key::Character(c) if c == "+" || c == "=" => ZOOM_STEP,
+                    Key::Character(c) if c == "-" => 1.0 / ZOOM_STEP,
+                    _ => return false,
+                };
+                let cam = *camera.read();
+                camera.set(cam.zoomed(factor, center));
+                return true;
             }
+
+            let dir = match key {
+                Key::ArrowUp => (0.0, -1.0),
+                Key::ArrowDown => (0.0, 1.0),
+                Key::ArrowLeft => (-1.0, 0.0),
+                Key::ArrowRight => (1.0, 0.0),
+                _ => return false,
+            };
+
+            let (positions, _) = &*layout_result.read();
+            let Some(cur) = *selected.read() else { return false };
+            let Some(next) = nearest(positions, cur, dir) else { return false };
+            selected.set(Some(next));
+
+            if let Some(&pos) = positions.get(&next) {
+                if !is_visible(*camera.read(), size, pos) {
+                    camera.set(Camera::centered_on(pos, size));
+                }
+            }
+
+            true
+        }));
+    });
+
+    rsx! {
+        document::Stylesheet { href: asset!("/assets/style/editor/graph.css") }
+
+        if entries.is_empty() {
+            div { class: "graph-empty", "{i18n.t(\"editor.no_entries\")}" }
         } else {
             div {
-                class: if *dragging.read() { "graph-viewport dragging" } else { "graph-viewport" },
+                class: if drag_from.read().is_some() { "graph-viewport dragging" } else { "graph-viewport" },
                 tabindex: "0",
 
-                onmousedown: move |evt| {
-                    dragging.set(true);
-                    let c = evt.client_coordinates();
-                    last_mouse.set((c.x as f32, c.y as f32));
+                onmounted: move |e| {
+                    let data = e.data();
+                    let entries = entries_for_mount.clone();
+                    let app_state = app_state_for_layout;
+                    spawn(async move {
+                        let Ok(rect) = data.get_client_rect().await else { return };
+                        let size = (rect.size.width, rect.size.height);
+                        container.set(size);
+                        let (positions, _) = layout::compute(kind, &entries, &app_state, size.0);
+                        if let Some(first) = entries.first() {
+                            if let Some(&pos) = positions.get(first) {
+                                camera.set(Camera::centered_on(pos, size));
+                            }
+                        }
+                    });
                 },
-                onmouseup: move |_| dragging.set(false),
-                onmouseleave: move |_| dragging.set(false),
-                onmousemove: move |evt| {
-                    if *dragging.read() {
-                        let (lx, ly) = *last_mouse.read();
-                        let c = evt.client_coordinates();
-                        let (x, y) = (c.x as f32, c.y as f32);
-                        let mut p = pan.write();
-                        p.0 += x - lx;
-                        p.1 += y - ly;
-                        last_mouse.set((x, y));
-                    }
+
+                onmousedown: move |e| {
+                    let c = e.client_coordinates();
+                    drag_from.set(Some((c.x, c.y)));
                 },
-                onkeydown: move |evt| {
-                    match evt.key() {
-                        Key::ArrowUp => move_selection(0, -1),
-                        Key::ArrowDown => move_selection(0, 1),
-                        Key::ArrowLeft => move_selection(-1, 0),
-                        Key::ArrowRight => move_selection(1, 0),
-                        _ => {}
-                    }
+                onmouseup: move |_| drag_from.set(None),
+
+                onmouseleave: move |_| drag_from.set(None),
+
+                onmousemove: move |e| {
+                    let Some((lx, ly)) = *drag_from.read() else { return };
+                    let c = e.client_coordinates();
+                    drag_from.set(Some((c.x, c.y)));
+                    camera
+                        .with_mut(|cam| {
+                            cam.x += c.x - lx;
+                            cam.y += c.y - ly;
+                        });
+                },
+
+                onwheel: move |e| {
+                    e.prevent_default();
+                    let c = e.client_coordinates();
+                    let factor = if e.delta().strip_units().y < 0.0 {
+                        ZOOM_STEP
+                    } else {
+                        1.0 / ZOOM_STEP
+                    };
+                    let cam = *camera.read();
+                    camera.set(cam.zoomed(factor, (c.x, c.y)));
                 },
 
                 div {
-                    class: if *dragging.read() { "graph-canvas dragging" } else { "graph-canvas" },
-                    style: "width: {width}px; height: {height}px; transform: translate({tx}px, {ty}px);",
+                    class: "graph-canvas",
+                    style: {
+                        let cam = *camera.read();
+                        format!("transform: translate({}px, {}px) scale({});", cam.x, cam.y, cam.zoom)
+                    },
 
-                    for key in entries.iter().copied() {
-                        Node {
-                            key: "{key}",
-                            entry_key: key,
-                            pos: positions[&key],
-                            selected,
-                        }
+                    Edge {
+                        edges: layout_result.read().1.clone(),
+                        positions: layout_result.read().0.clone(),
                     }
 
-                    if links {
-
+                    for key in entries.iter().copied() {
+                        if let Some(&pos) = layout_result.read().0.get(&key) {
+                            EntryNode {
+                                key: "{key}",
+                                entry_key: key,
+                                pos,
+                                selected: *selected.read() == Some(key),
+                                onselect: move |k| selected.set(Some(k)),
+                            }
+                        }
                     }
                 }
             }
@@ -169,32 +208,19 @@ pub fn Graph(entries: Vec<EntryKey>, links: bool) -> Element {
 }
 
 #[component]
-fn Node(entry_key: EntryKey, pos: (f32, f32), mut selected: Signal<Option<EntryKey>>) -> Element {
-    let state = use_context::<AppState>();
-    let (x, y) = pos;
-    let is_selected = *selected.read() == Some(entry_key);
-
-    let name = state
-        .entries
-        .read()
-        .get(&entry_key)
-        .and_then(|e| e.fields.get("name"))
-        .and_then(|v| match v {
-            Value::String(s) => Some(s.clone()),
-            _ => None,
-        })
-        .unwrap_or_else(|| entry_key.to_string());
-
+fn Edge(edges: Edges, positions: Positions) -> Element {
     rsx! {
-        div {
-            class: if is_selected { "node selected" } else { "node" },
-            style: "left: {x}px; top: {y}px; width: {NODE_W}px; height: {NODE_H}px;",
-            onclick: move |evt| {
-                evt.stop_propagation();
-                selected.set(Some(entry_key));
-            },
-            span { class: "node-name", "{name}" }
-            span { class: "node-key", "{entry_key}" }
+        svg { class: "graph-edges",
+            for (from , to) in edges.iter().copied() {
+                if let (Some(&a), Some(&b)) = (positions.get(&from), positions.get(&to)) {
+                    line {
+                        x1: "{a.0 + layout::NODE_W / 2.0}",
+                        y1: "{a.1 + layout::NODE_H / 2.0}",
+                        x2: "{b.0 + layout::NODE_W / 2.0}",
+                        y2: "{b.1 + layout::NODE_H / 2.0}",
+                    }
+                }
+            }
         }
     }
 }

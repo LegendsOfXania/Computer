@@ -1,6 +1,8 @@
+use core::fmt;
+
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct EntryKey(pub u64, pub u64);
 
 impl EntryKey {
@@ -14,5 +16,11 @@ impl EntryKey {
 
     pub const fn entry_id(self) -> u64 {
         self.1
+    }
+}
+
+impl fmt::Display for EntryKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}:{}", self.0, self.1)
     }
 }

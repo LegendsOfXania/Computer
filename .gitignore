@@ -26,3 +26,7 @@ dist-ssr
 # Rust
 target/
 Cargo.lock
+
+# AI
+.claude/
+.mcp.json

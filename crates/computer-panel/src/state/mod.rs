@@ -4,6 +4,7 @@ use computer_model::{entry::{Entry, EntryDefinition}, key::EntryKey, page::Page,
 use dioxus::signals::{Signal, WritableExt};
 
 pub mod connection;
+pub mod ui;
 
 #[derive(Clone, Copy)]
 pub struct AppState {

@@ -1,0 +1,47 @@
+.library-row {
+  display: flex;
+  align-items: center;
+
+  line-height: 1.6;
+  font-size: 1.05em;
+
+  padding: 1px 4px;
+  margin: 1px 2px;
+
+  border: 1px solid transparent;
+  box-sizing: border-box;
+
+  cursor: pointer;
+}
+
+.library-row:hover:not(.selected) {
+  color: var(--accent-soft);
+  background: var(--tone-secondary);
+}
+
+.library-row.selected {
+  color: var(--accent-soft);
+  background: var(--tone-secondary);
+}
+
+.library-pointer {
+  color: var(--accent-soft);
+  font-weight: bold;
+
+  flex-shrink: 0;
+}
+
+.library-row.selected .library-pointer {
+  color: var(--accent);
+}
+
+.library-item-icon {
+  flex-shrink: 0;
+}
+
+.library-chapter-name {
+  font-weight: 700;
+
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}

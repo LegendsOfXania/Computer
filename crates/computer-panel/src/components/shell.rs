@@ -1,22 +1,19 @@
 use dioxus::prelude::*;
 
 use crate::{
-    components::{
-        editor::Editor,
-        sidebar::Sidebar,
-    },
-    nav::{
-        use_nav_root,
-        Navigation,
-    },
+    components::{editor::Editor, sidebar::Sidebar},
+    i18n::use_i18n_root,
+    nav::{use_nav_root, Navigation},
     state::connection::ConnectionStatus,
 };
 
 #[component]
-pub fn Shell(status: Signal<ConnectionStatus>) -> Element {
+pub fn Shell() -> Element {
     use_nav_root();
+    use_i18n_root();
 
-    let navigation = use_context::<Navigation>();
+    let status = use_context::<Signal<ConnectionStatus>>();
+    let nav = use_context::<Navigation>();
 
     rsx! {
         document::Stylesheet { href: asset!("/assets/style/shell.css") }
@@ -29,25 +26,33 @@ pub fn Shell(status: Signal<ConnectionStatus>) -> Element {
             onkeydown: move |event| {
                 match event.key() {
                     Key::Tab if event.modifiers().shift() => {
-                        navigation.previous();
+                        nav.previous();
                         event.prevent_default();
                     }
 
                     Key::Tab => {
-                        navigation.next();
+                        nav.next();
                         event.prevent_default();
                     }
 
                     Key::Escape => {
+                        // TODO: parent
                         event.prevent_default();
                     }
 
-                    _ => {}
+                    key => {
+                        if nav.dispatch(key, event.modifiers()) {
+                            event.prevent_default();
+                        }
+                    }
                 }
             },
 
-            Editor { status }
-            Sidebar {}
+            Editor {}
+
+            if matches!(&*status.read(), ConnectionStatus::Connected) {
+                Sidebar {}
+            }
         }
     }
 }

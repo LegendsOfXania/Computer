@@ -1,20 +1,24 @@
+use std::collections::HashMap;
+
 use dioxus::prelude::*;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 struct NavId(usize);
 
-#[derive(Clone, Copy)]
+type Handler = Callback<(Key, Modifiers), bool>;
+
+#[derive(Clone, Copy, PartialEq)]
 pub(crate) struct Navigation {
     next_id: Signal<usize>,
     items: Signal<Vec<NavId>>,
     focused: Signal<Option<NavId>>,
+    handlers: Signal<HashMap<usize, Handler>>,
 }
 
 impl Navigation {
     fn register(&self) -> NavId {
         let mut next_id = self.next_id;
         let id = NavId(next_id());
-
         next_id.set(id.0 + 1);
 
         let mut items = self.items;
@@ -23,15 +27,16 @@ impl Navigation {
         id
     }
 
-    fn unregister(&self, id: NavId) {
+    fn unregister(&mut self, id: NavId) {
         let mut items = self.items;
         items.write().retain(|item| *item != id);
 
         let mut focused = self.focused;
-
         if focused() == Some(id) {
             focused.set(None);
         }
+
+        self.handlers.write().remove(&id.0);
     }
 
     fn focus(&self, id: NavId) {
@@ -61,26 +66,30 @@ impl Navigation {
         }
 
         let index = (self.focused)()
-            .and_then(|focused| {
-                items.iter().position(|id| *id == focused)
-            })
-            .unwrap_or_else(|| {
-                if offset >= 0 {
-                    0
-                } else {
-                    items.len() - 1
-                }
-            });
+            .and_then(|focused| items.iter().position(|id| *id == focused))
+            .unwrap_or_else(|| if offset >= 0 { 0 } else { items.len() - 1 });
 
-        let next = (index as isize + offset)
-            .rem_euclid(items.len() as isize) as usize;
+        let next = (index as isize + offset).rem_euclid(items.len() as isize) as usize;
 
         let mut focused = self.focused;
         focused.set(Some(items[next]));
     }
+
+    pub fn dispatch(&self, key: Key, modifiers: Modifiers) -> bool {
+        let Some(focused) = (self.focused)() else {
+            return false;
+        };
+
+        let handler = self.handlers.read().get(&focused.0).copied();
+        let Some(handler) = handler else {
+            return false;
+        };
+
+        handler.call((key, modifiers))
+    }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct Nav {
     navigation: Navigation,
     id: Signal<Option<NavId>>,
@@ -102,6 +111,17 @@ impl Nav {
 
         self.navigation.is_focused(id)
     }
+
+    pub fn on_key(&mut self, handler: Handler) {
+        let Some(id) = (self.id)() else {
+            return;
+        };
+
+        self.navigation
+            .handlers
+            .write()
+            .insert(id.0, handler);
+    }
 }
 
 pub fn use_nav_root() {
@@ -109,6 +129,7 @@ pub fn use_nav_root() {
         next_id: use_signal(|| 0),
         items: use_signal(Vec::new),
         focused: use_signal(|| None),
+        handlers: use_signal(HashMap::new),
     };
 
     use_context_provider(|| navigation);
@@ -144,7 +165,7 @@ fn use_nav_with_focus(initial: bool) -> Nav {
     });
 
     use_drop({
-        let navigation = navigation;
+        let mut navigation = navigation;
         let id = id;
 
         move || {

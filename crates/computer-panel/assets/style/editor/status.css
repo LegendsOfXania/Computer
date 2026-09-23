@@ -1,0 +1,75 @@
+.editor-status {
+  min-width: 320px;
+  padding: 24px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  border: 2px solid var(--accent);
+  box-shadow: 6px 6px 0 var(--accent-strong);
+
+  font-family: monospace;
+}
+
+.editor-status-header {
+  display: flex;
+  justify-content: space-between;
+
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--tone-secondary);
+}
+
+.editor-status-title,
+.editor-status-state {
+  font-weight: bold;
+  letter-spacing: 0.08em;
+}
+
+.editor-status.connecting {
+  --status-color: var(--warn);
+}
+
+.editor-status.failed {
+  --status-color: var(--error);
+}
+
+.editor-status.connecting,
+.editor-status.failed {
+  border-color: var(--status-color);
+  box-shadow: 6px 6px 0 var(--status-color);
+}
+
+.editor-status.connecting .editor-status-title,
+.editor-status.connecting .editor-status-state,
+.editor-status.failed .editor-status-title,
+.editor-status.failed .editor-status-state {
+  color: var(--status-color);
+}
+
+.editor-status.failed .editor-status-message {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.editor-status-dots::after {
+  content: ".";
+  animation: connecting-dots 1.2s steps(1, end) infinite;
+}
+
+@keyframes connecting-dots {
+  0%,
+  33% {
+    content: ".";
+  }
+
+  34%,
+  66% {
+    content: "..";
+  }
+
+  67%,
+  100% {
+    content: "...";
+  }
+}

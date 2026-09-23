@@ -1,14 +1,13 @@
 mod graph;
+mod layout;
+mod node;
+mod status;
 
 use dioxus::prelude::*;
 
 use crate::{
-    i18n::use_i18n,
-    nav::use_nav_focus,
-    state::{
-        connection::ConnectionStatus,
-        ui::UiState,
-        AppState,
+    i18n::use_i18n, nav::use_nav_focus, state::{
+        AppState, connection::ConnectionStatus, ui::UiState,
     },
 };
 
@@ -17,47 +16,39 @@ pub fn Editor() -> Element {
     let nav = use_nav_focus();
     let i18n = use_i18n();
 
-    let status = use_context::<Signal<ConnectionStatus>>();
-    let state = use_context::<AppState>();
     let ui = use_context::<UiState>();
+    let state = use_context::<AppState>();
+    let status: Signal<ConnectionStatus> = use_context::<Signal<ConnectionStatus>>();
+
+    use_effect(move || {
+        if ui.opened_page.read().is_some() {
+            nav.focus();
+        }
+    });
 
     rsx! {
-        document::Stylesheet { href: asset!("/assets/style/editor.css") }
+        document::Stylesheet { href: asset!("/assets/style/editor/mod.css") }
 
         section {
             class: if nav.focused() { "editor focused" } else { "editor" },
             onclick: move |_| nav.focus(),
-
             match &*status.read() {
-                ConnectionStatus::Connecting => rsx! {
-                    div { class: "editor-status connecting",
-                        div { class: "editor-status-header",
-                            span { class: "editor-status-title", "{i18n.t(\"editor.title\")}" }
-                            span { class: "editor-status-state", "{i18n.t(\"connection.connecting\")}" }
-                        }
-                        span { class: "editor-status-message",
-                            "> {i18n.t(\"connection.connecting\")} "
-                            span { class: "editor-status-dots" }
-                        }
-                    }
-                },
                 ConnectionStatus::Connected => rsx! {
                     if let Some(page_id) = *ui.opened_page.read() {
                         if let Some(page) = state.pages.read().get(&page_id) {
-                            graph::Graph { entries: page.entries.clone(), links: false }
+                            graph::Graph {
+                                key: "{page_id}",
+                                entries: page.entries.clone(),
+                                kind: page.kind,
+                                nav,
+                            }
                         }
                     } else {
                         span { "{i18n.t(\"editor.no_page\")}" }
                     }
                 },
-                ConnectionStatus::Failed(error) => rsx! {
-                    div { class: "editor-status failed",
-                        div { class: "editor-status-header",
-                            span { class: "editor-status-title", "{i18n.t(\"editor.title\")}" }
-                            span { class: "editor-status-state", "{i18n.t(\"connection.failed\")}" }
-                        }
-                        span { class: "editor-status-message", "> {error}" }
-                    }
+                _ => rsx! {
+                    status::Status {}
                 },
             }
         }

@@ -9,20 +9,157 @@ use tokio_tungstenite::tungstenite::Message as WsMessage;
 
 fn sample_library() -> Library {
     Library {
-        pages: vec![Page {
-            id: 1,
-            name: "Forêt".into(),
-            kind: PageKind::Sequence,
-            priority: 0,
-            chapter: None,
-            entries: vec![EntryKey::new(1, 1)],
-        }],
-        entries: vec![Entry {
-            key: EntryKey::new(1, 1),
-            kind: "npc".into(),
-            version: 1,
-            fields: Default::default(),
-        }],
+        pages: vec![
+            Page {
+                id: 1,
+                name: "Forêt".into(),
+                kind: PageKind::Sequence,
+                priority: 0,
+                chapter: None,
+                entries: vec![
+                    EntryKey::new(1, 1),
+                    EntryKey::new(1, 2),
+                    EntryKey::new(1, 3),
+                ],
+            },
+            Page {
+                id: 2,
+                name: "Village".into(),
+                kind: PageKind::Sequence,
+                priority: 1,
+                chapter: Some("lieu".into()),
+                entries: vec![
+                    EntryKey::new(2, 1),
+                    EntryKey::new(2, 2),
+                ],
+            },
+            Page {
+                id: 3,
+                name: "Personnages".into(),
+                kind: PageKind::Static,
+                priority: 2,
+                chapter: Some("NPCs".into()),
+                entries: vec![
+                    EntryKey::new(3, 1),
+                    EntryKey::new(3, 2),
+                    EntryKey::new(3, 3),
+                    EntryKey::new(3, 4),
+                    EntryKey::new(3, 5),
+                    EntryKey::new(3, 6),
+                    EntryKey::new(3, 7),
+                    EntryKey::new(3, 8),
+                ],
+            },
+            Page {
+                id: 4,
+                name: "Quêtes".into(),
+                kind: PageKind::Sequence,
+                priority: 3,
+                chapter: Some("config.crotte".into()),
+                entries: vec![
+                    EntryKey::new(4, 1),
+                    EntryKey::new(4, 2),
+                ],
+            },
+            Page {
+                id: 5,
+                name: "Objets".into(),
+                kind: PageKind::Static,
+                priority: 4,
+                chapter: Some("config.caca".into()),
+                entries: vec![
+                    EntryKey::new(5, 1),
+                    EntryKey::new(5, 2),
+                    EntryKey::new(5, 3),
+                ],
+            },
+        ],
+        entries: vec![
+            Entry {
+                key: EntryKey::new(1, 1),
+                kind: "location".into(),
+                version: 1,
+                fields: Default::default(),
+            },
+            Entry {
+                key: EntryKey::new(1, 2),
+                kind: "location".into(),
+                version: 1,
+                fields: Default::default(),
+            },
+            Entry {
+                key: EntryKey::new(1, 3),
+                kind: "location".into(),
+                version: 1,
+                fields: Default::default(),
+            },
+            Entry {
+                key: EntryKey::new(2, 1),
+                kind: "location".into(),
+                version: 1,
+                fields: Default::default(),
+            },
+            Entry {
+                key: EntryKey::new(2, 2),
+                kind: "location".into(),
+                version: 1,
+                fields: Default::default(),
+            },
+            Entry {
+                key: EntryKey::new(3, 1),
+                kind: "npc".into(),
+                version: 1,
+                fields: Default::default(),
+            },
+            Entry {
+                key: EntryKey::new(3, 2),
+                kind: "npc".into(),
+                version: 1,
+                fields: Default::default(),
+            },
+            Entry {
+                key: EntryKey::new(3, 3),
+                kind: "npc".into(),
+                version: 1,
+                fields: Default::default(),
+            },
+            Entry {
+                key: EntryKey::new(3, 4),
+                kind: "npc".into(),
+                version: 1,
+                fields: Default::default(),
+            },
+            Entry {
+                key: EntryKey::new(4, 1),
+                kind: "quest".into(),
+                version: 1,
+                fields: Default::default(),
+            },
+            Entry {
+                key: EntryKey::new(4, 2),
+                kind: "quest".into(),
+                version: 1,
+                fields: Default::default(),
+            },
+            Entry {
+                key: EntryKey::new(5, 1),
+                kind: "item".into(),
+                version: 1,
+                fields: Default::default(),
+            },
+            Entry {
+                key: EntryKey::new(5, 2),
+                kind: "item".into(),
+                version: 1,
+                fields: Default::default(),
+            },
+            Entry {
+                key: EntryKey::new(5, 3),
+                kind: "item".into(),
+                version: 1,
+                fields: Default::default(),
+            },
+        ],
     }
 }
 
@@ -97,11 +234,11 @@ async fn send(
 
 #[tokio::main]
 async fn main() {
-    let listener = TcpListener::bind("127.0.0.1:8081")
+    let listener = TcpListener::bind("127.0.0.1:8082")
         .await
-        .expect("impossible d'écouter sur 127.0.0.1:8081");
+        .expect("impossible d'écouter sur 127.0.0.1:8082");
 
-    println!("Mock engine à l'écoute sur ws://127.0.0.1:8081");
+    println!("Mock engine à l'écoute sur ws://127.0.0.1:8082");
 
     while let Ok((stream, _)) = listener.accept().await {
         tokio::spawn(handle_connection(stream));

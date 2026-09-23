@@ -10,3 +10,4 @@ dioxus.workspace = true
 gloo-net.workspace = true
 futures-util.workspace = true
 tracing.workspace = true
+toml.workspace = true

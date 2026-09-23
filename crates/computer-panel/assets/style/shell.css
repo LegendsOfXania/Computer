@@ -10,6 +10,8 @@
   --accent-strong: #b84a00;
   --accent-soft: #ff9a4d;
 
+  --error: #fa1119;
+  --warn: #fcae1e;
   --font-mono: "JetBrains Mono", "Geist Mono", "Fira Code", monospace;
 }
 
@@ -30,6 +32,7 @@ body {
   background: var(--tone-strong);
   font-family: var(--font-mono);
   font-size: 12px;
+  color: var(--tone-light);
   overflow: hidden;
 }
 
@@ -43,6 +46,7 @@ body {
   box-shadow: 8px 8px 0 var(--accent-strong);
 
   overflow: hidden;
+  outline: none;
 
   display: flex;
   gap: 12px;

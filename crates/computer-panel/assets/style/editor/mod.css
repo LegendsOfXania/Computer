@@ -1,0 +1,14 @@
+.editor {
+  flex: 1;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 2px dashed var(--tone-secondary);
+  overflow: hidden;
+}
+
+.editor.focused {
+  border-color: var(--accent);
+}

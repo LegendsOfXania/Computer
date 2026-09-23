@@ -12,7 +12,7 @@ pub struct Page {
     pub entries: Vec<EntryKey>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum PageKind {
     Sequence,
     Static,

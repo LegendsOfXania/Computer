@@ -259,7 +259,7 @@ pub fn Library(mut nav: Nav) -> Element {
                                     span { class: "library-pointer", "{pointer}" }
                                     span { class: "library-tree-guide", "{prefix}" }
                                     span { class: "library-item-icon", "{icon} " }
-                                    span { class: "library-chapter-name", "{name}" }
+                                    span { class: "library-chapter-name", "{name}/" }
                                 }
                             }
                         }

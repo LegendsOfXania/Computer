@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
 use crate::{
-    components::shell::Shell, state::{AppState, connection::ConnectionStatus, ui::UiState}, ws::ws_client,
+    components::shell::Shell, state::{AppState, status::ConnectionStatus, ui::UiState}, ws::ws_client,
 };
 
 pub mod components;

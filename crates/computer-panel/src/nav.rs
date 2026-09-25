@@ -2,60 +2,50 @@ use std::collections::HashMap;
 
 use dioxus::prelude::*;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-struct NavId(usize);
-
-type Handler = Callback<(Key, Modifiers), bool>;
-
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) struct Navigation {
     next_id: Signal<usize>,
-    items: Signal<Vec<NavId>>,
-    focused: Signal<Option<NavId>>,
-    handlers: Signal<HashMap<usize, Handler>>,
+    items: Signal<Vec<usize>>,
+    focused: Signal<Option<usize>>,
+    handlers: Signal<HashMap<usize, Callback<(Key, Modifiers), bool>>>,
 }
 
 impl Navigation {
-    fn register(&self) -> NavId {
+    fn register(&self) -> usize {
         let mut next_id = self.next_id;
-        let id = NavId(next_id());
-        next_id.set(id.0 + 1);
-
         let mut items = self.items;
+
+        let id = next_id();
+        next_id.set(id + 1);
+
         items.write().push(id);
 
         id
     }
 
-    fn unregister(&mut self, id: NavId) {
+    fn unregister(&self, id: usize) {
         let mut items = self.items;
+        let mut handlers = self.handlers;
+
         items.write().retain(|item| *item != id);
+        handlers.write().remove(&id);
 
         let mut focused = self.focused;
+
         if focused() == Some(id) {
             focused.set(None);
         }
-
-        self.handlers.write().remove(&id.0);
     }
 
-    fn focus(&self, id: NavId) {
+    fn focus(&self, id: usize) {
         if self.items.read().contains(&id) {
             let mut focused = self.focused;
             focused.set(Some(id));
         }
     }
 
-    fn is_focused(&self, id: NavId) -> bool {
+    fn is_focused(&self, id: usize) -> bool {
         (self.focused)() == Some(id)
-    }
-
-    pub fn next(&self) {
-        self.move_by(1);
-    }
-
-    pub fn previous(&self) {
-        self.move_by(-1);
     }
 
     fn move_by(&self, offset: isize) {
@@ -67,12 +57,25 @@ impl Navigation {
 
         let index = (self.focused)()
             .and_then(|focused| items.iter().position(|id| *id == focused))
-            .unwrap_or_else(|| if offset >= 0 { 0 } else { items.len() - 1 });
+            .unwrap_or(if offset >= 0 {
+                0
+            } else {
+                items.len() - 1
+            });
 
-        let next = (index as isize + offset).rem_euclid(items.len() as isize) as usize;
+        let next = (index as isize + offset)
+            .rem_euclid(items.len() as isize) as usize;
 
         let mut focused = self.focused;
         focused.set(Some(items[next]));
+    }
+
+    pub fn next(&self) {
+        self.move_by(1);
+    }
+
+    pub fn previous(&self) {
+        self.move_by(-1);
     }
 
     pub fn dispatch(&self, key: Key, modifiers: Modifiers) -> bool {
@@ -80,8 +83,7 @@ impl Navigation {
             return false;
         };
 
-        let handler = self.handlers.read().get(&focused.0).copied();
-        let Some(handler) = handler else {
+        let Some(handler) = self.handlers.read().get(&focused).copied() else {
             return false;
         };
 
@@ -92,7 +94,7 @@ impl Navigation {
 #[derive(Clone, Copy, PartialEq)]
 pub struct Nav {
     navigation: Navigation,
-    id: Signal<Option<NavId>>,
+    id: Signal<Option<usize>>,
 }
 
 impl Nav {
@@ -112,15 +114,13 @@ impl Nav {
         self.navigation.is_focused(id)
     }
 
-    pub fn on_key(&mut self, handler: Handler) {
+    pub fn on_key(&mut self, handler: Callback<(Key, Modifiers), bool>) {
         let Some(id) = (self.id)() else {
             return;
         };
 
-        self.navigation
-            .handlers
-            .write()
-            .insert(id.0, handler);
+        let mut handlers = self.navigation.handlers;
+        handlers.write().insert(id, handler);
     }
 }
 
@@ -145,27 +145,29 @@ pub fn use_nav_focus() -> Nav {
 
 fn use_nav_with_focus(initial: bool) -> Nav {
     let navigation = use_context::<Navigation>();
-    let id = use_signal(|| None::<NavId>);
+    let id = use_signal(|| None::<usize>);
 
     use_effect({
-        let navigation = navigation;
         let mut id = id;
+        let navigation = navigation;
 
         move || {
-            if id().is_none() {
-                let nav_id = navigation.register();
-
-                if initial {
-                    navigation.focus(nav_id);
-                }
-
-                id.set(Some(nav_id));
+            if id().is_some() {
+                return;
             }
+
+            let nav_id = navigation.register();
+
+            if initial {
+                navigation.focus(nav_id);
+            }
+
+            id.set(Some(nav_id));
         }
     });
 
     use_drop({
-        let mut navigation = navigation;
+        let navigation = navigation;
         let id = id;
 
         move || {

@@ -7,7 +7,7 @@ use dioxus::prelude::*;
 
 use crate::{
     i18n::use_i18n, nav::use_nav_focus, state::{
-        AppState, connection::ConnectionStatus, ui::UiState,
+        AppState, status::ConnectionStatus, ui::UiState,
     },
 };
 

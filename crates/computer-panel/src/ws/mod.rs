@@ -7,7 +7,7 @@ use gloo_net::websocket::{futures::WebSocket, Message};
 use tracing::{error, warn};
 
 use crate::state::AppState;
-use crate::state::connection::ConnectionStatus;
+use crate::state::status::ConnectionStatus;
 
 pub fn ws_client(
     url: String,

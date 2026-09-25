@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::{i18n::use_i18n, state::connection::ConnectionStatus};
+use crate::{i18n::use_i18n, state::status::ConnectionStatus};
 
 #[component]
 pub fn Status() -> Element {

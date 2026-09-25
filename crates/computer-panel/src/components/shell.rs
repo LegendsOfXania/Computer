@@ -4,7 +4,7 @@ use crate::{
     components::{editor::Editor, sidebar::Sidebar},
     i18n::use_i18n_root,
     nav::{use_nav_root, Navigation},
-    state::connection::ConnectionStatus,
+    state::status::ConnectionStatus,
 };
 
 #[component]

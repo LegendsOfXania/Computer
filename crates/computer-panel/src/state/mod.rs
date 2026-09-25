@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use computer_model::{entry::{Entry, EntryDefinition}, key::EntryKey, page::Page, protocol::{event::Event, message::ServerMessage}};
 use dioxus::signals::{Signal, WritableExt};
 
-pub mod connection;
+pub mod status;
 pub mod ui;
 
 #[derive(Clone, Copy)]

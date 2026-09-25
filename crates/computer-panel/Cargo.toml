@@ -3,9 +3,10 @@ name = "computer-panel"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+authors.workspace = true
 
 [dependencies]
-computer-model = { path = "../computer-model" }
+computer-model.workspace = true
 dioxus.workspace = true
 gloo-net.workspace = true
 futures-util.workspace = true

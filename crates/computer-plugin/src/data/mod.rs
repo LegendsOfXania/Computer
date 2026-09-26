@@ -1,3 +1,5 @@
+pub mod conf;
+
 use std::sync::OnceLock;
 
 static DATA_FOLDER: OnceLock<String> = OnceLock::new();

@@ -1,3 +1,4 @@
+mod cmd;
 mod data;
 mod net;
 
@@ -7,7 +8,7 @@ struct ComputerPlugin;
 
 impl Plugin for ComputerPlugin {
     fn new() -> Self {
-        ComputerPlugin
+        Self
     }
 
     fn metadata(&self) -> PluginMetadata {
@@ -15,8 +16,8 @@ impl Plugin for ComputerPlugin {
             name: env!("CARGO_PKG_NAME").into(),
             version: env!("CARGO_PKG_VERSION").into(),
             authors: env!("CARGO_PKG_AUTHORS")
-                .split(",")
-                .map(|v| v.to_string())
+                .split(',')
+                .map(str::to_string)
                 .collect(),
             description: env!("CARGO_PKG_DESCRIPTION").into(),
             dependencies: vec![],
@@ -28,6 +29,7 @@ impl Plugin for ComputerPlugin {
                 "network.tcp".into(),
                 "network.tcp.bind".into(),
                 "network.tcp.connect".into(),
+                "network.tcp.connect".into(),
                 "http.outbound".into(),
             ],
         }
@@ -35,12 +37,12 @@ impl Plugin for ComputerPlugin {
 
     fn on_load(&self, context: Context) -> Result<()> {
         data::init_data_folder(context.get_data_folder());
-        net::panel::ensure_panel_up_to_date();
+        data::conf::init_conf();
 
-        if let Err(err) = net::server::start(&context, 8080) {
-            tracing::error!("Could not start the websocket server: {err}")
-        }
+        net::panel::ensure_panel_up_to_date();
         
+        cmd::register(&context);
+
         Ok(())
     }
 

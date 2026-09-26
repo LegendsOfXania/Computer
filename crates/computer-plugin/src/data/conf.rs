@@ -1,0 +1,54 @@
+use std::{fs, path::Path, sync::OnceLock};
+
+use serde::{Deserialize, Serialize};
+
+use crate::data;
+
+static CONFIG: OnceLock<ComputerConfig> = OnceLock::new();
+
+#[derive(Deserialize, Serialize, Default)]
+pub struct ComputerConfig {
+    pub panel: PanelConfig,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct PanelConfig {
+    pub enabled: bool,
+    pub ip: String,
+    pub port: u16,
+}
+
+impl Default for PanelConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            ip: "127.0.0.1".into(),
+            port: 8080,
+        }
+    }
+}
+
+pub fn init_conf() {
+    let Some(data_folder) = data::get_data_folder() else {
+        return;
+    };
+
+    let path = Path::new(data_folder).join("config.toml");
+
+    let config = fs::read_to_string(&path)
+        .ok()
+        .and_then(|content| toml::from_str(&content).ok())
+        .unwrap_or_default();
+
+    if !path.exists() {
+        if let Ok(content) = toml::to_string_pretty(&config) {
+            let _ = fs::write(path, content);
+        }
+    }
+
+    let _ = CONFIG.set(config);
+}
+
+pub fn get() -> Option<&'static ComputerConfig> {
+    CONFIG.get()
+}

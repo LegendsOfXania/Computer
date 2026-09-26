@@ -94,7 +94,7 @@ fn install(panel: &Path, archive: &[u8]) -> Result<(), String> {
     let decoder = flate2::read::GzDecoder::new(archive);
     let mut archive = tar::Archive::new(decoder);
 
-    // archive.unpack does not work
+    // archive.unpack() does not work :,(
 
     for entry in archive.entries().map_err(|e| e.to_string())? {
         let mut entry = entry.map_err(|e| e.to_string())?;

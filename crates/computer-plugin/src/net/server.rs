@@ -3,15 +3,11 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::Mutex;
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
-use pumpkin_plugin_api::{scheduler::SchedulerExt, Context};
+use pumpkin_plugin_api::{
+    scheduler::{self, SchedulerExt},
+    Server,
+};
 use sha1::{Digest, Sha1};
-
-const WS_GUID: &str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-
-const BINARY: u8 = 0x2;
-const CLOSE: u8 = 0x8;
-const PING: u8 = 0x9;
-const PONG: u8 = 0xA;
 
 struct Connection {
     stream: TcpStream,
@@ -20,44 +16,73 @@ struct Connection {
     closed: bool,
 }
 
-static SERVER: Mutex<Option<TcpListener>> = Mutex::new(None);
-static CONNECTIONS: Mutex<Vec<Connection>> = Mutex::new(Vec::new());
+struct State {
+    listener: TcpListener,
+    connections: Vec<Connection>,
+    task_id: u32,
+    connected_once: bool,
+}
 
-pub fn start(context: &Context, port: u16) -> Result<(), String> {
-    let listener = TcpListener::bind(("0.0.0.0", port)).map_err(|e| e.to_string())?;
+static STATE: Mutex<Option<State>> = Mutex::new(None);
+
+pub enum StartOutcome {
+    Started,
+    AlreadyRunning,
+}
+
+pub fn ensure_started(server: &Server, addr: &str, port: u16) -> Result<StartOutcome, String> {
+    if STATE.lock().unwrap().is_some() {
+        return Ok(StartOutcome::AlreadyRunning);
+    }
+
+    let listener = TcpListener::bind((addr, port)).map_err(|e| e.to_string())?;
     listener.set_nonblocking(true).map_err(|e| e.to_string())?;
 
-    *SERVER.lock().unwrap() = Some(listener);
-    context.schedule_repeating_task(0, 1, |_| poll());
+    let task_id = server.schedule_repeating_task(0, 1, |_| poll());
 
-    Ok(())
+    *STATE.lock().unwrap() = Some(State {
+        listener,
+        connections: Vec::new(),
+        task_id,
+        connected_once: false,
+    });
+
+    Ok(StartOutcome::Started)
 }
 
 fn poll() {
-    accept();
-
-    let mut connections = CONNECTIONS.lock().unwrap();
-
-    for connection in &mut *connections {
-        connection.poll();
-    }
-
-    connections.retain(|connection| !connection.closed);
-}
-
-fn accept() {
-    let server = SERVER.lock().unwrap();
-    let Some(listener) = server.as_ref() else {
+    let mut guard = STATE.lock().unwrap();
+    let Some(state) = guard.as_mut() else {
         return;
     };
 
+    accept(state);
+
+    for connection in &mut state.connections {
+        connection.poll();
+    }
+    state.connections.retain(|connection| !connection.closed);
+
+    if state.connections.iter().any(|connection| connection.handshake) {
+        state.connected_once = true;
+        return;
+    }
+
+    if state.connected_once {
+        let state = guard.take().unwrap();
+        tracing::info!("No more panel connections, stopping the websocket server");
+        scheduler::cancel_task(state.task_id);
+    }
+}
+
+fn accept(state: &mut State) {
     loop {
-        let Ok((stream, _)) = listener.accept() else {
+        let Ok((stream, _)) = state.listener.accept() else {
             break;
         };
 
         if stream.set_nonblocking(true).is_ok() {
-            CONNECTIONS.lock().unwrap().push(Connection {
+            state.connections.push(Connection {
                 stream,
                 handshake: false,
                 buffer: Vec::new(),
@@ -95,9 +120,9 @@ impl Connection {
 
             match frame {
                 Frame::Data(data) => self.on_data(data),
-                Frame::Ping(data) => self.send(PONG, &data),
+                Frame::Ping(data) => self.send(0xA, &data), // pong
                 Frame::Close => {
-                    self.send(CLOSE, &[]);
+                    self.send(0x8, &[]); // close
                     self.closed = true;
                     return;
                 }
@@ -122,7 +147,7 @@ impl Connection {
             return;
         };
 
-        let hash = Sha1::digest(format!("{key}{WS_GUID}").as_bytes());
+        let hash = Sha1::digest(format!("{key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11").as_bytes());
         let accept = BASE64.encode(hash);
 
         let response = format!(
@@ -173,7 +198,7 @@ impl Connection {
 
     #[allow(dead_code)]
     pub fn send_binary(&mut self, data: &[u8]) {
-        self.send(BINARY, data);
+        self.send(0x2, data); // binary
     }
 }
 
@@ -237,9 +262,9 @@ fn decode(buf: &[u8]) -> Option<(usize, Frame)> {
     }
 
     let frame = match opcode {
-        BINARY => Frame::Data(data),
-        PING => Frame::Ping(data),
-        CLOSE => Frame::Close,
+        0x2 => Frame::Data(data),
+        0x9 => Frame::Ping(data),
+        0x8 => Frame::Close,
         _ => Frame::Ignored,
     };
 

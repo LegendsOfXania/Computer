@@ -3,7 +3,7 @@ name: Publish Panel
 on:
   push:
     branches:
-      - master
+      - main
     paths:
       - "crates/computer-panel/**"
 

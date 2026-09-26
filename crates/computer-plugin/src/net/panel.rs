@@ -15,6 +15,8 @@ pub fn ensure_panel_up_to_date() {
 
     let panel = Path::new(data_folder).join("assets/panel");
 
+    tracing::info!("Checking for panel update...");
+
     match update(&panel) {
         Ok(Some(version)) => tracing::info!("Panel updated to {version}"),
         Ok(None) => tracing::info!("Panel is up to date"),
@@ -29,9 +31,7 @@ fn update(panel: &Path) -> Result<Option<String>, String> {
 
     let latest = latest_version()?;
 
-    if installed.as_deref() == Some(&latest)
-        && panel.join("index.html").is_file()
-    {
+    if installed.as_deref() == Some(&latest) && panel.join("index.html").is_file() {
         return Ok(None);
     }
 
@@ -40,60 +40,87 @@ fn update(panel: &Path) -> Result<Option<String>, String> {
     ))?;
 
     install(panel, &archive)?;
-
     std::fs::write(panel.join(INSTALLED_VERSION), &latest)
-        .map_err(|error| error.to_string())?;
+        .map_err(|e| e.to_string())?;
 
     Ok(Some(latest))
 }
 
 fn latest_version() -> Result<String, String> {
-    let url = format!(
-        "https://api.github.com/repos/LegendsOfXania/Computer/releases/latest"
-    );
+    let body = download(
+        "https://api.github.com/repos/LegendsOfXania/Computer/releases/latest",
+    )?;
 
-    let body = download(&url)?;
-    let release: Release =
-        serde_json::from_slice(&body).map_err(|error| error.to_string())?;
-
-    Ok(release.tag_name)
+    serde_json::from_slice::<Release>(&body)
+        .map(|release| release.tag_name)
+        .map_err(|e| e.to_string())
 }
 
 fn download(url: &str) -> Result<Vec<u8>, String> {
-    Client::new()
+    let response = Client::new()
         .get(url)
         .header(
             "User-Agent",
             concat!("computer-plugin/", env!("CARGO_PKG_VERSION")),
         )
         .send()
-        .map_err(|error| error.to_string())?
-        .body()
-        .map_err(|error| error.to_string())
+        .map_err(|e| e.to_string())?;
+
+    if matches!(response.status_code(), 301 | 302 | 303 | 307 | 308) {
+        let location = response
+            .header("Location")
+            .ok_or("redirect without location")?;
+
+        return download(location.to_str().map_err(|_| "invalid redirect")?);
+    }
+
+    if response.status_code() != 200 {
+        return Err(format!("HTTP {}", response.status_code()));
+    }
+
+    response.body().map_err(|e| e.to_string())
 }
 
 fn install(panel: &Path, archive: &[u8]) -> Result<(), String> {
     let parent = panel.parent().ok_or("invalid panel path")?;
-    let temp = parent.join("panel.tmp");
-
-    std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    let temp = parent.join("panel_tmp");
 
     if temp.exists() {
-        std::fs::remove_dir_all(&temp).map_err(|error| error.to_string())?;
+        std::fs::remove_dir_all(&temp).map_err(|e| e.to_string())?;
     }
 
-    std::fs::create_dir_all(&temp).map_err(|error| error.to_string())?;
+    std::fs::create_dir_all(&temp).map_err(|e| e.to_string())?;
 
     let decoder = flate2::read::GzDecoder::new(archive);
-    let mut tar = tar::Archive::new(decoder);
+    let mut archive = tar::Archive::new(decoder);
 
-    tar.unpack(&temp).map_err(|error| error.to_string())?;
+    // archive.unpack does not work
 
-    if panel.exists() {
-        std::fs::remove_dir_all(panel).map_err(|error| error.to_string())?;
+    for entry in archive.entries().map_err(|e| e.to_string())? {
+        let mut entry = entry.map_err(|e| e.to_string())?;
+        let path = temp.join(entry.path().map_err(|e| e.to_string())?);
+
+        if entry.header().entry_type().is_dir() {
+            std::fs::create_dir_all(path).map_err(|e| e.to_string())?;
+            continue;
+        }
+
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+
+        std::io::copy(
+            &mut entry,
+            &mut std::fs::File::create(path).map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| e.to_string())?;
     }
 
-    std::fs::rename(temp, panel).map_err(|error| error.to_string())
+    if panel.exists() {
+        std::fs::remove_dir_all(panel).map_err(|e| e.to_string())?;
+    }
+
+    std::fs::rename(temp, panel).map_err(|e| e.to_string())
 }
 
 #[derive(Deserialize)]

@@ -2,10 +2,10 @@ name: Publish Panel
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
-      - "crates/computer-panel/**"
+      - crates/computer-panel/**
+      - crates/computer-model/**
 
 permissions:
   contents: write
@@ -15,16 +15,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
 
+      - name: Cache Rust
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: panel-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            panel-${{ runner.os }}-
+
       - name: Install Dioxus CLI
-        run: cargo install dioxus-cli --locked
+        run: |
+          curl -fsSL https://dioxus.dev/install.sh | bash
+          echo "$HOME/.dx/bin" >> "$GITHUB_PATH"
 
       - name: Build panel
         run: dx bundle --web --release -p computer-panel
@@ -34,18 +45,12 @@ jobs:
           tar -czf panel.tar.gz \
             -C target/dx/computer-panel/release/web/public .
 
-      - name: Get previous release
-        id: previous
+      - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag=$(gh release list --limit 1 --json tagName --jq '.[0].tagName')
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          old=$(gh release list --limit 1 --json tagName --jq '.[0].tagName')
 
-      - name: Create release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
           gh release create \
             "panel-${{ github.sha }}" \
             panel.tar.gz \
@@ -53,11 +58,6 @@ jobs:
             --notes "Panel built from commit ${{ github.sha }}" \
             --latest
 
-      - name: Delete previous release
-        if: steps.previous.outputs.tag != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release delete "${{ steps.previous.outputs.tag }}" \
-            --yes \
-            --cleanup-tag
+          if [ -n "$old" ]; then
+            gh release delete "$old" --yes --cleanup-tag
+          fi

@@ -4,3 +4,9 @@ default_platform = "web"
 
 [web.app]
 title = "Computer Panel"
+
+[bundle]
+identifier = "fr.legendsofxania"
+publisher = "Legends of Xania"
+category = "Game"
+short_description = "The web panel for the Computer pumpkin plugin"

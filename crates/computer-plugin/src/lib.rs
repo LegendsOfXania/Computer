@@ -35,6 +35,11 @@ impl Plugin for ComputerPlugin {
 
     fn on_load(&self, context: Context) -> Result<()> {
         data::init_data_folder(context.get_data_folder());
+        net::panel::ensure_panel_up_to_date();
+
+        if let Err(err) = net::server::start(&context, 8080) {
+            tracing::error!("Could not start the websocket server: {err}")
+        }
         
         Ok(())
     }

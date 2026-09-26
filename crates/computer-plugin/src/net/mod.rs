@@ -1,2 +1,2 @@
 pub mod panel;
-pub mod server;
+pub mod srv;

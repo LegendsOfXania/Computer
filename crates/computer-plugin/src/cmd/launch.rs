@@ -5,7 +5,7 @@ use pumpkin_plugin_api::{
     text::TextComponent,
 };
 
-use crate::{data, net::server::{self, StartOutcome}};
+use crate::{data, net::srv::{self, StartOutcome}};
 
 pub fn node() -> CommandNode {
     CommandNode::literal("launch").execute(Launch)
@@ -31,7 +31,7 @@ impl CommandHandler for Launch {
             return Ok(0);
         }
 
-        match server::ensure_started(&server, config.panel.port) {
+        match srv::ensure_started(&server, config.panel.port) {
             Ok(StartOutcome::Started) | Ok(StartOutcome::AlreadyRunning) => {
                 sender.send_message(TextComponent::text(&format!(
                     "Panel: http://{}:{}",

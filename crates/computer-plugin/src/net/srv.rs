@@ -7,6 +7,7 @@ use std::{
 };
 
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
+use computer_model::protocol::{PROTOCOL_VERSION, message::{ClientMessage, ProtocolMessage, ServerMessage}};
 use pumpkin_plugin_api::{
     scheduler::SchedulerExt,
     Server,
@@ -274,10 +275,43 @@ impl Connection {
     }
 
     fn on_data(&mut self, data: Vec<u8>) {
-        tracing::info!("panel -> {} bytes", data.len());
+    let message = match ClientMessage::decode(&data) {
+        Ok(message) => message,
+        Err(error) => {
+            tracing::error!("Could not decode ClientMessage: {error:?}");
+            self.closed = true;
+            return;
+        }
+    };
 
-        // TODO: decode computer-model message.
+    match message {
+        ClientMessage::Hello { version } => {
+            let result = if version == PROTOCOL_VERSION {
+                Ok(PROTOCOL_VERSION)
+            } else {
+                Err(format!(
+                    "Unsupported protocol version: {version}"
+                ))
+            };
+
+            let message = ServerMessage::Handshake(result);
+
+            match message.encode() {
+                Ok(bytes) => self.send(0x2, &bytes),
+                Err(error) => {
+                    tracing::error!(
+                        "Could not encode handshake: {error:?}"
+                    );
+                    self.closed = true;
+                }
+            }
+        }
+
+        ClientMessage::Request { .. } => {
+            tracing::warn!("Received request before request handling is implemented");
+        }
     }
+}
 
     fn send(&mut self, opcode: u8, data: &[u8]) {
         let len = data.len();

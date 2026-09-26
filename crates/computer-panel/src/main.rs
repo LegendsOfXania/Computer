@@ -22,10 +22,10 @@ fn main() {
 
 #[component]
 fn App() -> Element {
-    let state = use_context_provider(AppState::new);
-    let status = use_context_provider(|| Signal::new(ConnectionStatus::Connecting));
+    use_context_provider(AppState::new);
+    use_context_provider(|| Signal::new(ConnectionStatus::Connecting));
 
-    let client = ws_client("/".into(), state, status);
+    let client = ws_client();
 
     use_context_provider(|| client);
     use_context_provider(UiState::new);

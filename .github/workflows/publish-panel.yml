@@ -1,0 +1,63 @@
+name: Publish Panel
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "crates/computer-panel/**"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install Dioxus CLI
+        run: cargo install dioxus-cli --locked
+
+      - name: Build panel
+        run: dx bundle --web --release -p computer-panel
+
+      - name: Create archive
+        run: |
+          tar -czf panel.tar.gz \
+            -C target/dx/computer-panel/release/web/public .
+
+      - name: Get previous release
+        id: previous
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh release list --limit 1 --json tagName --jq '.[0].tagName')
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create \
+            "panel-${{ github.sha }}" \
+            panel.tar.gz \
+            --title "Panel ${{ github.sha }}" \
+            --notes "Panel built from commit ${{ github.sha }}" \
+            --latest
+
+      - name: Delete previous release
+        if: steps.previous.outputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete "${{ steps.previous.outputs.tag }}" \
+            --yes \
+            --cleanup-tag

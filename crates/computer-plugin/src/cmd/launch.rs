@@ -31,15 +31,13 @@ impl CommandHandler for Launch {
             return Ok(0);
         }
 
-        match server::ensure_started(&server, &config.panel.ip, config.panel.port) {
-            Ok(StartOutcome::Started) => {
+        match server::ensure_started(&server, config.panel.port) {
+            Ok(StartOutcome::Started) | Ok(StartOutcome::AlreadyRunning) => {
                 sender.send_message(TextComponent::text(&format!(
-                    "Panel server started on {}:{}.",
-                    config.panel.ip, config.panel.port
+                    "Panel: http://{}:{}",
+                    config.panel.ip,
+                    config.panel.port
                 )));
-            }
-            Ok(StartOutcome::AlreadyRunning) => {
-                sender.send_message(TextComponent::text("Panel server is already running."));
             }
             Err(err) => {
                 return Err(CommandError::CommandFailed(TextComponent::text(

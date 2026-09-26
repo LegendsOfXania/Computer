@@ -1,7 +1,13 @@
 use dioxus::prelude::*;
 
 use crate::{
-    components::shell::Shell, state::{AppState, status::ConnectionStatus, ui::UiState}, ws::ws_client,
+    components::shell::Shell,
+    state::{
+        AppState,
+        status::ConnectionStatus,
+        ui::UiState,
+    },
+    ws::ws_client,
 };
 
 pub mod components;
@@ -18,12 +24,13 @@ fn main() {
 fn App() -> Element {
     let state = use_context_provider(AppState::new);
     let status = use_context_provider(|| Signal::new(ConnectionStatus::Connecting));
-    let client = ws_client("ws://127.0.0.1:8082".into(), state, status);
-    
+
+    let client = ws_client("/".into(), state, status);
+
     use_context_provider(|| client);
     use_context_provider(UiState::new);
-    
+
     rsx! {
         Shell {}
     }
-}   
+}

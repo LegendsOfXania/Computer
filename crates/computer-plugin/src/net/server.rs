@@ -1,26 +1,32 @@
-use std::io::{Read, Write};
-use std::net::{TcpListener, TcpStream};
-use std::sync::Mutex;
+use std::{
+    fs,
+    io::{ErrorKind, Read, Write},
+    net::{TcpListener, TcpStream},
+    path::Path,
+    sync::Mutex,
+};
 
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use pumpkin_plugin_api::{
-    scheduler::{self, SchedulerExt},
+    scheduler::SchedulerExt,
     Server,
 };
 use sha1::{Digest, Sha1};
 
+use crate::data;
+
+const WS_GUID: &str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+
 struct Connection {
     stream: TcpStream,
-    handshake: bool,
     buffer: Vec<u8>,
+    upgraded: bool,
     closed: bool,
 }
 
 struct State {
     listener: TcpListener,
     connections: Vec<Connection>,
-    task_id: u32,
-    connected_once: bool,
 }
 
 static STATE: Mutex<Option<State>> = Mutex::new(None);
@@ -30,28 +36,36 @@ pub enum StartOutcome {
     AlreadyRunning,
 }
 
-pub fn ensure_started(server: &Server, addr: &str, port: u16) -> Result<StartOutcome, String> {
-    if STATE.lock().unwrap().is_some() {
+pub fn ensure_started(
+    server: &Server,
+    port: u16,
+) -> Result<StartOutcome, String> {
+    if STATE.lock().map_err(|e| e.to_string())?.is_some() {
         return Ok(StartOutcome::AlreadyRunning);
     }
 
-    let listener = TcpListener::bind((addr, port)).map_err(|e| e.to_string())?;
-    listener.set_nonblocking(true).map_err(|e| e.to_string())?;
+    let listener =
+        TcpListener::bind(("0.0.0.0", port)).map_err(|e| e.to_string())?;
 
-    let task_id = server.schedule_repeating_task(0, 1, |_| poll());
+    listener
+        .set_nonblocking(true)
+        .map_err(|e| e.to_string())?;
 
-    *STATE.lock().unwrap() = Some(State {
+    server.schedule_repeating_task(0, 1, |_| poll());
+
+    *STATE.lock().map_err(|e| e.to_string())? = Some(State {
         listener,
         connections: Vec::new(),
-        task_id,
-        connected_once: false,
     });
 
     Ok(StartOutcome::Started)
 }
 
 fn poll() {
-    let mut guard = STATE.lock().unwrap();
+    let Ok(mut guard) = STATE.lock() else {
+        return;
+    };
+
     let Some(state) = guard.as_mut() else {
         return;
     };
@@ -61,93 +75,106 @@ fn poll() {
     for connection in &mut state.connections {
         connection.poll();
     }
+
     state.connections.retain(|connection| !connection.closed);
-
-    if state.connections.iter().any(|connection| connection.handshake) {
-        state.connected_once = true;
-        return;
-    }
-
-    if state.connected_once {
-        let state = guard.take().unwrap();
-        tracing::info!("No more panel connections, stopping the websocket server");
-        scheduler::cancel_task(state.task_id);
-    }
 }
 
 fn accept(state: &mut State) {
     loop {
-        let Ok((stream, _)) = state.listener.accept() else {
-            break;
-        };
+        match state.listener.accept() {
+            Ok((stream, _)) => {
+                if stream.set_nonblocking(true).is_ok() {
+                    state.connections.push(Connection {
+                        stream,
+                        buffer: Vec::new(),
+                        upgraded: false,
+                        closed: false,
+                    });
+                }
+            }
 
-        if stream.set_nonblocking(true).is_ok() {
-            state.connections.push(Connection {
-                stream,
-                handshake: false,
-                buffer: Vec::new(),
-                closed: false,
-            });
+            Err(error) if error.kind() == ErrorKind::WouldBlock => break,
+            Err(_) => break,
         }
     }
 }
 
 impl Connection {
     fn poll(&mut self) {
+        if !self.read() {
+            self.closed = true;
+            return;
+        }
+
+        if !self.upgraded {
+            self.http();
+            return;
+        }
+
+        self.websocket();
+    }
+
+    fn read(&mut self) -> bool {
         let mut bytes = [0; 4096];
 
         loop {
             match self.stream.read(&mut bytes) {
-                Ok(0) | Err(_) => {
-                    self.closed = true;
-                    return;
+                Ok(0) => return false,
+
+                Ok(n) => {
+                    self.buffer.extend_from_slice(&bytes[..n]);
+
+                    if n < bytes.len() {
+                        return true;
+                    }
                 }
-                Ok(n) => self.buffer.extend_from_slice(&bytes[..n]),
-            }
 
-            if self.buffer.len() < bytes.len() {
-                break;
-            }
-        }
-
-        if !self.handshake {
-            self.handshake();
-            return;
-        }
-
-        while let Some((used, frame)) = decode(&self.buffer) {
-            self.buffer.drain(..used);
-
-            match frame {
-                Frame::Data(data) => self.on_data(data),
-                Frame::Ping(data) => self.send(0xA, &data), // pong
-                Frame::Close => {
-                    self.send(0x8, &[]); // close
-                    self.closed = true;
-                    return;
+                Err(error) if error.kind() == ErrorKind::WouldBlock => {
+                    return true;
                 }
-                Frame::Ignored => {}
+
+                Err(_) => return false,
             }
         }
     }
 
-    fn handshake(&mut self) {
+    fn http(&mut self) {
         let Some(end) = find(&self.buffer, b"\r\n\r\n") else {
             return;
         };
 
         let request = String::from_utf8_lossy(&self.buffer[..end]);
-        let key = request.lines().find_map(|line| {
-            let (name, value) = line.split_once(':')?;
-            (name.eq_ignore_ascii_case("sec-websocket-key")).then_some(value.trim())
-        });
+        let mut lines = request.lines();
 
-        let Some(key) = key else {
+        let Some(path) = lines
+            .next()
+            .and_then(|line| line.split_whitespace().nth(1))
+            .map(str::to_owned)
+        else {
             self.closed = true;
             return;
         };
 
-        let hash = Sha1::digest(format!("{key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11").as_bytes());
+        let key = lines.find_map(|line| {
+            let (name, value) = line.split_once(':')?;
+
+            name.eq_ignore_ascii_case("sec-websocket-key")
+                .then(|| value.trim().to_owned())
+        });
+
+        self.buffer.drain(..end + 4);
+
+        if let Some(key) = key {
+            self.websocket_handshake(&key);
+        } else {
+            self.file(&path);
+        }
+    }
+
+    fn websocket_handshake(&mut self, key: &str) {
+        let hash =
+            Sha1::digest(format!("{key}{WS_GUID}").as_bytes());
+
         let accept = BASE64.encode(hash);
 
         let response = format!(
@@ -162,61 +189,133 @@ impl Connection {
             return;
         }
 
-        self.buffer.drain(..end + 4);
-        self.handshake = true;
+        self.upgraded = true;
+    }
+
+    fn file(&mut self, request_path: &str) {
+        let Some(data_folder) = data::get_data_folder() else {
+            self.send_http(404, "Not Found", "text/plain", b"");
+            return;
+        };
+
+        let panel_dir = Path::new(data_folder).join("assets/panel");
+
+        let Some(panel_dir) = panel_dir.canonicalize().ok() else {
+            self.send_http(404, "Not Found", "text/plain", b"");
+            return;
+        };
+
+        let request_path = request_path.trim_start_matches('/');
+        let request_path = if request_path.is_empty() {
+            "index.html"
+        } else {
+            request_path
+        };
+
+        let Some(path) = panel_dir.join(request_path).canonicalize().ok() else {
+            self.send_http(404, "Not Found", "text/plain", b"");
+            return;
+        };
+
+        if !path.starts_with(&panel_dir) {
+            self.send_http(404, "Not Found", "text/plain", b"");
+            return;
+        }
+
+        let Ok(body) = fs::read(&path) else {
+            self.send_http(404, "Not Found", "text/plain", b"");
+            return;
+        };
+
+        self.send_http(200, "OK", content_type(&path), &body);
+    }
+
+    fn send_http(
+        &mut self,
+        status: u16,
+        reason: &str,
+        content_type: &str,
+        body: &[u8],
+    ) {
+        let response = format!(
+            "HTTP/1.1 {status} {reason}\r\n\
+             Content-Type: {content_type}\r\n\
+             Content-Length: {}\r\n\
+             Connection: close\r\n\r\n",
+            body.len()
+        );
+
+        if self.stream.write_all(response.as_bytes()).is_err()
+            || self.stream.write_all(body).is_err()
+        {
+            self.closed = true;
+            return;
+        }
+
+        self.closed = true;
+    }
+
+    fn websocket(&mut self) {
+        while let Some((used, opcode, data)) = decode(&self.buffer) {
+            self.buffer.drain(..used);
+
+            match opcode {
+                0x1 | 0x2 => self.on_data(data),
+
+                0x8 => {
+                    self.send(0x8, &[]);
+                    self.closed = true;
+                    return;
+                }
+
+                _ => {}
+            }
+        }
     }
 
     fn on_data(&mut self, data: Vec<u8>) {
         tracing::info!("panel -> {} bytes", data.len());
+
         // TODO: decode computer-model message.
     }
 
     fn send(&mut self, opcode: u8, data: &[u8]) {
         let len = data.len();
 
-        let mut header = Vec::with_capacity(10);
-        header.push(0x80 | opcode);
+        let mut frame = Vec::with_capacity(10 + len);
+        frame.push(0x80 | opcode);
 
         match len {
-            0..=125 => header.push(len as u8),
+            0..=125 => frame.push(len as u8),
+
             126..=65535 => {
-                header.push(126);
-                header.extend_from_slice(&(len as u16).to_be_bytes());
+                frame.push(126);
+                frame.extend_from_slice(&(len as u16).to_be_bytes());
             }
+
             _ => {
-                header.push(127);
-                header.extend_from_slice(&(len as u64).to_be_bytes());
+                frame.push(127);
+                frame.extend_from_slice(&(len as u64).to_be_bytes());
             }
         }
 
-        if self.stream.write_all(&header).is_err()
-            || self.stream.write_all(data).is_err()
-        {
+        frame.extend_from_slice(data);
+
+        if self.stream.write_all(&frame).is_err() {
             self.closed = true;
         }
     }
-
-    #[allow(dead_code)]
-    pub fn send_binary(&mut self, data: &[u8]) {
-        self.send(0x2, data); // binary
-    }
 }
 
-enum Frame {
-    Data(Vec<u8>),
-    Ping(Vec<u8>),
-    Close,
-    Ignored,
-}
-
-fn decode(buf: &[u8]) -> Option<(usize, Frame)> {
+fn decode(buf: &[u8]) -> Option<(usize, u8, Vec<u8>)> {
     if buf.len() < 2 {
         return None;
     }
 
-    let opcode = buf[0] & 0x0F;
+    let opcode = buf[0] & 0x0f;
     let masked = buf[1] & 0x80 != 0;
-    let mut len = (buf[1] & 0x7F) as usize;
+
+    let mut len = (buf[1] & 0x7f) as usize;
     let mut pos = 2;
 
     match len {
@@ -224,30 +323,42 @@ fn decode(buf: &[u8]) -> Option<(usize, Frame)> {
             if buf.len() < pos + 2 {
                 return None;
             }
-            len = u16::from_be_bytes(buf[pos..pos + 2].try_into().ok()?) as usize;
+
+            len = u16::from_be_bytes(
+                buf[pos..pos + 2].try_into().ok()?,
+            ) as usize;
+
             pos += 2;
         }
+
         127 => {
             if buf.len() < pos + 8 {
                 return None;
             }
-            len = usize::try_from(u64::from_be_bytes(buf[pos..pos + 8].try_into().ok()?)).ok()?;
+
+            len = usize::try_from(u64::from_be_bytes(
+                buf[pos..pos + 8].try_into().ok()?,
+            ))
+            .ok()?;
+
             pos += 8;
         }
+
         _ => {}
     }
 
-    let mask = if masked {
-        if buf.len() < pos + 4 {
-            return None;
-        }
+    if !masked {
+        return None;
+    }
 
-        let mask: [u8; 4] = buf[pos..pos + 4].try_into().ok()?;
-        pos += 4;
-        Some(mask)
-    } else {
-        None
-    };
+    if buf.len() < pos + 4 {
+        return None;
+    }
+
+    let mask: [u8; 4] =
+        buf[pos..pos + 4].try_into().ok()?;
+
+    pos += 4;
 
     if buf.len() < pos + len {
         return None;
@@ -255,22 +366,26 @@ fn decode(buf: &[u8]) -> Option<(usize, Frame)> {
 
     let mut data = buf[pos..pos + len].to_vec();
 
-    if let Some(mask) = mask {
-        for (i, byte) in data.iter_mut().enumerate() {
-            *byte ^= mask[i & 3];
-        }
+    for (i, byte) in data.iter_mut().enumerate() {
+        *byte ^= mask[i & 3];
     }
 
-    let frame = match opcode {
-        0x2 => Frame::Data(data),
-        0x9 => Frame::Ping(data),
-        0x8 => Frame::Close,
-        _ => Frame::Ignored,
-    };
+    Some((pos + len, opcode, data))
+}
 
-    Some((pos + len, frame))
+fn content_type(path: &Path) -> &'static str {
+    match path.extension().and_then(|ext| ext.to_str()) {
+        Some("html") => "text/html; charset=utf-8",
+        Some("css") => "text/css",
+        Some("js") => "application/javascript",
+        Some("wasm") => "application/wasm",
+        Some("json") => "application/json",
+        Some("svg") => "image/svg+xml",
+        _ => "application/octet-stream",
+    }
 }
 
 fn find(data: &[u8], pattern: &[u8]) -> Option<usize> {
-    data.windows(pattern.len()).position(|window| window == pattern)
+    data.windows(pattern.len())
+        .position(|window| window == pattern)
 }

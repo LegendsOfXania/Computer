@@ -33,5 +33,5 @@ pub enum Event {
         page_id: u64,
     },
 
-    Published,
+    Pushed,
 }

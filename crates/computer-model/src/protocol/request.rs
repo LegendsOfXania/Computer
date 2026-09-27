@@ -7,9 +7,11 @@ pub enum Request {
     CreatePage { 
         page: Page
     },
+    
     UpdatePage {
         page: Page
     },
+
     DeletePage { 
         page_id: u64
     },
@@ -17,16 +19,19 @@ pub enum Request {
     CreateEntry {
         entry: Entry
     },
+
     UpdateEntry {
         entry: Entry
     },
+
     DeleteEntry {
         key: EntryKey
     },
+
     MoveEntry {
         key: EntryKey,
         page_id: u64
     },
 
-    Publish,
+    Push,
 }

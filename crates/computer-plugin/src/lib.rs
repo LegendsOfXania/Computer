@@ -1,6 +1,7 @@
 mod cmd;
 mod data;
 mod net;
+mod util;
 
 use pumpkin_plugin_api::{Context, Plugin, PluginMetadata, Result};
 
@@ -29,7 +30,6 @@ impl Plugin for ComputerPlugin {
                 "network.tcp".into(),
                 "network.tcp.bind".into(),
                 "network.tcp.connect".into(),
-                "network.tcp.connect".into(),
                 "http.outbound".into(),
             ],
         }
@@ -37,10 +37,9 @@ impl Plugin for ComputerPlugin {
 
     fn on_load(&self, context: Context) -> Result<()> {
         data::init_data_folder(context.get_data_folder());
-        data::conf::init_conf();
 
         net::panel::ensure_panel_up_to_date();
-        
+
         cmd::register(&context);
 
         Ok(())

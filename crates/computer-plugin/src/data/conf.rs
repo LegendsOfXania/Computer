@@ -21,16 +21,16 @@ pub struct PanelConfig {
 impl Default for PanelConfig {
     fn default() -> Self {
         Self {
-            enabled: true,
+            enabled: false,
             ip: "127.0.0.1".into(),
             port: 8080,
         }
     }
 }
 
-pub fn init_conf() {
+fn init_conf() -> ComputerConfig {
     let Some(data_folder) = data::get_data_folder() else {
-        return;
+        return ComputerConfig::default();
     };
 
     let path = Path::new(data_folder).join("config.toml");
@@ -42,13 +42,13 @@ pub fn init_conf() {
 
     if !path.exists() {
         if let Ok(content) = toml::to_string_pretty(&config) {
-            let _ = fs::write(path, content);
+            let _ = fs::write(&path, content);
         }
     }
 
-    let _ = CONFIG.set(config);
+    config
 }
 
-pub fn get() -> Option<&'static ComputerConfig> {
-    CONFIG.get()
+pub fn get_conf() -> &'static ComputerConfig {
+    CONFIG.get_or_init(init_conf)
 }

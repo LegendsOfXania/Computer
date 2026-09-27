@@ -1,33 +1,50 @@
 use std::{
-    fs,
+    collections::HashMap,
     io::{ErrorKind, Read, Write},
     net::{TcpListener, TcpStream},
-    path::Path,
-    sync::Mutex,
+    sync::{Arc, Mutex},
 };
 
-use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
-use computer_model::protocol::{PROTOCOL_VERSION, message::{ClientMessage, ProtocolMessage, ServerMessage}};
-use pumpkin_plugin_api::{
-    scheduler::SchedulerExt,
-    Server,
+use computer_model::protocol::{
+    message::{ClientMessage, ProtocolMessage, ServerMessage},
+    PROTOCOL_VERSION,
 };
-use sha1::{Digest, Sha1};
+use pumpkin_plugin_api::{scheduler::SchedulerExt, Server};
+use tungstenite::{
+    handshake::derive_accept_key,
+    protocol::Role,
+    Error as WsError,
+    Message,
+    WebSocket,
+};
 
-use crate::data;
+use crate::net::{assets::{self, Asset}, http};
 
-const WS_GUID: &str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+const REQUEST_BUFFER: usize = 8 * 1024;
 
-struct Connection {
+type ConnectionState = Connection;
+
+enum Connection {
+    Pending {
+        stream: TcpStream,
+        buffer: Vec<u8>,
+    },
+    WebSocket(WebSocket<TcpStream>),
+    Writing(Writing),
+}
+
+struct Writing {
     stream: TcpStream,
-    buffer: Vec<u8>,
-    upgraded: bool,
-    closed: bool,
+    header: Vec<u8>,
+    header_sent: usize,
+    body: Arc<[u8]>,
+    body_sent: usize,
 }
 
 struct State {
     listener: TcpListener,
-    connections: Vec<Connection>,
+    connections: Vec<ConnectionState>,
+    assets: HashMap<String, Asset>,
 }
 
 static STATE: Mutex<Option<State>> = Mutex::new(None);
@@ -37,26 +54,22 @@ pub enum StartOutcome {
     AlreadyRunning,
 }
 
-pub fn ensure_started(
-    server: &Server,
-    port: u16,
-) -> Result<StartOutcome, String> {
+pub fn ensure_started(server: &Server, ip: &str, port: u16) -> Result<StartOutcome, String> {
     if STATE.lock().map_err(|e| e.to_string())?.is_some() {
         return Ok(StartOutcome::AlreadyRunning);
     }
 
-    let listener =
-        TcpListener::bind(("0.0.0.0", port)).map_err(|e| e.to_string())?;
+    let listener = TcpListener::bind((ip, port)).map_err(|e| e.to_string())?;
+    listener.set_nonblocking(true).map_err(|e| e.to_string())?;
 
-    listener
-        .set_nonblocking(true)
-        .map_err(|e| e.to_string())?;
+    let assets = assets::load().unwrap_or_default();
 
     server.schedule_repeating_task(0, 1, |_| poll());
 
     *STATE.lock().map_err(|e| e.to_string())? = Some(State {
         listener,
         connections: Vec::new(),
+        assets,
     });
 
     Ok(StartOutcome::Started)
@@ -71,216 +84,270 @@ fn poll() {
         return;
     };
 
-    accept(state);
+    accept_connections(state);
 
-    for connection in &mut state.connections {
-        connection.poll();
-    }
+    let assets = &state.assets;
 
-    state.connections.retain(|connection| !connection.closed);
+    state.connections = std::mem::take(&mut state.connections)
+        .into_iter()
+        .filter_map(|connection| connection.poll(assets))
+        .collect();
 }
 
-fn accept(state: &mut State) {
+fn accept_connections(state: &mut State) {
     loop {
         match state.listener.accept() {
             Ok((stream, _)) => {
                 if stream.set_nonblocking(true).is_ok() {
-                    state.connections.push(Connection {
+                    state.connections.push(Connection::Pending {
                         stream,
-                        buffer: Vec::new(),
-                        upgraded: false,
-                        closed: false,
+                        buffer: Vec::with_capacity(REQUEST_BUFFER),
                     });
                 }
             }
 
             Err(error) if error.kind() == ErrorKind::WouldBlock => break,
-            Err(_) => break,
+
+            Err(error) => {
+                tracing::warn!("Failed to accept connection: {error}");
+                break;
+            }
         }
     }
 }
 
 impl Connection {
-    fn poll(&mut self) {
-        if !self.read() {
-            self.closed = true;
-            return;
-        }
+    fn poll(self, assets: &HashMap<String, Asset>) -> Option<Self> {
+        match self {
+            Self::Pending { stream, buffer } => poll_pending(stream, buffer, assets),
 
-        if !self.upgraded {
-            self.http();
-            return;
-        }
+            Self::Writing(writing) => poll_writing(writing),
 
-        self.websocket();
+            Self::WebSocket(mut ws) => {
+                poll_websocket(&mut ws).then_some(Self::WebSocket(ws))
+            }
+        }
+    }
+}
+
+fn poll_pending(
+    mut stream: TcpStream,
+    mut buffer: Vec<u8>,
+    assets: &HashMap<String, Asset>,
+) -> Option<Connection> {
+    let mut chunk = [0u8; 4096];
+
+    loop {
+        match stream.read(&mut chunk) {
+            Ok(0) => return None,
+
+            Ok(n) => {
+                buffer.extend_from_slice(&chunk[..n]);
+
+                if buffer.len() >= REQUEST_BUFFER {
+                    break;
+                }
+
+                if http::parse(&buffer).is_ok_and(|request| request.is_some()) {
+                    break;
+                }
+            }
+
+            Err(error) if error.kind() == ErrorKind::WouldBlock => break,
+
+            Err(error) => {
+                tracing::debug!("HTTP read failed: {error}");
+                return None;
+            }
+        }
     }
 
-    fn read(&mut self) -> bool {
-        let mut bytes = [0; 4096];
+    let request = match http::parse(&buffer) {
+        Ok(Some(request)) => request,
 
-        loop {
-            match self.stream.read(&mut bytes) {
-                Ok(0) => return false,
+        Ok(None) => {
+            if buffer.len() >= REQUEST_BUFFER {
+                tracing::warn!("Request headers exceeded {REQUEST_BUFFER} bytes");
+                return None;
+            }
+
+            return Some(Connection::Pending { stream, buffer });
+        }
+
+        Err(()) => {
+            tracing::warn!("Could not parse HTTP request");
+            return None;
+        }
+    };
+    
+    if let Some(ws_key) = request.ws_key {
+        return start_websocket(stream, buffer, ws_key);
+    }
+
+    Some(serve_file(stream, assets, &request.path))
+}
+
+fn start_websocket(
+    mut stream: TcpStream,
+    buffer: Vec<u8>,
+    key: String,
+) -> Option<Connection> {
+    let header_end = find_header_end(&buffer)?;
+
+    let accept_key = derive_accept_key(key.as_bytes());
+
+    let response = format!(
+        "HTTP/1.1 101 Switching Protocols\r\n\
+         Upgrade: websocket\r\n\
+         Connection: Upgrade\r\n\
+         Sec-WebSocket-Accept: {accept_key}\r\n\
+         \r\n"
+    );
+
+    if let Err(error) = stream.write_all(response.as_bytes()) {
+        if error.kind() != ErrorKind::WouldBlock {
+            tracing::warn!("WebSocket handshake response failed: {error}");
+            return None;
+        }
+
+        tracing::warn!("WebSocket handshake response would block");
+        return None;
+    }
+
+    let remaining = buffer[header_end..].to_vec();
+
+    let ws = WebSocket::from_partially_read(
+        stream,
+        remaining,
+        Role::Server,
+        None,
+    );
+
+    tracing::debug!("WebSocket handshake completed");
+
+    Some(Connection::WebSocket(ws))
+}
+
+fn find_header_end(buffer: &[u8]) -> Option<usize> {
+    buffer
+        .windows(4)
+        .position(|window| window == b"\r\n\r\n")
+        .map(|position| position + 4)
+}
+
+fn serve_file(
+    stream: TcpStream,
+    assets: &HashMap<String, Asset>,
+    request_path: &str,
+) -> Connection {
+    let (status, reason, content_type, body) = match http::resolve(assets, request_path) {
+        Some(asset) => (200, "OK", asset.content_type, asset.body.clone()),
+
+        None => (
+            404,
+            "Not Found",
+            "text/plain; charset=utf-8",
+            Arc::from(&b"Not Found"[..]),
+        ),
+    };
+
+    let header = format!(
+        "HTTP/1.1 {status} {reason}\r\n\
+         Content-Type: {content_type}\r\n\
+         Content-Length: {}\r\n\
+         Connection: close\r\n\
+         \r\n",
+        body.len()
+    )
+    .into_bytes();
+
+    Connection::Writing(Writing {
+        stream,
+        header,
+        header_sent: 0,
+        body,
+        body_sent: 0,
+    })
+}
+
+fn poll_writing(mut writing: Writing) -> Option<Connection> {
+    loop {
+        if writing.header_sent < writing.header.len() {
+            match writing.stream.write(&writing.header[writing.header_sent..]) {
+                Ok(0) => return None,
 
                 Ok(n) => {
-                    self.buffer.extend_from_slice(&bytes[..n]);
-
-                    if n < bytes.len() {
-                        return true;
-                    }
+                    writing.header_sent += n;
                 }
 
                 Err(error) if error.kind() == ErrorKind::WouldBlock => {
-                    return true;
+                    return Some(Connection::Writing(writing));
                 }
 
-                Err(_) => return false,
+                Err(_) => return None,
+            }
+
+            continue;
+        }
+
+        if writing.body_sent < writing.body.len() {
+            match writing.stream.write(&writing.body[writing.body_sent..]) {
+                Ok(0) => return None,
+
+                Ok(n) => {
+                    writing.body_sent += n;
+                }
+
+                Err(error) if error.kind() == ErrorKind::WouldBlock => {
+                    return Some(Connection::Writing(writing));
+                }
+
+                Err(_) => return None,
+            }
+
+            continue;
+        }
+
+        return None;
+    }
+}
+
+fn poll_websocket(ws: &mut WebSocket<TcpStream>) -> bool {
+    loop {
+        match ws.read() {
+            Ok(Message::Binary(bytes)) => {
+                if !on_data(ws, &bytes) {
+                    return false;
+                }
+            }
+
+            Ok(Message::Text(_)) => {
+                tracing::warn!("Received text frame, ignored");
+            }
+
+            Ok(Message::Ping(_)) | Ok(Message::Pong(_)) | Ok(Message::Frame(_)) => {}
+
+            Ok(Message::Close(_)) => return false,
+
+            Err(WsError::Io(error)) if error.kind() == ErrorKind::WouldBlock => {
+                return true;
+            }
+
+            Err(error) => {
+                tracing::warn!("WebSocket error: {error}");
+                return false;
             }
         }
     }
+}
 
-    fn http(&mut self) {
-        let Some(end) = find(&self.buffer, b"\r\n\r\n") else {
-            return;
-        };
-
-        let request = String::from_utf8_lossy(&self.buffer[..end]);
-        let mut lines = request.lines();
-
-        let Some(path) = lines
-            .next()
-            .and_then(|line| line.split_whitespace().nth(1))
-            .map(str::to_owned)
-        else {
-            self.closed = true;
-            return;
-        };
-
-        let key = lines.find_map(|line| {
-            let (name, value) = line.split_once(':')?;
-
-            name.eq_ignore_ascii_case("sec-websocket-key")
-                .then(|| value.trim().to_owned())
-        });
-
-        self.buffer.drain(..end + 4);
-
-        if let Some(key) = key {
-            self.websocket_handshake(&key);
-        } else {
-            self.file(&path);
-        }
-    }
-
-    fn websocket_handshake(&mut self, key: &str) {
-        let hash =
-            Sha1::digest(format!("{key}{WS_GUID}").as_bytes());
-
-        let accept = BASE64.encode(hash);
-
-        let response = format!(
-            "HTTP/1.1 101 Switching Protocols\r\n\
-             Upgrade: websocket\r\n\
-             Connection: Upgrade\r\n\
-             Sec-WebSocket-Accept: {accept}\r\n\r\n"
-        );
-
-        if self.stream.write_all(response.as_bytes()).is_err() {
-            self.closed = true;
-            return;
-        }
-
-        self.upgraded = true;
-    }
-
-    fn file(&mut self, request_path: &str) {
-        let Some(data_folder) = data::get_data_folder() else {
-            self.send_http(404, "Not Found", "text/plain", b"");
-            return;
-        };
-
-        let panel_dir = Path::new(data_folder).join("assets/panel");
-
-        let Some(panel_dir) = panel_dir.canonicalize().ok() else {
-            self.send_http(404, "Not Found", "text/plain", b"");
-            return;
-        };
-
-        let request_path = request_path.trim_start_matches('/');
-        let request_path = if request_path.is_empty() {
-            "index.html"
-        } else {
-            request_path
-        };
-
-        let Some(path) = panel_dir.join(request_path).canonicalize().ok() else {
-            self.send_http(404, "Not Found", "text/plain", b"");
-            return;
-        };
-
-        if !path.starts_with(&panel_dir) {
-            self.send_http(404, "Not Found", "text/plain", b"");
-            return;
-        }
-
-        let Ok(body) = fs::read(&path) else {
-            self.send_http(404, "Not Found", "text/plain", b"");
-            return;
-        };
-
-        self.send_http(200, "OK", content_type(&path), &body);
-    }
-
-    fn send_http(
-        &mut self,
-        status: u16,
-        reason: &str,
-        content_type: &str,
-        body: &[u8],
-    ) {
-        let response = format!(
-            "HTTP/1.1 {status} {reason}\r\n\
-             Content-Type: {content_type}\r\n\
-             Content-Length: {}\r\n\
-             Connection: close\r\n\r\n",
-            body.len()
-        );
-
-        if self.stream.write_all(response.as_bytes()).is_err()
-            || self.stream.write_all(body).is_err()
-        {
-            self.closed = true;
-            return;
-        }
-
-        self.closed = true;
-    }
-
-    fn websocket(&mut self) {
-        while let Some((used, opcode, data)) = decode(&self.buffer) {
-            self.buffer.drain(..used);
-
-            match opcode {
-                0x1 | 0x2 => self.on_data(data),
-
-                0x8 => {
-                    self.send(0x8, &[]);
-                    self.closed = true;
-                    return;
-                }
-
-                _ => {}
-            }
-        }
-    }
-
-    fn on_data(&mut self, data: Vec<u8>) {
-    let message = match ClientMessage::decode(&data) {
+fn on_data(ws: &mut WebSocket<TcpStream>, data: &[u8]) -> bool {
+    let message = match ClientMessage::decode(data) {
         Ok(message) => message,
+
         Err(error) => {
             tracing::error!("Could not decode ClientMessage: {error:?}");
-            self.closed = true;
-            return;
+            return false;
         }
     };
 
@@ -289,137 +356,31 @@ impl Connection {
             let result = if version == PROTOCOL_VERSION {
                 Ok(PROTOCOL_VERSION)
             } else {
-                Err(format!(
-                    "Unsupported protocol version: {version}"
-                ))
+                Err(format!("Unsupported protocol version: {version}"))
             };
 
-            let message = ServerMessage::Handshake(result);
+            let reply = ServerMessage::Handshake(result);
 
-            match message.encode() {
-                Ok(bytes) => self.send(0x2, &bytes),
+            match reply.encode() {
+                Ok(bytes) => {
+                    if ws.send(Message::Binary(bytes.into())).is_err() {
+                        return false;
+                    }
+                }
+
                 Err(error) => {
-                    tracing::error!(
-                        "Could not encode handshake: {error:?}"
-                    );
-                    self.closed = true;
+                    tracing::error!("Could not encode handshake: {error:?}");
+                    return false;
                 }
             }
         }
 
         ClientMessage::Request { .. } => {
-            tracing::warn!("Received request before request handling is implemented");
+            tracing::warn!(
+                "Received request before request handling is implemented"
+            );
         }
     }
-}
 
-    fn send(&mut self, opcode: u8, data: &[u8]) {
-        let len = data.len();
-
-        let mut frame = Vec::with_capacity(10 + len);
-        frame.push(0x80 | opcode);
-
-        match len {
-            0..=125 => frame.push(len as u8),
-
-            126..=65535 => {
-                frame.push(126);
-                frame.extend_from_slice(&(len as u16).to_be_bytes());
-            }
-
-            _ => {
-                frame.push(127);
-                frame.extend_from_slice(&(len as u64).to_be_bytes());
-            }
-        }
-
-        frame.extend_from_slice(data);
-
-        if self.stream.write_all(&frame).is_err() {
-            self.closed = true;
-        }
-    }
-}
-
-fn decode(buf: &[u8]) -> Option<(usize, u8, Vec<u8>)> {
-    if buf.len() < 2 {
-        return None;
-    }
-
-    let opcode = buf[0] & 0x0f;
-    let masked = buf[1] & 0x80 != 0;
-
-    let mut len = (buf[1] & 0x7f) as usize;
-    let mut pos = 2;
-
-    match len {
-        126 => {
-            if buf.len() < pos + 2 {
-                return None;
-            }
-
-            len = u16::from_be_bytes(
-                buf[pos..pos + 2].try_into().ok()?,
-            ) as usize;
-
-            pos += 2;
-        }
-
-        127 => {
-            if buf.len() < pos + 8 {
-                return None;
-            }
-
-            len = usize::try_from(u64::from_be_bytes(
-                buf[pos..pos + 8].try_into().ok()?,
-            ))
-            .ok()?;
-
-            pos += 8;
-        }
-
-        _ => {}
-    }
-
-    if !masked {
-        return None;
-    }
-
-    if buf.len() < pos + 4 {
-        return None;
-    }
-
-    let mask: [u8; 4] =
-        buf[pos..pos + 4].try_into().ok()?;
-
-    pos += 4;
-
-    if buf.len() < pos + len {
-        return None;
-    }
-
-    let mut data = buf[pos..pos + len].to_vec();
-
-    for (i, byte) in data.iter_mut().enumerate() {
-        *byte ^= mask[i & 3];
-    }
-
-    Some((pos + len, opcode, data))
-}
-
-fn content_type(path: &Path) -> &'static str {
-    match path.extension().and_then(|ext| ext.to_str()) {
-        Some("html") => "text/html; charset=utf-8",
-        Some("css") => "text/css",
-        Some("js") => "application/javascript",
-        Some("wasm") => "application/wasm",
-        Some("json") => "application/json",
-        Some("svg") => "image/svg+xml",
-        _ => "application/octet-stream",
-    }
-}
-
-fn find(data: &[u8], pattern: &[u8]) -> Option<usize> {
-    data.windows(pattern.len())
-        .position(|window| window == pattern)
+    true
 }

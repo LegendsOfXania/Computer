@@ -66,7 +66,7 @@ impl AppState {
                 }
             }
 
-            Event::Published => {}
+            Event::Pushed => {}
         }
     }
 }

@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use crate::net::assets::Asset;
-
 pub struct ParsedRequest {
     pub path: String,
     pub ws_key: Option<String>,

@@ -37,6 +37,7 @@ impl Plugin for ComputerPlugin {
 
     fn on_load(&self, context: Context) -> Result<()> {
         data::init_data_folder(context.get_data_folder());
+        data::library::init_live();
 
         net::panel::ensure_panel_up_to_date();
 

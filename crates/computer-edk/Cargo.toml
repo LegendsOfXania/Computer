@@ -1,0 +1,9 @@
+[package]
+name = "computer-edk"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+computer-edk-macro.workspace = true

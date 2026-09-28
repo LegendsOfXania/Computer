@@ -1,9 +1,11 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/computer",
+    "crates/computer-edk",
+    "crates/computer-edk-macro",
     "crates/computer-model",
     "crates/computer-panel",
-    "crates/computer-plugin",
     "crates/mock-engine",
 ]
 
@@ -14,9 +16,11 @@ license = "MIT"
 authors = ["Legends of Xania"]
 
 [workspace.dependencies]
+computer = { path = "crates/computer" }
+computer-edk = { path = "crates/computer-edk" }
+computer-edk-macro = { path = "crates/computer-edk-macro" }
 computer-model = { path = "crates/computer-model" }
 computer-panel = { path = "crates/computer-panel" }
-computer-plugin = { path = "crates/computer-plugin" }
 
 pumpkin-plugin-api = { git = "https://github.com/Pumpkin-MC/Pumpkin", tag = "0.2.0+26.3-26.51" }
 tracing = "0.1"
@@ -38,6 +42,10 @@ gloo-net = { version = "0.7.0", features = ["websocket"] }
 waki = "0.5.1"
 httparse = "1.10.1"
 tungstenite = { version = "0.30.0", default-features = false, features = ["handshake"] }
+
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "2", features = ["full"] }
 
 futures-util = "0.3"
 

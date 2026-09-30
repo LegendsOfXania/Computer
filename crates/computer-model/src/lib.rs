@@ -22,19 +22,6 @@ pub struct Library {
     pub entries: IndexMap<EntryKey, Entry>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Registry(pub Vec<EntryDefinition>);
-
-impl Registry {
-    pub fn new(entries: Vec<EntryDefinition>) -> Self {
-        Self(entries)
-    }
-
-    pub fn extend(&mut self, other:Registry) {
-        self.0.extend(other.0);
-    }
-}
-
 mod list {
     use std::hash::Hash;
 
@@ -63,5 +50,20 @@ use super::*;
         let list = Vec::<V>::deserialize(deserializer)?;
 
         Ok(list.into_iter().map(|item| (key(&item), item)).collect())
+    }
+}
+
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Registry(pub Vec<EntryDefinition>);
+
+impl Registry {
+    pub fn new(entries: Vec<EntryDefinition>) -> Self {
+        Self(entries)
+    }
+
+    pub fn extend(&mut self, other:Registry) {
+        self.0.extend(other.0);
     }
 }

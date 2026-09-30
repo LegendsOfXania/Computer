@@ -14,8 +14,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::data;
 
-const NOT_OPEN: &str = "dev library is not open: no panel has connected.";
-
 static LIVE: LazyLock<ArcSwap<Library>> =
     LazyLock::new(|| ArcSwap::from_pointee(Library::default()));
 
@@ -72,7 +70,7 @@ pub fn live() -> Arc<Library> {
 fn with_dev<T>(f: impl FnOnce(&mut Dev) -> Result<T, String>) -> Result<T, String> {
     let mut guard = DEV.lock();
 
-    f(guard.as_mut().ok_or(NOT_OPEN)?)
+    f(guard.as_mut().ok_or("dev library is not open: no panel has connected.")?)
 }
 
 fn edit_dev(f: impl FnOnce(&mut Library) -> Result<Vec<u64>, String>) -> Result<(), String> {
@@ -236,7 +234,7 @@ pub fn reload() -> Result<(), String> {
 
 pub fn push() -> Result<(), String> {
     let mut guard = DEV.lock();
-    let dev = guard.as_ref().ok_or(NOT_OPEN)?;
+    let dev = guard.as_ref().ok_or("dev library is not open: no panel has connected.")?;
 
     let live = live_dir()?;
     let new = live.with_extension("new");

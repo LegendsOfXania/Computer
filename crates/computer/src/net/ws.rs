@@ -176,12 +176,7 @@ fn on_data(
                 ServerMessage::Library(library),
             )?;
 
-            let registry = data::registry::get()
-                    .map_err(|error| {
-                        tracing::error!(
-                            "Could not get registry: {error}"
-                        );
-                    })?;
+            let registry = data::registry::get();
 
             send_message(
                 ws,

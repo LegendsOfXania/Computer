@@ -1,11 +1,12 @@
 mod cmd;
 mod data;
+mod ipc;
 mod net;
 mod util;
 
 use pumpkin_plugin_api::{Context, Plugin, PluginMetadata, Result};
 
-struct ComputerPlugin;
+pub struct ComputerPlugin;
 
 impl Plugin for ComputerPlugin {
     fn new() -> Self {
@@ -39,7 +40,12 @@ impl Plugin for ComputerPlugin {
         data::init_data_folder(context.get_data_folder());
         data::library::init_live();
 
-        net::panel::ensure_panel_up_to_date();
+        if data::conf::get_conf().panel.enabled {
+            net::panel::ensure_panel_up_to_date();
+        } else {
+            tracing::info!("Panel is disable in the configuration. No check for update.")
+        }
+
 
         cmd::register(&context);
 
@@ -48,6 +54,14 @@ impl Plugin for ComputerPlugin {
 
     fn on_unload(&self, _context: Context) -> Result<()> {
         Ok(())
+    }
+
+    fn handle_ipc_message(
+        &self,
+        sender: String,
+        message: Vec<u8>,
+    ) -> Result<Vec<u8>> {
+        ipc::handle(sender, message)
     }
 }
 

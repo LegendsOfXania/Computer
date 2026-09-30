@@ -1,7 +1,8 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 
 use computer_model::page::{Page, PageKind};
 use dioxus::prelude::*;
+use indexmap::IndexMap;
 
 use crate::{
     nav::Nav, state::{AppState, ui::UiState},
@@ -61,7 +62,7 @@ pub enum Row {
 }
 
 pub fn flatten(
-    pages: &HashMap<u64, Page>,
+    pages: &IndexMap<u64, Page>,
     expanded: &HashSet<String>,
 ) -> Vec<Row> {
     let mut root = Node::default();

@@ -1,5 +1,6 @@
 pub mod conf;
 pub mod library;
+pub mod registry;
 
 use std::sync::OnceLock;
 

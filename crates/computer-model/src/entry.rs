@@ -18,3 +18,18 @@ pub struct Entry {
     pub version: u32,
     pub fields: IndexMap<String, Value>,
 }
+
+pub(crate) mod entries {
+    use serde::Deserializer;
+
+    use super::*;
+
+    pub(crate) use crate::list::serialize;
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<IndexMap<EntryKey, Entry>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        crate::list::deserialize(deserializer, |entry: &Entry| entry.key)
+    }
+}

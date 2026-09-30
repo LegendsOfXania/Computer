@@ -17,11 +17,11 @@ use tungstenite::{
     WebSocket,
 };
 
-use crate::net::{
+use crate::{data, net::{
     connection::Connection,
     request,
     srv::State,
-};
+}};
 
 pub fn upgrade(
     mut stream: TcpStream,
@@ -164,11 +164,10 @@ fn on_data(
                 ),
             )?;
 
-            let library =
-                crate::data::library::init_dev()
-                    .map_err(|error| {
+            let library = data::library::init_dev()
+                    .map_err(|err| {
                         tracing::error!(
-                            "Could not load dev library: {error}"
+                            "Could not load dev library: {err}"
                         );
                     })?;
 
@@ -176,6 +175,19 @@ fn on_data(
                 ws,
                 ServerMessage::Library(library),
             )?;
+
+            let registry = data::registry::get()
+                    .map_err(|error| {
+                        tracing::error!(
+                            "Could not get registry: {error}"
+                        );
+                    })?;
+
+            send_message(
+                ws,
+                ServerMessage::Registry(registry),
+            )?;
+
 
             Ok(None)
         }

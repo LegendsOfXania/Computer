@@ -17,3 +17,19 @@ pub enum PageKind {
     Sequence,
     Static,
 }
+
+pub(crate) mod pages {
+    use indexmap::IndexMap;
+    use serde::Deserializer;
+
+    use super::*;
+
+    pub(crate) use crate::list::serialize;
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<IndexMap<u64, Page>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        crate::list::deserialize(deserializer, |page: &Page| page.id)
+    }
+}

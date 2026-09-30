@@ -1,6 +1,12 @@
+use indexmap::IndexMap;
 use std::collections::HashMap;
 
-use computer_model::{entry::{Entry, EntryDefinition}, key::EntryKey, page::Page, protocol::{event::Event, message::ServerMessage}};
+use computer_model::{
+    entry::{Entry, EntryDefinition},
+    key::EntryKey,
+    page::Page,
+    protocol::{event::Event, message::ServerMessage},
+};
 use dioxus::signals::{Signal, WritableExt};
 
 pub mod status;
@@ -8,29 +14,30 @@ pub mod ui;
 
 #[derive(Clone, Copy)]
 pub struct AppState {
-    pub pages: Signal<HashMap<u64, Page>>,
-    pub entries: Signal<HashMap<EntryKey, Entry>>,
+    pub pages: Signal<IndexMap<u64, Page>>,
+    pub entries: Signal<IndexMap<EntryKey, Entry>>,
     pub registry: Signal<HashMap<String, EntryDefinition>>,
 }
 
 impl AppState {
     pub fn new() -> Self {
-        Self { 
-            pages: Signal::new(HashMap::new()), 
-            entries: Signal::new(HashMap::new()), 
-            registry: Signal::new(HashMap::new()), 
+        Self {
+            pages: Signal::new(IndexMap::new()),
+            entries: Signal::new(IndexMap::new()),
+            registry: Signal::new(HashMap::new()),
         }
     }
 
     pub fn apply(&mut self, msg: ServerMessage) {
         match msg {
             ServerMessage::Library(lib) => {
-                self.pages.set(lib.pages.into_iter().map(|p| (p.id, p)).collect());
-                self.entries.set(lib.entries.into_iter().map(|e| (e.key, e)).collect());
+                self.pages.set(lib.pages);
+                self.entries.set(lib.entries);
             }
 
             ServerMessage::Registry(registry) => {
-                self.registry.set(registry.0.into_iter().map(|d| (d.kind.clone(), d)).collect());
+                self.registry
+                    .set(registry.0.into_iter().map(|d| (d.kind.clone(), d)).collect());
             }
 
             ServerMessage::Event { event } => self.apply_event(event),
@@ -46,7 +53,7 @@ impl AppState {
             }
 
             Event::PageDeleted { page_id } => {
-                self.pages.write().remove(&page_id);
+                self.pages.write().shift_remove(&page_id);
             }
 
             Event::EntryCreated { entry } | Event::EntryUpdated { entry } => {
@@ -54,14 +61,17 @@ impl AppState {
             }
 
             Event::EntryDeleted { key } => {
-                self.entries.write().remove(&key);
+                self.entries.write().shift_remove(&key);
             }
 
             Event::EntryMoved { key, page_id } => {
-                for page in self.pages.write().values_mut() {
+                let mut pages = self.pages.write();
+
+                for page in pages.values_mut() {
                     page.entries.retain(|k| *k != key);
                 }
-                if let Some(page) = self.pages.write().get_mut(&page_id) {
+
+                if let Some(page) = pages.get_mut(&page_id) {
                     page.entries.push(key);
                 }
             }

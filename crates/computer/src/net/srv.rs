@@ -1,8 +1,5 @@
 use std::{
-    collections::HashMap,
-    io::ErrorKind,
-    net::TcpListener,
-    sync::Mutex,
+    collections::HashMap, io::ErrorKind, net::TcpListener, sync::Mutex,
 };
 
 use pumpkin_plugin_api::{scheduler::SchedulerExt, Server};
@@ -58,6 +55,8 @@ pub fn ensure_started(
         connections: Vec::new(),
         assets,
     });
+
+    tracing::info!("Websocket server started: {}:{}", ip, port);
 
     Ok(StartOutcome::Started)
 }

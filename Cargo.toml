@@ -6,8 +6,6 @@ members = [
     "crates/computer-edk-macro",
     "crates/computer-model",
     "crates/computer-panel",
-    "crates/mock-engine",
-    "crates/mock-ext",
 ]
 
 [workspace.package]
@@ -26,6 +24,8 @@ computer-panel = { path = "crates/computer-panel" }
 pumpkin-plugin-api = { git = "https://github.com/Pumpkin-MC/Pumpkin", tag = "0.2.0+26.3-26.51" }
 tracing = "0.1"
 
+arc-swap = "1.9.2"
+parking_lot = "0.12.5"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 tar = "0.4.46"

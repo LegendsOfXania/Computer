@@ -7,6 +7,7 @@ members = [
     "crates/computer-model",
     "crates/computer-panel",
     "crates/mock-engine",
+    "crates/mock-ext",
 ]
 
 [workspace.package]

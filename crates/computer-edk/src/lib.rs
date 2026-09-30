@@ -1,5 +1,8 @@
-pub use computer_edk_macro::{entry, tags};
+pub use computer_edk_macro::{entry, Field};
 
 pub mod entry;
+pub mod field;
 pub mod registry;
-pub mod tags;
+
+pub use entry::EntryBlueprint;
+pub use field::Field;

@@ -14,7 +14,7 @@ pub enum FieldKind {
     Float,
     Bool,
     Reference,
-    Enum,
+    Enum(Vec<String>),
     Struct(Vec<FieldDefinition>),
     List(Box<FieldKind>),
     Map {

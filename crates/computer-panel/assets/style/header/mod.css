@@ -1,0 +1,210 @@
+header {
+  position: relative;
+  height: 49px;
+  display: flex;
+  background: var(--bg);
+  border-right: 1px solid var(--line);
+  font-family: var(--sans);
+}
+
+header::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -1px;
+  width: 100vw;
+  height: 1px;
+  transform: translateX(-50%);
+  background: var(--line);
+}
+
+.nav {
+  display: flex;
+  flex: 1;
+}
+
+.status {
+  display: flex;
+  border-left: 1px solid var(--line);
+}
+
+button {
+  height: 100%;
+  padding: 0 16px;
+  background: var(--bg);
+  color: var(--fg);
+  border: 0;
+  border-right: 1px solid var(--line);
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+.status button {
+  border-right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.status .push {
+  position: relative;
+  overflow: hidden;
+  background: var(--fg);
+  color: var(--bg);
+}
+
+.push-text {
+  order: 1;
+  position: relative;
+  z-index: 1;
+  display: block;
+  line-height: 1;
+  will-change: transform;
+}
+
+.push-icon {
+  order: 2;
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  line-height: 1;
+  will-change: transform, opacity;
+}
+
+.push:hover .push-text {
+  animation: text-forward 500ms ease-out forwards;
+}
+
+.push:hover .push-icon {
+  animation: arrow-forward 500ms ease-out forwards;
+}
+
+.push:not(:hover) .push-text {
+  animation: text-back 500ms ease-out forwards;
+}
+
+.push:not(:hover) .push-icon {
+  animation: arrow-back 500ms ease-out forwards;
+}
+
+@keyframes text-forward {
+  0%,
+  45% {
+    order: 1;
+    transform: translateX(0);
+  }
+
+  46% {
+    order: 2;
+    transform: translateX(-24px);
+  }
+
+  100% {
+    order: 2;
+    transform: translateX(0);
+  }
+}
+
+@keyframes text-back {
+  0% {
+    order: 2;
+    transform: translateX(0);
+  }
+
+  45% {
+    order: 2;
+    transform: translateX(0);
+  }
+
+  46% {
+    order: 1;
+    transform: translateX(24px);
+  }
+
+  100% {
+    order: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes arrow-forward {
+  0% {
+    order: 2;
+    transform: translateX(0);
+    opacity: 1;
+  }
+
+  35% {
+    order: 2;
+    transform: translateX(32px);
+    opacity: 1;
+  }
+
+  45% {
+    order: 2;
+    transform: translateX(40px);
+    opacity: 0;
+  }
+
+  46% {
+    order: 1;
+    transform: translateX(-32px);
+    opacity: 0;
+  }
+
+  55% {
+    order: 1;
+    transform: translateX(-32px);
+    opacity: 1;
+  }
+
+  100% {
+    order: 1;
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes arrow-back {
+  0% {
+    order: 1;
+    transform: translateX(0);
+    opacity: 1;
+  }
+
+  35% {
+    order: 1;
+    transform: translateX(-32px);
+    opacity: 1;
+  }
+
+  45% {
+    order: 1;
+    transform: translateX(-40px);
+    opacity: 0;
+  }
+
+  46% {
+    order: 2;
+    transform: translateX(32px);
+    opacity: 0;
+  }
+
+  55% {
+    order: 2;
+    transform: translateX(32px);
+    opacity: 1;
+  }
+
+  100% {
+    order: 2;
+    transform: translateX(0);
+    opacity: 1;
+  }
+}

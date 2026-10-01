@@ -1,0 +1,74 @@
+:root {
+  --bg: #101013;
+  --surface: #1a1a1e;
+  --surface-2: #27272b;
+
+  --fg: #fafaf4;
+  --fg-2: #f2f1e8;
+  --dim: #a1a1aa;
+  --faint: #6d6d78;
+
+  --line: #27272b;
+  --line-strong: #474754;
+
+  --main: #ff5229;
+  --main-soft: #ff8204;
+
+  --sans: Inter, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#main {
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  position: relative;
+
+  background: var(--bg);
+  font-family: var(--sans);
+  font-size: 12px;
+
+  overflow: hidden;
+}
+
+#main {
+  position: relative;
+
+  width: min(100%, 1600px);
+  margin: 0 auto;
+
+  background: var(--bg);
+
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+}
+
+#main::before,
+#main::after {
+  content: "";
+
+  position: fixed;
+  top: 0;
+  bottom: 0;
+
+  width: 1px;
+
+  background: var(--line);
+}
+
+#main::before {
+  left: calc((100vw - min(100vw, 1600px)) / 2);
+}
+
+#main::after {
+  right: calc((100vw - min(100vw, 1600px)) / 2);
+}

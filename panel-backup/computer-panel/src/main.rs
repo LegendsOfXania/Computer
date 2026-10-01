@@ -1,13 +1,18 @@
 use dioxus::prelude::*;
 
 use crate::{
-    components::Panel, state::{
-        ConnectionStatus, app::AppState, ui::UiState,
-    }, ws::ws_client,
+    components::shell::Shell,
+    state::{
+        AppState,
+        status::ConnectionStatus,
+        ui::UiState,
+    },
+    ws::ws_client,
 };
 
 pub mod components;
 pub mod i18n;
+pub mod nav;
 pub mod state;
 pub mod ws;
 
@@ -26,6 +31,6 @@ fn App() -> Element {
     use_context_provider(UiState::new);
 
     rsx! {
-        Panel {}
+        Shell {}
     }
 }

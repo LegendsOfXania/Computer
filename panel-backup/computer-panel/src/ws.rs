@@ -8,8 +8,8 @@ use futures_util::{SinkExt, StreamExt, future::select};
 use gloo_net::websocket::{Message, futures::WebSocket};
 use tracing::{error, warn};
 
-use crate::state::ConnectionStatus;
-use crate::state::app::AppState;
+use crate::state::AppState;
+use crate::state::status::ConnectionStatus;
 
 pub fn ws_client() -> Coroutine<ClientMessage> {
     let mut state = use_context::<AppState>();

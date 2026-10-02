@@ -72,3 +72,5 @@ body {
 #main::after {
   right: calc((100vw - min(100vw, 1600px)) / 2);
 }
+
+

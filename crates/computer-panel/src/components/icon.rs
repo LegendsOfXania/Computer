@@ -1,12 +1,17 @@
 use dioxus::prelude::*;
+use include_dir::{include_dir, Dir};
 
-const _: Asset = asset!("assets/icons", AssetOptions::folder());
+static ICONS_DIR: Dir = include_dir!("crates/computer-panel/assets/icons");
 
 #[component]
 pub fn Icon(name: &'static str) -> Element {
-    let src = format!("/assets/icons/{name}.svg");
+    let content = ICONS_DIR
+        .get_file(format!("{}.svg", name))
+        .and_then(|f| f.contents_utf8())
+        .unwrap_or("");
 
     rsx! {
-        img { class: "icon", src, alt: "" }
+        document::Stylesheet { href: asset!("/assets/style/icon.css") }
+        div { class: "icon", dangerous_inner_html: content }
     }
 }

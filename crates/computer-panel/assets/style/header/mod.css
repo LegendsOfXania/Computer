@@ -29,6 +29,10 @@ header::after {
 }
 
 button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   height: 100%;
   padding: 0 16px;
   background: var(--bg);
@@ -41,70 +45,53 @@ button {
 
 .status button {
   border-right: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
 }
 
 .status .push {
-  position: relative;
   overflow: hidden;
   background: var(--fg);
   color: var(--bg);
+
+  --text-anim: text-back;
+  --icon-anim: arrow-back;
+}
+
+.status .push:hover {
+  --text-anim: text-forward;
+  --icon-anim: arrow-forward;
 }
 
 .push-text {
   order: 1;
-  position: relative;
   z-index: 1;
-  display: block;
   line-height: 1;
   will-change: transform;
+  animation: var(--text-anim) 500ms ease-out forwards;
 }
 
 .push-icon {
   order: 2;
-  position: relative;
   z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 16px;
+  flex: none;
   width: 16px;
   height: 16px;
   line-height: 1;
   will-change: transform, opacity;
-}
-
-.push:hover .push-text {
-  animation: text-forward 500ms ease-out forwards;
-}
-
-.push:hover .push-icon {
-  animation: arrow-forward 500ms ease-out forwards;
-}
-
-.push:not(:hover) .push-text {
-  animation: text-back 500ms ease-out forwards;
-}
-
-.push:not(:hover) .push-icon {
-  animation: arrow-back 500ms ease-out forwards;
+  animation: var(--icon-anim) 500ms ease-out forwards;
 }
 
 @keyframes text-forward {
-  0%,
   45% {
     order: 1;
     transform: translateX(0);
   }
-
   46% {
     order: 2;
     transform: translateX(-24px);
   }
-
   100% {
     order: 2;
     transform: translateX(0);
@@ -112,21 +99,15 @@ button {
 }
 
 @keyframes text-back {
-  0% {
-    order: 2;
-    transform: translateX(0);
-  }
-
+  0%,
   45% {
     order: 2;
     transform: translateX(0);
   }
-
   46% {
     order: 1;
     transform: translateX(24px);
   }
-
   100% {
     order: 1;
     transform: translateX(0);
@@ -134,36 +115,26 @@ button {
 }
 
 @keyframes arrow-forward {
-  0% {
-    order: 2;
-    transform: translateX(0);
-    opacity: 1;
-  }
-
   35% {
     order: 2;
     transform: translateX(32px);
     opacity: 1;
   }
-
   45% {
     order: 2;
     transform: translateX(40px);
     opacity: 0;
   }
-
   46% {
     order: 1;
     transform: translateX(-32px);
     opacity: 0;
   }
-
   55% {
     order: 1;
     transform: translateX(-32px);
     opacity: 1;
   }
-
   100% {
     order: 1;
     transform: translateX(0);
@@ -177,31 +148,26 @@ button {
     transform: translateX(0);
     opacity: 1;
   }
-
   35% {
     order: 1;
     transform: translateX(-32px);
     opacity: 1;
   }
-
   45% {
     order: 1;
     transform: translateX(-40px);
     opacity: 0;
   }
-
   46% {
     order: 2;
     transform: translateX(32px);
     opacity: 0;
   }
-
   55% {
     order: 2;
     transform: translateX(32px);
     opacity: 1;
   }
-
   100% {
     order: 2;
     transform: translateX(0);

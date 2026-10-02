@@ -1,0 +1,25 @@
+.icon {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  fill: currentColor;
+}
+
+body {
+  cursor:
+    url("/assets/icons/cursor.svg") 2 2,
+    auto;
+}
+
+button,
+a {
+  cursor:
+    url("/assets/icons/pointer.svg") 8 8,
+    pointer;
+}
+
+[draggable="true"] {
+  cursor:
+    url("/assets/icons/move.svg") 8 8,
+    move;
+}

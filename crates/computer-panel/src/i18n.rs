@@ -2,8 +2,6 @@ use std::collections::HashMap;
 
 use dioxus::prelude::*;
 
-const DEFAULT_LOCALE: &str = "en";
-
 struct Locale {
     code: &'static str,
     translations: &'static str,
@@ -30,7 +28,7 @@ impl Locale {
         
         if let Some(locale) = LOCALES
             .iter()
-            .find(|locale| locale.code == DEFAULT_LOCALE)
+            .find(|locale| locale.code == "en")
         {
             return locale;
         }

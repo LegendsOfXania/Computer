@@ -9,6 +9,7 @@ authors.workspace = true
 computer-model.workspace = true
 indexmap.workspace = true
 dioxus.workspace = true
+dioxus-flow.workspace = true
 gloo-net.workspace = true
 futures-util.workspace = true
 tracing.workspace = true

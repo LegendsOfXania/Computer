@@ -1,0 +1,117 @@
+.search {
+  display: flex;
+  align-items: center;
+
+  width: max-content;
+  max-width: 500px;
+  min-width: 0;
+
+  overflow: hidden;
+
+  cursor: text;
+
+  transition: width 350ms ease-out;
+}
+
+.search-icon {
+  z-index: 3;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex: none;
+
+  width: 16px;
+  height: 16px;
+}
+
+.search-field {
+  position: relative;
+
+  display: grid;
+  align-items: center;
+
+  min-width: 0;
+
+  grid-template-columns: auto 0;
+  overflow: hidden;
+
+  transition: grid-template-columns 450ms ease-out;
+}
+
+.search-label,
+.search-input {
+  grid-row: 1;
+  min-width: 0;
+}
+
+.search-label {
+  grid-column: 1;
+
+  z-index: 1;
+
+  white-space: nowrap;
+  line-height: 1;
+
+  transform: translateX(0);
+
+  transition:
+    transform 450ms ease-out,
+    opacity 300ms ease-out;
+}
+
+.search-input {
+  grid-column: 2;
+
+  z-index: 2;
+
+  width: auto;
+  min-width: 0;
+
+  padding: 0;
+  border: 0;
+  outline: 0;
+
+  background: transparent;
+  color: inherit;
+
+  font: inherit;
+
+  field-sizing: content;
+
+  opacity: 0;
+
+  transform: translateX(-100%);
+
+  pointer-events: none;
+
+  transition:
+    transform 450ms ease-out,
+    opacity 250ms ease-out;
+}
+
+.search-input::placeholder {
+  color: currentColor;
+  opacity: 0.55;
+}
+
+.search:hover .search-field,
+.search:focus-within .search-field {
+  grid-template-columns: 0 auto;
+}
+
+.search:hover .search-label,
+.search:focus-within .search-label {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+.search:hover .search-input,
+.search:focus-within .search-input {
+  opacity: 1;
+
+  transform: translateX(0);
+
+  pointer-events: auto;
+}

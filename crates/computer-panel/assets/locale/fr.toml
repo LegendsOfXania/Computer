@@ -1,3 +1,7 @@
 header.library = "Librairie"
-header.search = "Rechercher"
 header.push = "Envoyer"
+"header.live" = "Live"
+
+[header.search]
+name = "Rechercher"
+placeholder = "Rechercher une entrée..."

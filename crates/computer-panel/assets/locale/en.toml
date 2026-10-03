@@ -1,3 +1,7 @@
 header.library = "Library"
-header.search = "Search"
 header.push = "Push"
+header.live = "Live"
+
+[header.search]
+name = "Search"
+placeholder = "Search for an entry..."

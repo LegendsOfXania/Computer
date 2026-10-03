@@ -11,7 +11,6 @@ pub fn Icon(name: &'static str) -> Element {
         .unwrap_or("");
 
     rsx! {
-        document::Stylesheet { href: asset!("/assets/style/icon.css") }
         div { class: "icon", dangerous_inner_html: content }
     }
 }

@@ -1,0 +1,36 @@
+.dioxus-flow .df-node-default {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 259px;
+  min-height: 89px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 8px;
+  text-align: left;
+  box-shadow: none;
+}
+
+.dioxus-flow .df-node.df-selected .df-node-default {
+  box-shadow: none;
+}
+
+.dioxus-flow .df-node.df-selected .df-node-default::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border: 4px solid var(--df-node-color);
+  border-radius: 5px;
+  pointer-events: none;
+}
+
+.dioxus-flow .df-node-default.linked::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  background: var(--df-edge);
+  transform: translate(-50%, -50%) rotate(45deg);
+}

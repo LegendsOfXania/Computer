@@ -17,6 +17,7 @@ pub fn Editor() -> Element {
 
     rsx! {
         document::Stylesheet { href: asset!("/assets/style/editor/mod.css") }
+        document::Stylesheet { href: asset!("/assets/style/editor/node.css") }
 
         div { style: "width: 100%; height: 100%;",
             Flow {

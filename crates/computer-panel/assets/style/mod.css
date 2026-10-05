@@ -9,7 +9,6 @@
   --faint: #6d6d78;
 
   --line: #27272b;
-  --line-strong: #474754;
 
   --main: #ff5229;
   --main-soft: #ff8204;
@@ -72,5 +71,3 @@ body {
 #main::after {
   right: calc((100vw - min(100vw, 1600px)) / 2);
 }
-
-

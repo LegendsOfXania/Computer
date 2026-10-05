@@ -82,7 +82,18 @@ pub fn ws_client() -> Coroutine<ClientMessage> {
 
 async fn ws_url() -> Result<String, String> {
     let value = dioxus::document::eval(
-        r#"return (location.protocol === "https:" ? "wss://" : "ws://") + location.host;"#,
+        if cfg!(feature = "dev") {
+            r#"
+            return (location.protocol === "https:" ? "wss://" : "ws://")
+                + location.hostname
+                + ":8080";
+            "#
+        } else {
+            r#"
+            return (location.protocol === "https:" ? "wss://" : "ws://")
+                + location.host;
+            "#
+        },
     )
     .await
     .map_err(|err| format!("Could not determine WebSocket URL: {err}"))?;
@@ -90,7 +101,9 @@ async fn ws_url() -> Result<String, String> {
     value
         .as_str()
         .map(str::to_owned)
-        .ok_or_else(|| "Could not read WebSocket URL: unexpected eval result".to_string())
+        .ok_or_else(|| {
+            "Could not read WebSocket URL: unexpected eval result".to_string()
+        })
 }
 
 fn fail(status: &mut Signal<ConnectionStatus>, reason: String) {

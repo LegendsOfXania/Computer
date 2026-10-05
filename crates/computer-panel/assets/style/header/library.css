@@ -1,0 +1,163 @@
+header:has(.library) {
+  position: relative;
+}
+
+.library {
+  display: flex;
+}
+
+.library-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: transparent;
+  border-radius: 8px;
+  transition: background 120ms ease;
+}
+
+.library-panel {
+  position: absolute;
+  top: 100%;
+  z-index: 50;
+  display: grid;
+  grid-template-columns: 2fr 1.3fr;
+  width: 620px;
+  height: 660px;
+  overflow: hidden;
+  color: white;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 0 0 12px 12px;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  clip-path: inset(0 0 100% 0);
+  transition:
+    clip-path 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 160ms ease,
+    visibility 0s linear 240ms;
+}
+
+.library:hover .library-panel,
+.library:focus-within .library-panel {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+  clip-path: inset(0);
+  transition:
+    clip-path 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 160ms ease,
+    visibility 0s;
+}
+
+.library-col {
+  min-height: 0;
+  padding: 20px;
+}
+
+.library-col + .library-col {
+  border-left: 1px solid var(--line);
+}
+
+.library-details {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.library-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 10px;
+}
+
+.library-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: text;
+}
+
+.library-name .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.library-id {
+  width: fit-content;
+  margin: 0;
+  font-size: 11px;
+  opacity: 0.5;
+  cursor: copy;
+  transition: opacity 120ms ease;
+}
+
+.library-id:hover {
+  opacity: 0.9;
+}
+
+.library-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.library-meta p {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 8px 0;
+  font-size: 14px;
+}
+
+.library-meta p > span:last-child {
+  opacity: 0.5;
+}
+
+.library-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 2px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: linear-gradient(currentColor, currentColor) left bottom / 0 1px
+    no-repeat;
+  transition: background-size 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.library-meta p:hover .library-label {
+  background-size: 100% 1px;
+}
+
+.library-label .icon {
+  width: 11px;
+  height: 11px;
+}
+
+.library-name .icon,
+.library-label .icon {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.library-name .icon svg,
+.library-label .icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.library-footer {
+  display: flex;
+  margin-top: auto;
+  padding-top: 16px;
+}

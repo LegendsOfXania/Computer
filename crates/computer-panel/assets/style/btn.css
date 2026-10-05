@@ -1,0 +1,50 @@
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.2s ease;
+}
+
+.btn .icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn .icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.btn-hovered {
+  background: var(--fg);
+}
+
+.btn-hovered .icon svg {
+  fill: var(--bg);
+}
+
+.btn-unselected {
+  background: var(--surface);
+}
+
+.btn-unselected .icon svg {
+  fill: var(--dim);
+}
+
+.btn-unselected:hover {
+  background: var(--fg);
+}
+
+.btn-unselected:hover .icon svg {
+  fill: var(--bg);
+}

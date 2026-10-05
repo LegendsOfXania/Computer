@@ -16,3 +16,6 @@ tracing.workspace = true
 toml.workspace = true
 include_dir.workspace = true
 serde_json.workspace = true
+
+[features]
+dev = []

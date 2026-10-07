@@ -188,7 +188,14 @@ fn on_data(
         }
 
         ClientMessage::Request { id, request } => {
-            request::handle(id, request)
+            let (result, event) = request::handle(request);
+        
+            send_message(
+                ws,
+                ServerMessage::Response { id, result },
+            )?;
+        
+            Ok(event)
         }
     }
 }

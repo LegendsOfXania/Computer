@@ -2,12 +2,16 @@ mod library;
 
 use dioxus::prelude::*;
 
-use crate::{components::{btn::Btn, icon::Icon}, i18n::use_i18n};
+use crate::{
+    components::{btn::Btn, icon::Icon},
+    i18n::use_i18n,
+};
 
 #[component]
 pub fn Header() -> Element {
     let i18n = use_i18n();
-    let (name, id, kind, priority, chapter) = ("Intro", "01010100101", "sequence", "0", "chap1.chap2.chap3");
+    let (name, id, kind, priority, chapter) =
+        ("Intro", "01010100101", "sequence", "0", "chap1.chap2.chap3");
     let mut query = use_signal(String::new);
 
     rsx! {
@@ -27,6 +31,7 @@ pub fn Header() -> Element {
 
                     div { class: "library-panel",
                         section { class: "library-col" }
+
                         section { class: "library-col library-details",
                             div { class: "library-head",
                                 p { class: "library-name",
@@ -44,6 +49,7 @@ pub fn Header() -> Element {
                                     }
                                     span { "{kind}" }
                                 }
+
                                 p {
                                     span { class: "library-label",
                                         Icon { name: "arrow-big-up-dash" }
@@ -51,6 +57,7 @@ pub fn Header() -> Element {
                                     }
                                     span { "{priority}" }
                                 }
+
                                 p {
                                     span { class: "library-label",
                                         Icon { name: "bookmark" }

@@ -1,9 +1,11 @@
+use std::rc::Rc;
+
 use dioxus::prelude::*;
 
 use crate::{
-    components::Panel, state::{
-        ConnectionStatus, app::AppState, ui::UiState,
-    }, ws::ws_client,
+    components::Panel,
+    state::{app::AppState, ui::UiState, ConnectionStatus},
+    ws::ws_client,
 };
 
 pub mod components;
@@ -20,7 +22,7 @@ fn App() -> Element {
     use_context_provider(AppState::new);
     use_context_provider(|| Signal::new(ConnectionStatus::Connecting));
 
-    let client = ws_client();
+    let client = Rc::new(ws_client());
 
     use_context_provider(|| client);
     use_context_provider(UiState::new);

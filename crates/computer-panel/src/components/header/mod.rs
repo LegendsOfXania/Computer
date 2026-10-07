@@ -40,21 +40,21 @@ pub fn Header() -> Element {
                                 p {
                                     span { class: "library-label",
                                         Icon { name: "git-commit" }
-                                        "Kind"
+                                        {i18n.t("header.library.opened_page.kind")}
                                     }
                                     span { "{kind}" }
                                 }
                                 p {
                                     span { class: "library-label",
                                         Icon { name: "arrow-big-up-dash" }
-                                        "Priority"
+                                        {i18n.t("header.library.opened_page.priority")}
                                     }
                                     span { "{priority}" }
                                 }
                                 p {
                                     span { class: "library-label",
-                                        Icon { name: "book-open" }
-                                        "Chapter"
+                                        Icon { name: "bookmark" }
+                                        {i18n.t("header.library.opened_page.chapter")}
                                     }
                                     span { "{chapter}" }
                                 }

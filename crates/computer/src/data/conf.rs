@@ -1,4 +1,4 @@
-use std::{fs, path::Path, sync::OnceLock};
+use std::{fs, net::Ipv4Addr, path::Path, sync::OnceLock};
 
 use serde::{Deserialize, Serialize};
 
@@ -22,7 +22,7 @@ impl Default for PanelConfig {
     fn default() -> Self {
         Self {
             enabled: false,
-            ip: "127.0.0.1".into(),
+            ip: Ipv4Addr::LOCALHOST.to_string(),
             port: 8080,
         }
     }

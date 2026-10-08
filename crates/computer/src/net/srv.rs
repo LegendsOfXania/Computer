@@ -1,7 +1,6 @@
-use std::{
-    collections::HashMap, io::ErrorKind, net::TcpListener, sync::Mutex,
-};
+use std::{collections::HashMap, io::ErrorKind, net::TcpListener};
 
+use parking_lot::Mutex;
 use pumpkin_plugin_api::{scheduler::SchedulerExt, Server};
 
 use crate::{
@@ -9,6 +8,7 @@ use crate::{
     net::{
         assets::{self, Asset},
         connection::Connection,
+        limits::{FLUSH_INTERVAL, MAX_ACCEPT_PER_TICK, MAX_CONNECTIONS},
         ws,
     },
 };
@@ -19,6 +19,7 @@ pub(crate) struct State {
     pub(crate) listener: TcpListener,
     pub(crate) connections: Vec<Connection>,
     pub(crate) assets: HashMap<String, Asset>,
+    pub(crate) tick: u32,
 }
 
 static STATE: Mutex<Option<State>> = Mutex::new(None);
@@ -33,7 +34,7 @@ pub fn ensure_started(
     ip: &str,
     port: u16,
 ) -> Result<StartOutcome, String> {
-    if STATE.lock().map_err(|e| e.to_string())?.is_some() {
+    if STATE.lock().is_some() {
         return Ok(StartOutcome::AlreadyRunning);
     }
 
@@ -50,10 +51,11 @@ pub fn ensure_started(
 
     server.schedule_repeating_task(0, 1, |_| poll());
 
-    *STATE.lock().map_err(|e| e.to_string())? = Some(State {
+    *STATE.lock() = Some(State {
         listener,
         connections: Vec::new(),
         assets,
+        tick: 0,
     });
 
     tracing::info!("Websocket server started: {}:{}", ip, port);
@@ -62,9 +64,7 @@ pub fn ensure_started(
 }
 
 fn poll() {
-    let Ok(mut guard) = STATE.lock() else {
-        return;
-    };
+    let mut guard = STATE.lock();
 
     let Some(state) = guard.as_mut() else {
         return;
@@ -94,12 +94,32 @@ fn poll() {
     for event in events {
         ws::broadcast_event(state, event);
     }
+
+    ws::send_replies(state);
+
+    state.tick = state.tick.wrapping_add(1);
+
+    if state.tick % FLUSH_INTERVAL == 0 {
+        library::flush_dirty();
+    }
 }
 
 fn accept_connections(state: &mut State) {
-    loop {
+    for _ in 0..MAX_ACCEPT_PER_TICK {
         match state.listener.accept() {
-            Ok((stream, _)) => {
+            Ok((stream, address)) => {
+                if state.connections.len() >= MAX_CONNECTIONS {
+                    tracing::warn!(
+                        "Too many connections, refused {address}"
+                    );
+
+                    continue;
+                }
+
+                
+
+                let _ = stream.set_nodelay(true);
+
                 if stream.set_nonblocking(true).is_ok() {
                     state.connections.push(
                         Connection::pending(

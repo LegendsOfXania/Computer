@@ -53,6 +53,8 @@ impl Plugin for ComputerPlugin {
     }
 
     fn on_unload(&self, _context: Context) -> Result<()> {
+        data::library::flush_dirty();
+
         Ok(())
     }
 

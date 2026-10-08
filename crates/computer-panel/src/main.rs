@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use dioxus::prelude::*;
 
 use crate::{
@@ -22,7 +20,7 @@ fn App() -> Element {
     use_context_provider(AppState::new);
     use_context_provider(|| Signal::new(ConnectionStatus::Connecting));
 
-    let client = Rc::new(ws_client());
+    let client = ws_client();
 
     use_context_provider(|| client);
     use_context_provider(UiState::new);

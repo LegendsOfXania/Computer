@@ -14,7 +14,7 @@ pub trait ProtocolMessage: Serialize + DeserializeOwned {
             .map_err(|e| e.to_string())?;
 
         let mut encoder =
-            DeflateEncoder::new(Vec::new(), Compression::new(9));
+            DeflateEncoder::new(Vec::new(), Compression::fast());
 
         encoder
             .write_all(&bytes)

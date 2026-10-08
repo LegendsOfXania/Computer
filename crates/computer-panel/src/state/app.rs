@@ -43,26 +43,70 @@ impl AppState {
         }
     }
 
+    
+
+    
+
+    
+
+    
+
     pub fn apply_event(&mut self, event: Event) {
         match event {
-            Event::PageCreated { page } | Event::PageUpdated { page } => {
+            Event::PageCreated { page } => {
                 self.pages.write().insert(page.id, page);
             }
 
-            Event::PageDeleted { page_id } => {
-                self.pages.write().shift_remove(&page_id);
+            Event::PageUpdated { page } => {
+                if let Some(existing) = self.pages.write().get_mut(&page.id) {
+                    *existing = page;
+                }
             }
 
-            Event::EntryCreated { entry } | Event::EntryUpdated { entry } => {
-                self.entries.write().insert(entry.key, entry);
+            Event::PageDeleted { page_id } => {
+                let removed = self.pages.write().shift_remove(&page_id);
+
+                if let Some(page) = removed {
+                    let mut entries = self.entries.write();
+
+                    for key in &page.entries {
+                        entries.shift_remove(key);
+                    }
+                }
+            }
+
+            Event::EntryCreated { entry } => {
+                let key = entry.key;
+
+                self.entries.write().insert(key, entry);
+
+                if let Some(page) = self.pages.write().get_mut(&key.page_id()) {
+                    if !page.entries.contains(&key) {
+                        page.entries.push(key);
+                    }
+                }
+            }
+
+            Event::EntryUpdated { entry } => {
+                if let Some(existing) = self.entries.write().get_mut(&entry.key) {
+                    *existing = entry;
+                }
             }
 
             Event::EntryDeleted { key } => {
                 self.entries.write().shift_remove(&key);
+
+                for page in self.pages.write().values_mut() {
+                    page.entries.retain(|k| *k != key);
+                }
             }
 
             Event::EntryMoved { key, page_id } => {
                 let mut pages = self.pages.write();
+
+                if !pages.contains_key(&page_id) {
+                    return;
+                }
 
                 for page in pages.values_mut() {
                     page.entries.retain(|k| *k != key);

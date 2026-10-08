@@ -5,5 +5,6 @@ pub mod ui;
 pub enum ConnectionStatus {
     Connecting,
     Connected,
+    Reconnecting(u32),
     Failed(String),
 }

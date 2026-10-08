@@ -2,15 +2,19 @@ use std::{
     collections::HashMap,
     io::{ErrorKind, Read, Write},
     net::TcpStream,
-    sync::Arc,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    },
 };
 
-use computer_model::protocol::event::Event;
+use computer_model::protocol::{event::Event, message::ServerMessage};
 use tungstenite::WebSocket;
 
 use crate::net::{
     assets::Asset,
     http,
+    limits::{PENDING_TIMEOUT, TICKS_PER_SECOND, WRITE_STALL_TIMEOUT},
     srv::REQUEST_BUFFER,
     ws,
 };
@@ -19,11 +23,59 @@ pub enum Connection {
     Pending {
         stream: TcpStream,
         buffer: Vec<u8>,
+        
+
+        age: u32,
     },
 
-    WebSocket(WebSocket<TcpStream>),
+    WebSocket(Socket),
 
     Writing(Writing),
+}
+
+
+
+static NEXT_SOCKET_ID: AtomicU64 = AtomicU64::new(1);
+
+pub struct Socket {
+    pub ws: WebSocket<TcpStream>,
+    pub id: u64,
+    pub peer: String,
+    pub ready: bool,
+    pub replies: Vec<ServerMessage>,
+    pub age: u32,    
+    pub idle: u32,
+    pub since_ping: u32,
+    pub invalid: u32,
+}
+
+impl Socket {
+    pub fn new(ws: WebSocket<TcpStream>, peer: String) -> Self {
+        Self {
+            ws,
+            id: NEXT_SOCKET_ID.fetch_add(1, Ordering::Relaxed),
+            peer,
+            ready: false,
+            replies: Vec::new(),
+            age: 0,
+            idle: 0,
+            since_ping: 0,
+            invalid: 0,
+        }
+    }
+}
+
+impl Drop for Socket {
+    fn drop(&mut self) {
+        if self.ready {
+            tracing::info!(
+                "Panel client #{} ({}) disconnected after {}s",
+                self.id,
+                self.peer,
+                self.age / TICKS_PER_SECOND,
+            );
+        }
+    }
 }
 
 pub struct Writing {
@@ -32,6 +84,7 @@ pub struct Writing {
     header_sent: usize,
     body: Arc<[u8]>,
     body_sent: usize,
+    stalled: u32,
 }
 
 impl Connection {
@@ -42,6 +95,7 @@ impl Connection {
         Self::Pending {
             stream,
             buffer: Vec::with_capacity(buffer_size),
+            age: 0,
         }
     }
 
@@ -50,9 +104,17 @@ impl Connection {
         assets: &HashMap<String, Asset>,
     ) -> (Option<Self>, Vec<Event>) {
         match self {
-            Self::Pending { stream, buffer } => {
+            Self::Pending { stream, buffer, age } => {
+                if age >= PENDING_TIMEOUT {
+                    tracing::debug!(
+                        "Dropped a connection that never sent a complete request"
+                    );
+
+                    return (None, Vec::new());
+                }
+
                 (
-                    poll_pending(stream, buffer, assets),
+                    poll_pending(stream, buffer, age + 1, assets),
                     Vec::new(),
                 )
             }
@@ -64,12 +126,12 @@ impl Connection {
                 )
             }
 
-            Self::WebSocket(mut ws) => {
+            Self::WebSocket(mut socket) => {
                 let (alive, events) =
-                    ws::poll(&mut ws);
+                    ws::poll(&mut socket);
 
                 if alive {
-                    (Some(Self::WebSocket(ws)), events)
+                    (Some(Self::WebSocket(socket)), events)
                 } else {
                     (None, events)
                 }
@@ -81,6 +143,7 @@ impl Connection {
 fn poll_pending(
     mut stream: TcpStream,
     mut buffer: Vec<u8>,
+    age: u32,
     assets: &HashMap<String, Asset>,
 ) -> Option<Connection> {
     let mut chunk = [0u8; 4096];
@@ -109,6 +172,12 @@ fn poll_pending(
                 break;
             }
 
+            Err(error)
+                if error.kind() == ErrorKind::Interrupted =>
+            {
+                continue;
+            }
+
             Err(error) => {
                 tracing::debug!(
                     "HTTP read failed: {error}"
@@ -133,6 +202,7 @@ fn poll_pending(
             return Some(Connection::Pending {
                 stream,
                 buffer,
+                age,
             });
         }
 
@@ -191,67 +261,59 @@ fn serve_file(
         header_sent: 0,
         body,
         body_sent: 0,
+        stalled: 0,
     })
 }
 
 fn poll_writing(mut writing: Writing) -> Option<Connection> {
+    let mut progressed = false;
+
     loop {
-        if writing.header_sent < writing.header.len() {
-            match writing
-                .stream
-                .write(&writing.header[writing.header_sent..])
-            {
-                Ok(0) => return None,
+        let (data, sent) = if writing.header_sent < writing.header.len() {
+            (&writing.header[writing.header_sent..], &mut writing.header_sent)
+        } else if writing.body_sent < writing.body.len() {
+            (&writing.body[writing.body_sent..], &mut writing.body_sent)
+        } else {
+            return None;
+        };
 
-                Ok(n) => {
-                    writing.header_sent += n;
-                }
+        match writing.stream.write(data) {
+            Ok(0) => return None,
 
-                Err(error)
-                    if error.kind() == ErrorKind::WouldBlock =>
-                {
-                    return Some(Connection::Writing(writing));
-                }
-
-                Err(error) => {
-                    tracing::debug!(
-                        "HTTP write failed: {error}"
-                    );
-                    return None;
-                }
+            Ok(n) => {
+                *sent += n;
+                progressed = true;
             }
 
-            continue;
-        }
-
-        if writing.body_sent < writing.body.len() {
-            match writing
-                .stream
-                .write(&writing.body[writing.body_sent..])
+            Err(error)
+                if error.kind() == ErrorKind::WouldBlock =>
             {
-                Ok(0) => return None,
-
-                Ok(n) => {
-                    writing.body_sent += n;
+                if progressed {
+                    writing.stalled = 0;
+                } else {
+                    writing.stalled += 1;
                 }
 
-                Err(error)
-                    if error.kind() == ErrorKind::WouldBlock =>
-                {
-                    return Some(Connection::Writing(writing));
-                }
-
-                Err(error) => {
+                if writing.stalled >= WRITE_STALL_TIMEOUT {
                     tracing::debug!(
-                        "HTTP body write failed: {error}"
+                        "Dropped a client that stopped reading"
                     );
+
                     return None;
                 }
+
+                return Some(Connection::Writing(writing));
             }
 
-            continue;
-        }
+            Err(error)
+                if error.kind() == ErrorKind::Interrupted => {}
 
-        return None;
+            Err(error) => {
+                tracing::debug!(
+                    "HTTP write failed: {error}"
+                );
+                return None;
+            }
+        }
     }
 }

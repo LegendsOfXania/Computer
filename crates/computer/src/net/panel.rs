@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, time::Duration};
 
 use serde::Deserialize;
 use waki::Client;
@@ -56,9 +56,16 @@ fn latest_version() -> Result<String, String> {
         .map_err(|e| e.to_string())
 }
 
+const MAX_REDIRECTS: u8 = 5;
+
 fn download(url: &str) -> Result<Vec<u8>, String> {
+    download_following(url, MAX_REDIRECTS)
+}
+
+fn download_following(url: &str, redirects_left: u8) -> Result<Vec<u8>, String> {
     let response = Client::new()
         .get(url)
+        .connect_timeout(Duration::from_secs(5))
         .header(
             "User-Agent",
             concat!("computer-plugin/", env!("CARGO_PKG_VERSION")),
@@ -67,11 +74,18 @@ fn download(url: &str) -> Result<Vec<u8>, String> {
         .map_err(|e| e.to_string())?;
 
     if matches!(response.status_code(), 301 | 302 | 303 | 307 | 308) {
+        if redirects_left == 0 {
+            return Err("too many redirects".to_string());
+        }
+
         let location = response
             .header("Location")
             .ok_or("redirect without location")?;
 
-        return download(location.to_str().map_err(|_| "invalid redirect")?);
+        return download_following(
+            location.to_str().map_err(|_| "invalid redirect")?,
+            redirects_left - 1,
+        );
     }
 
     if response.status_code() != 200 {

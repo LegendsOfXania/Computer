@@ -35,10 +35,18 @@ fn init_conf() -> ComputerConfig {
 
     let path = Path::new(data_folder).join("config.toml");
 
-    let config = fs::read_to_string(&path)
-        .ok()
-        .and_then(|content| toml::from_str(&content).ok())
-        .unwrap_or_default();
+    let config = match fs::read_to_string(&path) {
+        Ok(content) => toml::from_str(&content).unwrap_or_else(|error| {
+            tracing::error!(
+                "Invalid {}, using the default configuration: {error}",
+                path.display()
+            );
+
+            ComputerConfig::default()
+        }),
+
+        Err(_) => ComputerConfig::default(),
+    };
 
     if !path.exists() {
         if let Ok(content) = toml::to_string_pretty(&config) {

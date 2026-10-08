@@ -8,7 +8,13 @@ use std::{
 };
 
 use arc_swap::ArcSwap;
-use computer_model::{entry::Entry, key::EntryKey, page::Page, Library};
+use computer_model::{
+    entry::Entry,
+    key::EntryKey,
+    page::Page,
+    protocol::event::Event,
+    Library,
+};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 
@@ -73,14 +79,38 @@ fn with_dev<T>(f: impl FnOnce(&mut Dev) -> Result<T, String>) -> Result<T, Strin
     f(guard.as_mut().ok_or("dev library is not open: no panel has connected.")?)
 }
 
-fn edit_dev(f: impl FnOnce(&mut Library) -> Result<Vec<u64>, String>) -> Result<(), String> {
+/// Applies a change to the dev library in memory. The touched pages are only
+/// marked dirty: `flush_dirty` writes them (at most once per second, and
+/// before a push or when the plugin unloads), so an edit never waits for the
+/// disk on the tick.
+fn edit_dev<T>(
+    f: impl FnOnce(&mut Library) -> Result<(T, Vec<u64>), String>,
+) -> Result<T, String> {
     with_dev(|dev| {
-        let touched = f(&mut dev.library)?;
+        let (value, touched) = f(&mut dev.library)?;
 
         dev.dirty.extend(touched);
 
-        flush(dev)
+        Ok(value)
     })
+}
+
+/// Writes the pages edited since the last call. A failure is only logged: the
+/// pages stay dirty and are written again on the next call.
+pub fn flush_dirty() {
+    let mut guard = DEV.lock();
+
+    let Some(dev) = guard.as_mut() else {
+        return;
+    };
+
+    if dev.dirty.is_empty() {
+        return;
+    }
+
+    if let Err(error) = flush(dev) {
+        tracing::error!("Could not save the dev library, will retry: {error}");
+    }
 }
 
 fn load(dir: &Path) -> Result<Library, String> {
@@ -93,33 +123,74 @@ fn load(dir: &Path) -> Result<Library, String> {
     let mut files = Vec::new();
 
     for item in read_dir {
-        let path = item.map_err(err)?.path();
+        let path = match item {
+            Ok(item) => item.path(),
+
+            Err(error) => {
+                tracing::error!("Could not list a file of {}: {error}", dir.display());
+                continue;
+            }
+        };
 
         if path.extension().and_then(|ext| ext.to_str()) != Some("json") {
             continue;
         }
 
-        let content = fs::read(&path).map_err(|error| path_err(&path, error))?;
+        // One damaged page must not make the whole library unusable: it is
+        // set aside (never deleted) and the other pages still load.
+        match read_page_file(&path) {
+            Ok(file) => files.push(file),
 
-        let file: FileData =
-            serde_json::from_slice(&content).map_err(|error| path_err(&path, error))?;
-
-        files.push(file);
+            Err(error) => {
+                tracing::error!("Skipped a damaged page file: {error}");
+                set_aside(&path);
+            }
+        }
     }
 
     files.sort_by_key(|file| file.page.id);
 
     let mut library = Library::default();
 
-    for file in files {
+    for FileData { mut page, entries } in files {
+        let keys: BTreeSet<EntryKey> = entries.iter().map(|entry| entry.key).collect();
+
         library
             .entries
-            .extend(file.entries.into_iter().map(|entry| (entry.key, entry)));
+            .extend(entries.into_iter().map(|entry| (entry.key, entry)));
 
-        library.pages.insert(file.page.id, file.page);
+        // A page and its entries must agree: forget the keys that point to
+        // nothing, and keep (rather than lose) the entries nobody lists.
+        page.entries.retain(|key| keys.contains(key));
+
+        for key in keys {
+            if !page.entries.contains(&key) {
+                tracing::warn!("Entry {key} was not listed by its page {}, re-attached", page.id);
+                page.entries.push(key);
+            }
+        }
+
+        library.pages.insert(page.id, page);
     }
 
     Ok(library)
+}
+
+fn read_page_file(path: &Path) -> Result<FileData, String> {
+    let content = fs::read(path).map_err(|error| path_err(path, error))?;
+
+    serde_json::from_slice(&content).map_err(|error| path_err(path, error))
+}
+
+/// Renames a damaged page file to `<name>.json.broken`, so it is ignored by
+/// the next loads but can still be inspected or repaired by hand.
+fn set_aside(path: &Path) {
+    let broken = path.with_extension("json.broken");
+
+    match fs::rename(path, &broken) {
+        Ok(()) => tracing::error!("It was moved to {}", broken.display()),
+        Err(error) => tracing::error!("It could not be moved aside: {error}"),
+    }
 }
 
 fn encode_page(library: &Library, page_id: u64) -> Result<Vec<u8>, String> {
@@ -137,14 +208,18 @@ fn encode_page(library: &Library, page_id: u64) -> Result<Vec<u8>, String> {
     serde_json::to_vec_pretty(&FileRef { page, entries }).map_err(err)
 }
 
-fn save_file(path: &Path, data: &[u8]) -> Result<(), String> {
+/// Writes `data` atomically (temporary file + rename). `sync` also waits for
+/// the disk, which only matters for the live library.
+fn save_file(path: &Path, data: &[u8], sync: bool) -> Result<(), String> {
     let temporary = path.with_extension("json.tmp");
 
     let result = (|| -> Result<(), String> {
         let mut file = File::create(&temporary).map_err(err)?;
 
         file.write_all(data).map_err(err)?;
-        file.sync_all().map_err(err)?;
+        if sync {
+            file.sync_all().map_err(err)?;
+        }
 
         fs::rename(&temporary, path).map_err(err)
     })();
@@ -178,7 +253,7 @@ fn sync_page(dir: &Path, library: &Library, page_id: u64) -> Result<(), String> 
     let path = page_file(dir, page_id);
 
     if library.pages.contains_key(&page_id) {
-        save_file(&path, &encode_page(library, page_id)?)?;
+        save_file(&path, &encode_page(library, page_id)?, false)?;
     } else {
         remove_file(&path)?;
     }
@@ -186,11 +261,11 @@ fn sync_page(dir: &Path, library: &Library, page_id: u64) -> Result<(), String> 
     Ok(())
 }
 
-fn write_library(dir: &Path, library: &Library) -> Result<(), String> {
+fn write_library(dir: &Path, library: &Library, sync: bool) -> Result<(), String> {
     fs::create_dir_all(dir).map_err(err)?;
 
     for id in library.pages.keys() {
-        save_file(&page_file(dir, *id), &encode_page(library, *id)?)?;
+        save_file(&page_file(dir, *id), &encode_page(library, *id)?, sync)?;
     }
 
     Ok(())
@@ -234,7 +309,12 @@ pub fn reload() -> Result<(), String> {
 
 pub fn push() -> Result<(), String> {
     let mut guard = DEV.lock();
-    let dev = guard.as_ref().ok_or("dev library is not open: no panel has connected.")?;
+    let dev = guard.as_mut().ok_or("dev library is not open: no panel has connected.")?;
+
+    // Keep the dev folder in step with what is pushed.
+    if let Err(error) = flush(dev) {
+        tracing::error!("Could not save the dev library before the push: {error}");
+    }
 
     let live = live_dir()?;
     let new = live.with_extension("new");
@@ -243,13 +323,16 @@ pub fn push() -> Result<(), String> {
     remove_directory(&new)?;
     remove_directory(&old)?;
 
-    if let Err(error) = write_library(&new, &dev.library) {
+    if let Err(error) = write_library(&new, &dev.library, true) {
         let _ = remove_directory(&new);
         return Err(error);
     }
 
     if live.exists() {
-        fs::rename(&live, &old).map_err(err)?;
+        if let Err(error) = fs::rename(&live, &old) {
+            let _ = remove_directory(&new);
+            return Err(err(error));
+        }
     }
 
     if let Err(error) = fs::rename(&new, &live) {
@@ -264,12 +347,8 @@ pub fn push() -> Result<(), String> {
 
     let _ = remove_directory(&old);
 
-    *guard = None;
-
-    if let Err(error) = dev_dir().and_then(|dir| remove_directory(&dir)) {
-        tracing::warn!("Could not remove dev library after push: {error}");
-    }
-
+    // The dev library is kept as is: it now equals live, and the panels that
+    // are still connected can keep editing it.
     drop(guard);
 
     reload()
@@ -289,7 +368,7 @@ pub fn init_dev() -> Result<Library, String> {
     } else {
         let library = (**LIVE.load()).clone();
 
-        write_library(&dir, &library)?;
+        write_library(&dir, &library, false)?;
 
         library
     };
@@ -334,7 +413,7 @@ fn pages_containing(library: &Library, key: &EntryKey) -> Vec<u64> {
         .collect()
 }
 
-pub fn create_page(page: Page) -> Result<(), String> {
+pub fn create_page(page: Page) -> Result<Event, String> {
     edit_dev(|library| {
         let id = page.id;
 
@@ -342,93 +421,116 @@ pub fn create_page(page: Page) -> Result<(), String> {
             return Err(format!("page {id} already exists"));
         }
 
-        library.pages.insert(id, page);
+        // The entries of a page are owned by the engine: a new page is empty.
+        let page = Page {
+            entries: Vec::new(),
+            ..page
+        };
 
-        Ok(vec![id])
+        library.pages.insert(id, page.clone());
+
+        Ok((Event::PageCreated { page }, vec![id]))
     })
 }
 
-pub fn edit_page(page: Page) -> Result<(), String> {
+pub fn edit_page(page: Page) -> Result<Event, String> {
     edit_dev(|library| {
-        let id = page.id;
+        // Destructured on purpose: a new field on `Page` will not compile
+        // until it is decided whether a client may edit it.
+        let Page {
+            id,
+            name,
+            kind,
+            priority,
+            chapter,
+            entries: _,
+        } = page;
 
         let existing = library
             .pages
             .get_mut(&id)
-            .ok_or_else(|| format!("page {id} not found"))?;
+            .ok_or_else(|| format!("page {id} not found: it may have been deleted"))?;
 
-        *existing = page;
+        existing.name = name;
+        existing.kind = kind;
+        existing.priority = priority;
+        existing.chapter = chapter;
 
-        Ok(vec![id])
+        // `entries` is kept as it is in the library, and the event carries the
+        // resulting page, not the one sent by the client.
+        Ok((Event::PageUpdated { page: existing.clone() }, vec![id]))
     })
 }
 
-pub fn delete_page(page_id: u64) -> Result<(), String> {
+pub fn delete_page(page_id: u64) -> Result<Event, String> {
     edit_dev(|library| {
-        let Some(page) = library.pages.shift_remove(&page_id) else {
-            return Ok(Vec::new());
-        };
+        let page = library
+            .pages
+            .shift_remove(&page_id)
+            .ok_or_else(|| format!("page {page_id} not found: it may already be deleted"))?;
 
         for key in &page.entries {
             library.entries.shift_remove(key);
         }
 
-        Ok(vec![page_id])
+        Ok((Event::PageDeleted { page_id }, vec![page_id]))
     })
 }
 
-pub fn create_entry(entry: Entry) -> Result<(), String> {
+pub fn create_entry(entry: Entry) -> Result<Event, String> {
     edit_dev(|library| {
         let key = entry.key;
         let page_id = key.page_id();
 
         if library.entries.contains_key(&key) {
-            return Err(format!("entry {key:?} already exists"));
+            return Err(format!("entry {key} already exists"));
         }
 
         let page = library
             .pages
             .get_mut(&page_id)
-            .ok_or_else(|| format!("page {page_id} not found"))?;
+            .ok_or_else(|| format!("page {page_id} not found: it may have been deleted"))?;
 
         page.entries.push(key);
-        library.entries.insert(key, entry);
+        library.entries.insert(key, entry.clone());
 
-        Ok(vec![page_id])
+        Ok((Event::EntryCreated { entry }, vec![page_id]))
     })
 }
 
-pub fn edit_entry(entry: Entry) -> Result<(), String> {
+pub fn edit_entry(entry: Entry) -> Result<Event, String> {
     edit_dev(|library| {
         let key = entry.key;
 
         let existing = library
             .entries
             .get_mut(&key)
-            .ok_or_else(|| format!("entry {key:?} not found"))?;
+            .ok_or_else(|| format!("entry {key} not found: it may have been deleted"))?;
 
-        *existing = entry;
+        *existing = entry.clone();
 
-        Ok(pages_containing(library, &key))
+        Ok((Event::EntryUpdated { entry }, pages_containing(library, &key)))
     })
 }
 
-pub fn delete_entry(key: EntryKey) -> Result<(), String> {
+pub fn delete_entry(key: EntryKey) -> Result<Event, String> {
     edit_dev(|library| {
-        library.entries.shift_remove(&key);
+        if library.entries.shift_remove(&key).is_none() {
+            return Err(format!("entry {key} not found: it may already be deleted"));
+        }
 
-        Ok(detach(library, &key))
+        Ok((Event::EntryDeleted { key }, detach(library, &key)))
     })
 }
 
-pub fn move_entry(key: EntryKey, page_id: u64) -> Result<(), String> {
+pub fn move_entry(key: EntryKey, page_id: u64) -> Result<Event, String> {
     edit_dev(|library| {
         if !library.entries.contains_key(&key) {
-            return Err(format!("entry {key:?} not found"));
+            return Err(format!("entry {key} not found: it may have been deleted"));
         }
 
         if !library.pages.contains_key(&page_id) {
-            return Err(format!("page {page_id} not found"));
+            return Err(format!("page {page_id} not found: it may have been deleted"));
         }
 
         let mut touched = detach(library, &key);
@@ -439,6 +541,6 @@ pub fn move_entry(key: EntryKey, page_id: u64) -> Result<(), String> {
 
         touched.push(page_id);
 
-        Ok(touched)
+        Ok((Event::EntryMoved { key, page_id }, touched))
     })
 }

@@ -11,6 +11,7 @@ indexmap.workspace = true
 dioxus.workspace = true
 dioxus-flow.workspace = true
 gloo-net.workspace = true
+gloo-timers.workspace = true
 futures-util.workspace = true
 futures-channel.workspace = true
 tracing.workspace = true

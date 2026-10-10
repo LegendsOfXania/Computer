@@ -1,18 +1,41 @@
-mod library;
-
-use dioxus::prelude::*;
-
 use crate::{
     components::{btn::Btn, icon::Icon},
     i18n::use_i18n,
+    state::{app::AppState, ui::UiState},
 };
+
+use dioxus::prelude::*;
+
+const NONE: &str = "—";
 
 #[component]
 pub fn Header() -> Element {
     let i18n = use_i18n();
-    let (name, id, kind, priority, chapter) =
-        ("Intro", "01010100101", "sequence", "0", "chap1.chap2.chap3");
+    let app = use_context::<AppState>();
+    let ui = use_context::<UiState>();
     let mut query = use_signal(String::new);
+
+    let (name, id, kind, priority, chapter) = (ui.opened_page)()
+        .and_then(|id| {
+            app.with_page(id, |p| {
+                (
+                    p.name.clone(),
+                    p.id.to_string(),
+                    p.kind.as_str().to_string(),
+                    p.priority.to_string(),
+                    p.chapter.clone().unwrap_or_else(|| NONE.into()),
+                )
+            })
+        })
+        .unwrap_or_else(|| {
+            (
+                i18n.t("header.library.opened_page.none"),
+                NONE.into(),
+                NONE.into(),
+                NONE.into(),
+                NONE.into(),
+            )
+        });
 
     rsx! {
         document::Stylesheet { href: asset!("/assets/style/header/mod.css") }
@@ -36,9 +59,9 @@ pub fn Header() -> Element {
                             div { class: "library-head",
                                 p { class: "library-name",
                                     Icon { name: "book-open" }
-                                    {name}
+                                    "{name}"
                                 }
-                                p { class: "library-id", {id} }
+                                p { class: "library-id", "{id}" }
                             }
 
                             div { class: "library-meta",

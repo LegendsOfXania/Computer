@@ -1,0 +1,10 @@
+header.push = Pousser
+header.live = Live
+header.library = Librarie
+header.library.opened_page.none = Aucune
+header.library.opened_page.kind = Type
+header.library.opened_page.priority = Priorité
+header.library.opened_page.chapter = Chapitre
+
+header.search.name = Recherhcer
+header.search.placeholder = Chercher une entrée...

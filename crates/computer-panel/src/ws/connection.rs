@@ -238,14 +238,15 @@ async fn ws_url() -> Result<String, String> {
     let value = dioxus::document::eval(
         if cfg!(feature = "dev") {
             r#"
-            return (location.protocol === "https:" ? "wss:
-                + location.hostname
-                + ":8080";
+                return location.protocol === "https:"
+                    ? "wss://" + location.hostname + ":8080"
+                    : "ws://" + location.hostname + ":8080";
             "#
         } else {
             r#"
-            return (location.protocol === "https:" ? "wss:
-                + location.host;
+                return location.protocol === "https:"
+                    ? "wss://" + location.host
+                    : "ws://" + location.host;
             "#
         },
     )

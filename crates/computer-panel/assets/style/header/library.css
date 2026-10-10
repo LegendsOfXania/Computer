@@ -12,7 +12,6 @@ header:has(.library) {
   gap: 8px;
   padding: 6px 10px;
   background: transparent;
-  border-radius: 8px;
   transition: background 120ms ease;
 }
 

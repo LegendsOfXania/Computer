@@ -7,7 +7,7 @@ use computer_model::{
     page::Page,
     protocol::{event::Event, message::ServerMessage},
 };
-use dioxus::signals::{Signal, WritableExt};
+use dioxus::signals::{ReadableExt, Signal, WritableExt};
 
 #[derive(Clone, Copy)]
 pub struct AppState {
@@ -23,6 +23,14 @@ impl AppState {
             entries: Signal::new(IndexMap::new()),
             registry: Signal::new(HashMap::new()),
         }
+    }
+
+    pub fn with_page<P>(&self, id: u64, f: impl FnOnce(&Page) -> P) -> Option<P> {
+        self.pages.read().get(&id).map(f)
+    }
+
+    pub fn with_entry<E>(&self, key: EntryKey, f: impl FnOnce(&Entry) -> E) -> Option<E> {
+        self.entries.read().get(&key).map(f)
     }
 
     pub fn apply(&mut self, msg: ServerMessage) {

@@ -18,6 +18,15 @@ pub enum PageKind {
     Static,
 }
 
+impl PageKind {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Sequence => "sequence",
+            Self::Static => "static",
+        }
+    }
+}
+
 pub(crate) mod pages {
     use indexmap::IndexMap;
     use serde::Deserializer;

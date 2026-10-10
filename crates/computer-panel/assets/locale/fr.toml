@@ -1,7 +1,0 @@
-header.library = "Librairie"
-header.push = "Envoyer"
-"header.live" = "Live"
-
-[header.search]
-name = "Rechercher"
-placeholder = "Rechercher une entrée..."

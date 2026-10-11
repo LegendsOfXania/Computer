@@ -1,4 +1,4 @@
-use std::{cell::{Cell, RefCell}, collections::HashMap, pin::pin, rc::Rc};
+use std::{cell::Cell, pin::pin};
 
 use computer_model::protocol::{
     message::{ClientMessage, ProtocolMessage, ServerMessage},
@@ -37,25 +37,22 @@ enum End {
     Lost(String),
 }
 
-pub fn ws_client() -> Rc<Client> {
+pub fn ws_client() -> Client {
     let state = use_context::<AppState>();
     let status = use_context::<Signal<ConnectionStatus>>();
 
-    let pending: Pending =
-        use_hook(|| Rc::new(RefCell::new(HashMap::new())));
-    let pending_task = Rc::clone(&pending);
+    let pending = use_hook(Pending::default);
+    let task_pending = pending.clone();
 
-    let coroutine = use_coroutine(
-        move |mut rx: UnboundedReceiver<ClientMessage>| {
-            let pending = Rc::clone(&pending_task);
+    let coroutine = use_coroutine(move |mut rx: UnboundedReceiver<ClientMessage>| {
+        let pending = task_pending.clone();
 
-            async move {
-                run(&mut rx, state, status, pending).await;
-            }
-        },
-    );
+        async move {
+            run(&mut rx, state, status, pending).await;
+        }
+    });
 
-    use_hook(move || Rc::new(Client::new(coroutine, pending, status)))
+    use_hook(move || Client::new(coroutine, status, pending))
 }
 
 async fn run(
@@ -70,7 +67,7 @@ async fn run(
     loop {
         let (end, connected) = session(rx, state, status, &pending).await;
 
-        fail_pending(&pending, "Connection closed".to_string());
+        pending.clear();
 
         while rx.try_recv().is_ok() {}
 
@@ -174,19 +171,7 @@ async fn session(
                         }
 
                         Ok(ServerMessage::Response { id, result }) => {
-                            let sender = pending.borrow_mut().remove(&id);
-
-                            match sender {
-                                Some(sender) => {
-                                    let _ = sender.send(result);
-                                }
-
-                                None => {
-                                    warn!(
-                                        "Received Response for unknown request id: {id}"
-                                    );
-                                }
-                            }
+                            pending.resolve(id, result)
                         }
 
                         Ok(message) => state.apply(message),
@@ -259,10 +244,4 @@ async fn ws_url() -> Result<String, String> {
         .ok_or_else(|| {
             "Could not read WebSocket URL: unexpected eval result".to_string()
         })
-}
-
-fn fail_pending(pending: &Pending, reason: String) {
-    for (_, sender) in pending.borrow_mut().drain() {
-        let _ = sender.send(Err(reason.clone()));
-    }
 }

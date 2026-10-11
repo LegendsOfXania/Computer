@@ -5,10 +5,7 @@ use std::{
     rc::Rc,
 };
 
-use computer_model::protocol::{
-    message::ClientMessage,
-    request::Request,
-};
+use computer_model::protocol::{message::ClientMessage, request::Request};
 use dioxus::{
     hooks::Coroutine,
     signals::{ReadableExt, Signal},
@@ -19,70 +16,71 @@ use gloo_timers::future::TimeoutFuture;
 
 use crate::state::ConnectionStatus;
 
-const REQUEST_TIMEOUT_MS: u32 = 10_000;
+const TIMEOUT_MS: u32 = 10_000;
 
-pub(crate) type Pending =
-    Rc<RefCell<HashMap<u64, Sender<Result<(), String>>>>>;
+type Answer = Result<(), String>;
 
+#[derive(Clone, Default)]
+pub(crate) struct Pending(Rc<RefCell<HashMap<u64, Sender<Answer>>>>);
+
+impl Pending {
+    pub(crate) fn resolve(&self, id: u64, answer: Answer) {
+        let sender = self.0.borrow_mut().remove(&id);
+        if let Some(sender) = sender {
+            let _ = sender.send(answer);
+        }
+    }
+
+    pub(crate) fn clear(&self) {
+        self.0.borrow_mut().clear();
+    }
+}
+
+#[derive(Clone)]
 pub struct Client {
     coroutine: Coroutine<ClientMessage>,
     status: Signal<ConnectionStatus>,
-    next_id: Cell<u64>,
+    next_id: Rc<Cell<u64>>,
     pending: Pending,
 }
 
 impl Client {
     pub(crate) fn new(
         coroutine: Coroutine<ClientMessage>,
-        pending: Pending,
         status: Signal<ConnectionStatus>,
+        pending: Pending,
     ) -> Self {
-        Self {
-            coroutine,
-            status,
-            next_id: Cell::new(0),
-            pending,
-        }
+        Self { coroutine, status, pending, next_id: Rc::default() }
     }
 
-    pub async fn request(&self, request: Request) -> Result<(), String> {
+    pub async fn request(&self, request: Request) -> Answer {
         if !matches!(*self.status.peek(), ConnectionStatus::Connected) {
-            return Err("Not connected".to_string());
+            return Err("Not connected".into());
         }
 
-        let id = self.next_id.get();
-        self.next_id.set(id.wrapping_add(1));
-
+        let id = self.next_id.replace(self.next_id.get().wrapping_add(1));
         let (sender, receiver) = oneshot::channel();
-
-        self.pending.borrow_mut().insert(id, sender);
-
-        let _guard = PendingGuard {
-            pending: Rc::clone(&self.pending),
-            id,
-        };
+        self.pending.0.borrow_mut().insert(id, sender);
+        let _guard = Guard { pending: &self.pending, id };
 
         self.coroutine.send(ClientMessage::Request { id, request });
 
-        match select(pin!(receiver), pin!(TimeoutFuture::new(REQUEST_TIMEOUT_MS))).await {
+        match select(pin!(receiver), pin!(TimeoutFuture::new(TIMEOUT_MS))).await {
             Either::Left((answer, _)) => {
-                answer.map_err(|_| "Connection closed".to_string())?
+                answer.unwrap_or_else(|_| Err("Connection closed".into()))
             }
-
-            Either::Right(_) => {
-                Err("The server did not answer in time".to_string())
-            }
+            Either::Right(_) => Err("The server did not answer in time".into()),
         }
     }
 }
 
-struct PendingGuard {
-    pending: Pending,
+struct Guard<'a> {
+    pending: &'a Pending,
     id: u64,
 }
 
-impl Drop for PendingGuard {
+impl Drop for Guard<'_> {
     fn drop(&mut self) {
-        self.pending.borrow_mut().remove(&self.id);
+        self.pending.0.borrow_mut().remove(&self.id);
     }
 }

@@ -1,7 +1,8 @@
 use crate::{
-    components::{btn::Btn, icon::Icon}, i18n::I18n, state::{app::AppState, ui::UiState},
+    components::{btn::Btn, icon::Icon, toast::Toasts}, i18n::I18n, state::{app::AppState, ui::UiState}, ws::Client,
 };
 
+use computer_model::protocol::request::Request;
 use dioxus::prelude::*;
 
 const NONE: &str = "—";
@@ -11,6 +12,8 @@ pub fn Header() -> Element {
     let i18n = use_context::<I18n>();
     let app = use_context::<AppState>();
     let ui = use_context::<UiState>();
+    let toasts = use_context::<Toasts>();
+    let client = use_context::<Client>();
 
     let mut query = use_signal(String::new);
 
@@ -128,8 +131,18 @@ pub fn Header() -> Element {
             }
 
             div { class: "status",
-                button { 
+                button {
                     class: "push",
+                    onclick: move |_| {
+                        let (client, toasts, i18n) = (client.clone(), toasts.clone(), i18n.clone());
+                        async move {
+                            match client.request(Request::Push).await {
+                                Ok(()) => toasts.push(1, i18n.t("toast.push.success"), String::new()),
+                                Err(e) => toasts.push(3, i18n.t("toast.push.failed"), e),
+                            }
+                        }
+                    },
+
                     span { class: "push-text", {i18n.t("header.push")} }
                     span { class: "push-icon",
                         Icon { name: "chevron-right" }

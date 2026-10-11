@@ -1,0 +1,97 @@
+.toasts {
+  --success: #45ba82;
+  --warn: #ffaf01;
+  --error: #f05b62;
+  --bw: 3px;
+  --icon: 1rem;
+  --gap: .4rem;
+  --edge: 20px;
+
+  position: fixed;
+  right: var(--edge);
+  bottom: 24px;
+  z-index: 100;
+  width: min(24rem, calc(100vw - 2 * var(--edge)));
+  pointer-events: none;
+}
+
+.toast {
+  display: grid;
+  grid-template-rows: 1fr;
+  padding-top: 10px;
+  overflow-y: clip;
+  pointer-events: auto;
+  animation: toast-collapse .25s ease calc(var(--t) + .3s) forwards;
+}
+
+.toast-s { min-height: 0; }
+
+.toast-b {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+  padding: .95rem 1rem calc(.95rem + var(--bw));
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--surface-2);
+  border-left: var(--bw) solid var(--c);
+  border-radius: 2px;
+  animation:
+    toast-in .3s ease-out,
+    toast-out .3s ease-in var(--t) forwards;
+}
+
+.toast-b::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: var(--bw);
+  background: var(--c);
+  transform-origin: left;
+  animation: toast-timer var(--t) linear forwards;
+}
+
+.toast:hover,
+.toast:hover .toast-b,
+.toast:hover .toast-b::after { animation-play-state: paused; }
+
+.l0 { --c: var(--main); }
+.l1 { --c: var(--success); }
+.l2 { --c: var(--warn); }
+.l3 { --c: var(--error); }
+
+.t-h {
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
+  font-size: .875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -.01em;
+  overflow-wrap: anywhere;
+}
+.t-h > :first-child {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--icon);
+  height: var(--icon);
+  color: var(--c);
+  translate: 0 1px;
+}
+.t-h svg { display: block; width: 100%; height: 100%; }
+
+.t-m {
+  padding-left: calc(var(--icon) + var(--gap));
+  color: color-mix(in srgb, var(--fg) 68%, transparent);
+  font-size: .8125rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.t-m:empty { display: none; }
+
+@keyframes toast-in { from { transform: translateX(calc(100% + var(--edge))); } }
+@keyframes toast-out { to { transform: translateX(calc(100% + var(--edge))); } }
+@keyframes toast-timer { to { transform: scaleX(0); } }
+@keyframes toast-collapse { to { grid-template-rows: 0fr; padding-top: 0; } }

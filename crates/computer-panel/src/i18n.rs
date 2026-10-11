@@ -44,10 +44,6 @@ impl I18n {
     }
 }
 
-pub fn use_i18n() -> I18n {
-    use_context()
-}
-
 pub fn use_i18n_root() {
     let fallback = use_hook(|| Rc::new(load(FALLBACK).unwrap_or_default()));
     let mut current = use_signal(|| (*fallback).clone());

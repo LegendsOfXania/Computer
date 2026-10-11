@@ -79,10 +79,6 @@ fn with_dev<T>(f: impl FnOnce(&mut Dev) -> Result<T, String>) -> Result<T, Strin
     f(guard.as_mut().ok_or("dev library is not open: no panel has connected.")?)
 }
 
-/// Applies a change to the dev library in memory. The touched pages are only
-/// marked dirty: `flush_dirty` writes them (at most once per second, and
-/// before a push or when the plugin unloads), so an edit never waits for the
-/// disk on the tick.
 fn edit_dev<T>(
     f: impl FnOnce(&mut Library) -> Result<(T, Vec<u64>), String>,
 ) -> Result<T, String> {
@@ -95,8 +91,6 @@ fn edit_dev<T>(
     })
 }
 
-/// Writes the pages edited since the last call. A failure is only logged: the
-/// pages stay dirty and are written again on the next call.
 pub fn flush_dirty() {
     let mut guard = DEV.lock();
 
@@ -136,8 +130,6 @@ fn load(dir: &Path) -> Result<Library, String> {
             continue;
         }
 
-        // One damaged page must not make the whole library unusable: it is
-        // set aside (never deleted) and the other pages still load.
         match read_page_file(&path) {
             Ok(file) => files.push(file),
 
@@ -159,8 +151,6 @@ fn load(dir: &Path) -> Result<Library, String> {
             .entries
             .extend(entries.into_iter().map(|entry| (entry.key, entry)));
 
-        // A page and its entries must agree: forget the keys that point to
-        // nothing, and keep (rather than lose) the entries nobody lists.
         page.entries.retain(|key| keys.contains(key));
 
         for key in keys {
@@ -182,8 +172,6 @@ fn read_page_file(path: &Path) -> Result<FileData, String> {
     serde_json::from_slice(&content).map_err(|error| path_err(path, error))
 }
 
-/// Renames a damaged page file to `<name>.json.broken`, so it is ignored by
-/// the next loads but can still be inspected or repaired by hand.
 fn set_aside(path: &Path) {
     let broken = path.with_extension("json.broken");
 
@@ -208,8 +196,6 @@ fn encode_page(library: &Library, page_id: u64) -> Result<Vec<u8>, String> {
     serde_json::to_vec_pretty(&FileRef { page, entries }).map_err(err)
 }
 
-/// Writes `data` atomically (temporary file + rename). `sync` also waits for
-/// the disk, which only matters for the live library.
 fn save_file(path: &Path, data: &[u8], sync: bool) -> Result<(), String> {
     let temporary = path.with_extension("json.tmp");
 
@@ -311,7 +297,6 @@ pub fn push() -> Result<(), String> {
     let mut guard = DEV.lock();
     let dev = guard.as_mut().ok_or("dev library is not open: no panel has connected.")?;
 
-    // Keep the dev folder in step with what is pushed.
     if let Err(error) = flush(dev) {
         tracing::error!("Could not save the dev library before the push: {error}");
     }
@@ -347,8 +332,6 @@ pub fn push() -> Result<(), String> {
 
     let _ = remove_directory(&old);
 
-    // The dev library is kept as is: it now equals live, and the panels that
-    // are still connected can keep editing it.
     drop(guard);
 
     reload()

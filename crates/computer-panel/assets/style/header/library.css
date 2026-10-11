@@ -157,6 +157,7 @@ header:has(.library) {
 
 .library-footer {
   display: flex;
+  gap: 8px;
   margin-top: auto;
   padding-top: 16px;
 }

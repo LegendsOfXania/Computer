@@ -23,8 +23,6 @@ pub enum Connection {
     Pending {
         stream: TcpStream,
         buffer: Vec<u8>,
-        
-
         age: u32,
     },
 
@@ -69,7 +67,7 @@ impl Drop for Socket {
     fn drop(&mut self) {
         if self.ready {
             tracing::info!(
-                "Panel client #{} ({}) disconnected after {}s",
+                "Client #{} ({}) disconnected after {}s",
                 self.id,
                 self.peer,
                 self.age / TICKS_PER_SECOND,

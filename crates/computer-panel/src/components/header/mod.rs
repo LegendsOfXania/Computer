@@ -1,7 +1,5 @@
 use crate::{
-    components::{btn::Btn, icon::Icon},
-    i18n::use_i18n,
-    state::{app::AppState, ui::UiState},
+    components::{btn::Btn, icon::Icon}, i18n::I18n, state::{app::AppState, ui::UiState},
 };
 
 use dioxus::prelude::*;
@@ -10,9 +8,10 @@ const NONE: &str = "—";
 
 #[component]
 pub fn Header() -> Element {
-    let i18n = use_i18n();
+    let i18n = use_context::<I18n>();
     let app = use_context::<AppState>();
     let ui = use_context::<UiState>();
+
     let mut query = use_signal(String::new);
 
     let (name, id, kind, priority, chapter) = (ui.opened_page)()
@@ -83,7 +82,7 @@ pub fn Header() -> Element {
 
                                 p {
                                     span { class: "library-label",
-                                        Icon { name: "bookmark" }
+                                        Icon { name: "folder" }
                                         {i18n.t("header.library.opened_page.chapter")}
                                     }
                                     span { "{chapter}" }
@@ -94,6 +93,11 @@ pub fn Header() -> Element {
                                 Btn {
                                     icon: "plus",
                                     tooltip: Some(i18n.t("header.library.tooltip.create_page")),
+                                }
+                                
+                                Btn {
+                                    icon: "trash",
+                                    tooltip: Some(i18n.t("header.library.tooltip.delete_page")),
                                 }
                             }
                         }
@@ -124,7 +128,8 @@ pub fn Header() -> Element {
             }
 
             div { class: "status",
-                button { class: "push",
+                button { 
+                    class: "push",
                     span { class: "push-text", {i18n.t("header.push")} }
                     span { class: "push-icon",
                         Icon { name: "chevron-right" }

@@ -5,6 +5,8 @@ header.library.opened_page.none = None
 header.library.opened_page.kind = Kind
 header.library.opened_page.priority = Priority
 header.library.opened_page.chapter = Chapter
+header.library.tooltip.create_page = Create a new page
+header.library.tooltip.delete_page = Delete this page. YOU WON'T BE ABLE TO GO BACK!
 
 header.search.name = Search
 header.search.placeholder = Search for an entry...

@@ -8,6 +8,7 @@ use crate::{
 
 pub mod components;
 pub mod i18n;
+pub mod id;
 pub mod state;
 pub mod ws;
 

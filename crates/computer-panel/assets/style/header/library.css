@@ -21,6 +21,7 @@ header:has(.library) {
   z-index: 50;
   display: grid;
   grid-template-columns: 2fr 1.3fr;
+  grid-template-rows: minmax(0, 1fr);
   width: 620px;
   height: 660px;
   overflow: hidden;
@@ -160,4 +161,46 @@ header:has(.library) {
   gap: 8px;
   margin-top: auto;
   padding-top: 16px;
+}
+
+.library-list {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.library-chapter,
+.library-page {
+  margin: 0;
+  padding: 6px 0 6px calc(var(--depth, 0) * 16px);
+  font-size: 14px;
+}
+
+.library-chapter {
+  margin-top: 14px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.5;
+}
+
+.library-chapter:first-child {
+  margin-top: 0;
+}
+
+.library-page {
+  opacity: 0.7;
+  cursor: pointer;
+  background: linear-gradient(currentColor, currentColor) left bottom / 0 1px
+    no-repeat;
+  transition: background-size 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.library-page:hover,
+.library-opened {
+  background-size: 100% 1px;
+}
+
+.library-opened {
+  color: var(--main);
 }

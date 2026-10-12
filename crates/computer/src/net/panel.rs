@@ -35,6 +35,10 @@ fn update(panel: &Path) -> Result<Option<String>, String> {
         return Ok(None);
     }
 
+    if !data::conf::get_conf().panel.auto_update {
+        return Err("The panel is outdated, but automatic updates are disabled in the configuration. Proceed at your own risk.".into());
+    }
+
     let archive = download(&format!(
         "https://github.com/LegendsOfXania/Computer/releases/download/{latest}/{PANEL_ARCHIVE}"
     ))?;

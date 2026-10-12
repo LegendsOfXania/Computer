@@ -14,6 +14,7 @@ pub struct ComputerConfig {
 #[derive(Deserialize, Serialize)]
 pub struct PanelConfig {
     pub enabled: bool,
+    pub auto_update: bool,
     pub ip: String,
     pub port: u16,
 }
@@ -22,6 +23,7 @@ impl Default for PanelConfig {
     fn default() -> Self {
         Self {
             enabled: false,
+            auto_update: false,
             ip: Ipv4Addr::LOCALHOST.to_string(),
             port: 8080,
         }

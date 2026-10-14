@@ -2,7 +2,7 @@ use computer_model::page::Page;
 use std::collections::BTreeMap;
 
 pub enum Row {
-    Chapter { name: String, depth: usize },
+    Chapter { name: String, path: String, depth: usize },
     Page { id: u64, name: String, depth: usize },
 }
 
@@ -20,7 +20,7 @@ impl Node {
         own.chain(kids).min().unwrap_or(i32::MAX)
     }
 
-    fn flatten(mut self, depth: usize, rows: &mut Vec<Row>) {
+    fn flatten(mut self, prefix: &str, depth: usize, rows: &mut Vec<Row>) {
         self.pages.sort_by_key(|p| p.0);
 
         for (_, id, name) in self.pages {
@@ -31,8 +31,14 @@ impl Node {
         children.sort_by_key(|(_, node)| node.priority());
 
         for (name, node) in children {
-            rows.push(Row::Chapter { name, depth });
-            node.flatten(depth + 1, rows);
+            let path = if prefix.is_empty() {
+                name.clone()
+            } else {
+                format!("{prefix}.{name}")
+            };
+
+            rows.push(Row::Chapter { name, path: path.clone(), depth });
+            node.flatten(&path, depth + 1, rows);
         }
     }
 }
@@ -55,6 +61,6 @@ pub fn flatten<'a>(pages: impl Iterator<Item = &'a Page>) -> Vec<Row> {
     }
 
     let mut rows = Vec::new();
-    root.flatten(0, &mut rows);
+    root.flatten("", 0, &mut rows);
     rows
 }

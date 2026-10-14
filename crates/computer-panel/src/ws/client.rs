@@ -5,7 +5,10 @@ use std::{
     rc::Rc,
 };
 
-use computer_model::protocol::{message::ClientMessage, request::Request};
+use computer_model::{
+    page::{Page, PageKind},
+    protocol::{message::ClientMessage, request::Request},
+};
 use dioxus::{
     hooks::Coroutine,
     signals::{ReadableExt, Signal},
@@ -14,7 +17,7 @@ use futures_channel::oneshot::{self, Sender};
 use futures_util::future::{select, Either};
 use gloo_timers::future::TimeoutFuture;
 
-use crate::state::ConnectionStatus;
+use crate::{id, state::ConnectionStatus};
 
 const TIMEOUT_MS: u32 = 10_000;
 
@@ -53,7 +56,32 @@ impl Client {
         Self { coroutine, status, pending, next_id: Rc::default() }
     }
 
-    pub async fn request(&self, request: Request) -> Answer {
+    pub async fn push(&self) -> Answer {
+        self.request(Request::Push).await
+    }
+
+    pub async fn create_page(&self, name: String) -> Answer {
+        let page = Page {
+            id: id::generate(),
+            name,
+            kind: PageKind::Static,
+            priority: 0,
+            chapter: None,
+            entries: Vec::new(),
+        };
+
+        self.request(Request::CreatePage { page }).await
+    }
+
+    pub async fn delete_page(&self, page_id: u64) -> Answer {
+        self.request(Request::DeletePage { page_id }).await
+    }
+
+    pub async fn edit_page(&self, page: Page) -> Answer {
+        self.request(Request::UpdatePage { page }).await
+    }
+
+    async fn request(&self, request: Request) -> Answer {
         if !matches!(*self.status.peek(), ConnectionStatus::Connected) {
             return Err("Not connected".into());
         }

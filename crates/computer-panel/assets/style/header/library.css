@@ -84,6 +84,24 @@ header:has(.library) {
   cursor: text;
 }
 
+.library-name-input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  background: transparent;
+  border: 0;
+  outline: none;
+}
+
+.library-name-input:focus {
+  text-decoration: underline;
+  text-decoration-color: var(--main);
+  text-underline-offset: 5px;
+}
+
 .library-name .icon {
   width: 18px;
   height: 18px;
@@ -93,13 +111,7 @@ header:has(.library) {
   width: fit-content;
   margin: 0;
   font-size: 11px;
-  opacity: 0.5;
   cursor: copy;
-  transition: opacity 120ms ease;
-}
-
-.library-id:hover {
-  opacity: 0.9;
 }
 
 .library-meta {
@@ -118,8 +130,44 @@ header:has(.library) {
   font-size: 14px;
 }
 
-.library-meta p > span:last-child {
-  opacity: 0.5;
+.library-meta input {
+  min-width: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: right;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  outline: none;
+  transition: border-color 160ms ease;
+}
+
+.library-meta input:focus {
+  border-bottom-color: var(--main);
+}
+
+.library-meta input[type="number"] {
+  width: 72px;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.library-meta input[type="number"]::-webkit-inner-spin-button,
+.library-meta input[type="number"]::-webkit-outer-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+.library-meta input:not([type="number"]) {
+  width: 50%;
+}
+
+.library-name-input:disabled,
+.library-meta input:disabled {
+  opacity: 1;
+  cursor: default;
 }
 
 .library-label {
@@ -145,13 +193,17 @@ header:has(.library) {
 }
 
 .library-name .icon,
-.library-label .icon {
+.library-label .icon,
+.library-chapter .icon,
+.library-page .icon {
   display: flex;
   flex-shrink: 0;
 }
 
 .library-name .icon svg,
-.library-label .icon svg {
+.library-label .icon svg,
+.library-chapter .icon svg,
+.library-page .icon svg {
   width: 100%;
   height: 100%;
 }
@@ -169,11 +221,26 @@ header:has(.library) {
   overflow-y: auto;
 }
 
+/* L'indentation utilise margin pour que le soulignage commence à l'icône. */
 .library-chapter,
 .library-page {
-  margin: 0;
-  padding: 6px 0 6px calc(var(--depth, 0) * 16px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  margin: 0 0 0 calc(var(--depth, 0) * 16px);
+  padding: 6px 0;
   font-size: 14px;
+  cursor: pointer;
+  background: linear-gradient(currentColor, currentColor) left bottom / 0 1px
+    no-repeat;
+  transition: background-size 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.library-chapter:hover,
+.library-page:hover,
+.library-opened {
+  background-size: 100% 1px;
 }
 
 .library-chapter {
@@ -181,24 +248,21 @@ header:has(.library) {
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  opacity: 0.5;
+  user-select: none;
 }
 
 .library-chapter:first-child {
   margin-top: 0;
 }
 
-.library-page {
-  opacity: 0.7;
-  cursor: pointer;
-  background: linear-gradient(currentColor, currentColor) left bottom / 0 1px
-    no-repeat;
-  transition: background-size 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+.library-chapter .icon {
+  width: 11px;
+  height: 11px;
 }
 
-.library-page:hover,
-.library-opened {
-  background-size: 100% 1px;
+.library-page .icon {
+  width: 14px;
+  height: 14px;
 }
 
 .library-opened {

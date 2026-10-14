@@ -1,5 +1,4 @@
 mod library;
-mod tree;
 
 use crate::{
     components::{icon::Icon, toast::Toasts},
@@ -7,7 +6,6 @@ use crate::{
     ws::Client,
 };
 
-use computer_model::protocol::request::Request;
 use dioxus::prelude::*;
 use library::Library;
 
@@ -57,7 +55,7 @@ pub fn Header() -> Element {
                     onclick: move |_| {
                         let (client, toasts, i18n) = (client.clone(), toasts.clone(), i18n.clone());
                         async move {
-                            match client.request(Request::Push).await {
+                            match client.push().await {
                                 Ok(()) => toasts.push(1, i18n.t("toast.push.success"), String::new()),
                                 Err(e) => toasts.push(3, i18n.t("toast.push.failed"), e),
                             }

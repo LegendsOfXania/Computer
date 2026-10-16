@@ -17,17 +17,16 @@ use futures_channel::oneshot::{self, Sender};
 use futures_util::future::{select, Either};
 use gloo_timers::future::TimeoutFuture;
 
-use crate::{id, state::ConnectionStatus};
+use crate::{id, state::{ConnectionStatus, app::AppState}};
 
 const TIMEOUT_MS: u32 = 10_000;
 
-type Answer = Result<(), String>;
 
 #[derive(Clone, Default)]
-pub(crate) struct Pending(Rc<RefCell<HashMap<u64, Sender<Answer>>>>);
+pub(crate) struct Pending(Rc<RefCell<HashMap<u64, Sender<Result<(), String>>>>>);
 
 impl Pending {
-    pub(crate) fn resolve(&self, id: u64, answer: Answer) {
+    pub(crate) fn resolve(&self, id: u64, answer: Result<(), String>) {
         let sender = self.0.borrow_mut().remove(&id);
         if let Some(sender) = sender {
             let _ = sender.send(answer);
@@ -56,11 +55,11 @@ impl Client {
         Self { coroutine, status, pending, next_id: Rc::default() }
     }
 
-    pub async fn push(&self) -> Answer {
+    pub async fn push(&self) -> Result<(), String> {
         self.request(Request::Push).await
     }
 
-    pub async fn create_page(&self, name: String) -> Answer {
+    pub async fn create_page(&self, name: String) -> Result<(), String> {
         let page = Page {
             id: id::generate(),
             name,
@@ -73,15 +72,25 @@ impl Client {
         self.request(Request::CreatePage { page }).await
     }
 
-    pub async fn delete_page(&self, page_id: u64) -> Answer {
+    pub async fn delete_page(&self, page_id: u64) -> Result<(), String> {
         self.request(Request::DeletePage { page_id }).await
     }
 
-    pub async fn edit_page(&self, page: Page) -> Answer {
+    pub async fn edit_page(
+        &self,
+        app: &AppState,
+        page_id: u64,
+        change: impl FnOnce(&mut Page),
+    ) -> Result<(), String> {
+        let Some(mut page) = app.with_page(page_id, Clone::clone) else {
+            return Ok(());
+        };
+
+        change(&mut page);
         self.request(Request::UpdatePage { page }).await
     }
 
-    async fn request(&self, request: Request) -> Answer {
+    async fn request(&self, request: Request) -> Result<(), String> {
         if !matches!(*self.status.peek(), ConnectionStatus::Connected) {
             return Err("Not connected".into());
         }

@@ -267,3 +267,8 @@ header:has(.library) {
 .library-opened {
   color: var(--main);
 }
+
+.library-empty {
+  color: var(--fg);
+  text-align: center;
+}

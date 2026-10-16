@@ -3,19 +3,18 @@ mod tree;
 
 use crate::{
     components::icon::Icon,
-    i18n::I18n,
     state::{app::AppState, ui::UiState},
 };
 
 use computer_model::page::PageKind;
 use details::Details;
 use dioxus::{prelude::*, signals::ReadableExt};
+use dioxus_i18n::tid;
 use std::collections::HashSet;
 use tree::{flatten, Row};
 
 #[component]
 pub fn Library() -> Element {
-    let i18n = use_context::<I18n>();
     let app = use_context::<AppState>();
     let ui = use_context::<UiState>();
 
@@ -50,17 +49,23 @@ pub fn Library() -> Element {
         visible.push(row);
     }
 
+    let empty = visible.is_empty();
+
     rsx! {
         document::Stylesheet { href: asset!("/assets/style/header/library.css") }
 
         div { class: "library",
             button { class: "library-trigger",
                 Icon { name: "library" }
-                span { {i18n.t("header.library")} }
+                span { {tid!("header-library")} }
             }
 
             div { class: "library-panel",
                 section { class: "library-col library-list",
+                    if empty {
+                        p { class: "library-empty", {tid!("library-empty")} }
+                    }
+
                     for row in visible {
                         match row {
                             Row::Chapter { name, path, depth } => rsx! {

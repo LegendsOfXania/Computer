@@ -21,8 +21,8 @@ pub enum PageKind {
 impl PageKind {
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::Sequence => "sequence",
-            Self::Static => "static",
+            Self::Sequence => "Sequence",
+            Self::Static => "Static",
         }
     }
 }

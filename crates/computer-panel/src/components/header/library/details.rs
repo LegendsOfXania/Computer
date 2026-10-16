@@ -1,73 +1,49 @@
 use crate::{
     components::{btn::Btn, icon::Icon, toast::Toasts},
-    i18n::I18n,
     state::{app::AppState, ui::UiState},
     ws::Client,
 };
 
-use computer_model::page::Page;
 use dioxus::prelude::*;
+use dioxus_i18n::tid;
 
 const NONE: &str = "—";
 
-struct Info {
-    name: String,
-    id: String,
-    kind: String,
-    priority: String,
-    chapter: String,
-}
-
-impl Info {
-    fn of(page: &Page) -> Self {
-        Self {
-            name: page.name.clone(),
-            id: page.id.to_string(),
-            kind: page.kind.as_str().to_string(),
-            priority: page.priority.to_string(),
-            chapter: page.chapter.clone().unwrap_or_default(),
-        }
-    }
-
-    fn none(i18n: &I18n) -> Self {
-        Self {
-            name: i18n.t("header.library.opened_page.none"),
-            id: NONE.into(),
-            kind: NONE.into(),
-            priority: NONE.into(),
-            chapter: String::new(),
-        }
-    }
-}
+type Ctx = (AppState, Client, Toasts);
 
 #[component]
 pub fn Details() -> Element {
-    let i18n = use_context::<I18n>();
     let app = use_context::<AppState>();
     let ui = use_context::<UiState>();
-    let toasts = use_context::<Toasts>();
-    let client = use_context::<Client>();
+    let ctx: Ctx = (app.clone(), use_context::<Client>(), use_context::<Toasts>());
 
     let mut opened_page = ui.opened_page;
     let mut opened_entry = ui.opened_entry;
 
-    let page_id = opened_page();
+    let (name, id, kind, priority, chapter) = opened_page()
+        .and_then(|id| {
+            app.with_page(id, |p| {
+                (
+                    p.name.clone(),
+                    p.id.to_string(),
+                    p.kind.as_str().to_string(),
+                    p.priority.to_string(),
+                    p.chapter.clone().unwrap_or_default(),
+                )
+            })
+        })
+        .unwrap_or_else(|| {
+            (
+                tid!("header-library-opened-page-none"),
+                NONE.into(),
+                NONE.into(),
+                String::new(),
+                String::new(),
+            )
+        });
 
-    let info = page_id
-        .and_then(|id| app.with_page(id, Info::of))
-        .unwrap_or_else(|| Info::none(&i18n));
-
-    let page_ids: Vec<u64> = {
-        let pages = app.pages.read();
-        let mut pages: Vec<_> = pages
-            .values()
-            .map(|page| (page.priority, page.id))
-            .collect();
-
-        pages.sort_unstable();
-
-        pages.into_iter().map(|(_, id)| id).collect()
-    };
+    let none = opened_page().is_none();
+    let placeholder = if none { NONE } else { "" };
 
     rsx! {
         section { class: "library-col library-details",
@@ -76,74 +52,70 @@ pub fn Details() -> Element {
                     Icon { name: "book-open" }
                     input {
                         class: "library-name-input",
-                        value: "{info.name}",
-                        disabled: page_id.is_none(),
+                        value: "{name}",
+                        disabled: none,
                         onchange: {
-                            let (app, client, toasts, i18n) =
-                                (app.clone(), client.clone(), toasts.clone(), i18n.clone());
+                            let app = app.clone();
+                            let client = ctx.1.clone();
+                            let toasts = ctx.2.clone();
 
-                            move |event| {
-                                let Some(id) = page_id else { return };
-                                let Some(mut page) = app.with_page(id, Clone::clone) else {
-                                    return;
-                                };
-
-                                page.name = event.value();
-
-                                let (client, toasts, i18n) =
-                                    (client.clone(), toasts.clone(), i18n.clone());
+                            move |e| {
+                                let (app, client, toasts) =
+                                    (app.clone(), client.clone(), toasts.clone());
+                                let value = e.value();
+                                let Some(id) = opened_page() else { return };
 
                                 spawn(async move {
-                                    if let Err(e) = client.edit_page(page).await {
-                                        toasts.push(3, i18n.t("toast.edit_page.failed"), e);
+                                    if let Err(e) = client
+                                        .edit_page(&app, id, |p| p.name = value)
+                                        .await
+                                    {
+                                        toasts.push(3, tid!("toast-edit-page-failed"), e);
                                     }
                                 });
                             }
                         },
                     }
                 }
-                p { class: "library-id", "{info.id}" }
+                p { class: "library-id", "{id}" }
             }
 
             div { class: "library-meta",
                 p {
                     span { class: "library-label",
                         Icon { name: "git-commit" }
-                        {i18n.t("header.library.opened_page.kind")}
+                        {tid!("header-library-opened-page-kind")}
                     }
-                    span { "{info.kind}" }
+                    span { "{kind}" }
                 }
 
                 p {
                     span { class: "library-label",
                         Icon { name: "arrow-big-up-dash" }
-                        {i18n.t("header.library.opened_page.priority")}
+                        {tid!("header-library-opened-page-priority")}
                     }
                     input {
                         r#type: "number",
-                        value: "{info.priority}",
-                        disabled: page_id.is_none(),
+                        value: "{priority}",
+                        placeholder,
+                        disabled: none,
                         onchange: {
-                            let (app, client, toasts, i18n) =
-                                (app.clone(), client.clone(), toasts.clone(), i18n.clone());
+                            let app = app.clone();
+                            let client = ctx.1.clone();
+                            let toasts = ctx.2.clone();
 
-                            move |event| {
-                                let Some(id) = page_id else { return };
-                                let Some(mut page) = app.with_page(id, Clone::clone) else {
-                                    return;
-                                };
-                                let Ok(priority) = event.value().parse() else {
-                                    return;
-                                };
-
-                                page.priority = priority;
-
-                                let (client, toasts, i18n) =
-                                    (client.clone(), toasts.clone(), i18n.clone());
+                            move |e| {
+                                let (app, client, toasts) =
+                                    (app.clone(), client.clone(), toasts.clone());
+                                let Ok(value) = e.value().parse() else { return };
+                                let Some(id) = opened_page() else { return };
 
                                 spawn(async move {
-                                    if let Err(e) = client.edit_page(page).await {
-                                        toasts.push(3, i18n.t("toast.edit_page.failed"), e);
+                                    if let Err(e) = client
+                                        .edit_page(&app, id, |p| p.priority = value)
+                                        .await
+                                    {
+                                        toasts.push(3, tid!("toast-edit-page-failed"), e);
                                     }
                                 });
                             }
@@ -154,34 +126,31 @@ pub fn Details() -> Element {
                 p {
                     span { class: "library-label",
                         Icon { name: "folder" }
-                        {i18n.t("header.library.opened_page.chapter")}
+                        {tid!("header-library-opened-page-chapter")}
                     }
                     input {
-                        value: "{info.chapter}",
-                        disabled: page_id.is_none(),
+                        value: "{chapter}",
+                        placeholder,
+                        disabled: none,
                         onchange: {
-                            let (app, client, toasts, i18n) =
-                                (app.clone(), client.clone(), toasts.clone(), i18n.clone());
+                            let app = app.clone();
+                            let client = ctx.1.clone();
+                            let toasts = ctx.2.clone();
 
-                            move |event| {
-                                let Some(id) = page_id else { return };
-                                let Some(mut page) = app.with_page(id, Clone::clone) else {
-                                    return;
-                                };
-
-                                let value = event.value();
-                                page.chapter = if value.trim().is_empty() {
-                                    None
-                                } else {
-                                    Some(value)
-                                };
-
-                                let (client, toasts, i18n) =
-                                    (client.clone(), toasts.clone(), i18n.clone());
+                            move |e| {
+                                let (app, client, toasts) =
+                                    (app.clone(), client.clone(), toasts.clone());
+                                let value = e.value();
+                                let Some(id) = opened_page() else { return };
 
                                 spawn(async move {
-                                    if let Err(e) = client.edit_page(page).await {
-                                        toasts.push(3, i18n.t("toast.edit_page.failed"), e);
+                                    if let Err(e) = client
+                                        .edit_page(&app, id, |p| {
+                                            p.chapter = (!value.trim().is_empty()).then_some(value);
+                                        })
+                                        .await
+                                    {
+                                        toasts.push(3, tid!("toast-edit-page-failed"), e);
                                     }
                                 });
                             }
@@ -193,18 +162,18 @@ pub fn Details() -> Element {
             div { class: "library-footer",
                 Btn {
                     icon: "plus",
-                    tooltip: Some(i18n.t("header.library.tooltip.create_page")),
+                    tooltip: Some(tid!("header-library-tooltip-create-page")),
                     onclick: {
-                        let (client, toasts, i18n) =
-                            (client.clone(), toasts.clone(), i18n.clone());
-
+                        let c = ctx.clone();
                         move |_| {
-                            let (client, toasts, i18n) =
-                                (client.clone(), toasts.clone(), i18n.clone());
+                            let (_, client, toasts) = c.clone();
 
                             spawn(async move {
-                                if let Err(e) = client.create_page("New page".into()).await {
-                                    toasts.push(3, i18n.t("toast.create_page.failed"), e);
+                                if let Err(e) = client
+                                    .create_page(tid!("library-new-page-name"))
+                                    .await
+                                {
+                                    toasts.push(3, tid!("toast-create-page-failed"), e);
                                 }
                             });
                         }
@@ -213,47 +182,42 @@ pub fn Details() -> Element {
 
                 Btn {
                     icon: "trash",
-                    tooltip: Some(i18n.t("header.library.tooltip.delete_page")),
+                    tooltip: Some(tid!("header-library-tooltip-delete-page")),
                     onclick: {
-                        let (client, toasts, i18n) =
-                            (client.clone(), toasts.clone(), i18n.clone());
-                        let page_ids = page_ids.clone();
-
+                        let c = ctx.clone();
                         move |_| {
-                            let Some(page_id) = opened_page() else {
-                                return;
-                            };
+                            let Some(id) = opened_page() else { return };
+                            let (app, client, toasts) = c.clone();
 
-                            let next = page_ids
+                            let mut pages: Vec<_> = app
+                                .pages
+                                .read()
+                                .values()
+                                .map(|p| (p.priority, p.id))
+                                .collect();
+                            pages.sort_unstable();
+
+                            let ids: Vec<u64> =
+                                pages.into_iter().map(|(_, id)| id).collect();
+
+                            let next = ids
                                 .iter()
-                                .position(|id| *id == page_id)
+                                .position(|&i| i == id)
                                 .and_then(|pos| {
-                                    page_ids
-                                        .get(pos + 1)
-                                        .or_else(|| {
-                                            pos.checked_sub(1)
-                                                .and_then(|prev| page_ids.get(prev))
-                                        })
+                                    ids.get(pos + 1).or_else(|| ids.get(pos.checked_sub(1)?))
                                 })
                                 .copied();
 
-                            let (client, toasts, i18n) =
-                                (client.clone(), toasts.clone(), i18n.clone());
-
                             spawn(async move {
-                                match client.delete_page(page_id).await {
+                                match client.delete_page(id).await {
                                     Ok(()) => {
-                                        if opened_page() == Some(page_id) {
+                                        if opened_page() == Some(id) {
                                             opened_page.set(next);
                                             opened_entry.set(None);
                                         }
                                     }
                                     Err(e) => {
-                                        toasts.push(
-                                            3,
-                                            i18n.t("toast.delete_page.failed"),
-                                            e,
-                                        );
+                                        toasts.push(3, tid!("toast-delete-page-failed"), e);
                                     }
                                 }
                             });

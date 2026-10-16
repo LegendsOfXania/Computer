@@ -221,7 +221,6 @@ header:has(.library) {
   overflow-y: auto;
 }
 
-/* L'indentation utilise margin pour que le soulignage commence à l'icône. */
 .library-chapter,
 .library-page {
   display: flex;

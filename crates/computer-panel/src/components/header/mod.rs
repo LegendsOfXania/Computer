@@ -22,7 +22,16 @@ pub fn Header() -> Element {
         document::Stylesheet { href: asset!("/assets/style/header/search.css") }
         document::Stylesheet { href: asset!("/assets/style/header/push.css") }
 
-        header {
+        header { 
+            div { class: "logo-icon",
+                button {
+                    class: "logo-icon",
+                    span { class: "logo-icon",
+                        Icon { name: "computer" }
+                    }
+                }
+            }
+
             nav { class: "nav",
                 Library {}
 

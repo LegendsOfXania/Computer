@@ -1,20 +1,33 @@
 mod library;
 
-use crate::{
-    components::{icon::Icon, toast::Toasts},
-    ws::Client,
-};
+use crate::{components::{icon::Icon, toast::{ERR, OK}}, ws::Client};
 
 use dioxus::prelude::*;
 use dioxus_i18n::tid;
+use dioxus_primitives::toast::{ToastOptions, use_toast};
 use library::Library;
 
 #[component]
 pub fn Header() -> Element {
-    let toasts = use_context::<Toasts>();
+    let toast = use_toast();
     let client = use_context::<Client>();
-
     let mut query = use_signal(String::new);
+
+    let push = move |_| {
+        let (client, toast) = (client.clone(), toast.clone());
+        async move {
+            match client.push().await {
+                Ok(()) => toast.success(
+                    tid!("toast-push-succes"),
+                    ToastOptions::new().duration(OK),
+                ),
+                Err(e) => toast.error(
+                    tid!("toast-push-failed"),
+                    ToastOptions::new().description(e).duration(ERR),
+                ),
+            }
+        }
+    };
 
     rsx! {
         document::Stylesheet { href: asset!("/assets/style/header/mod.css") }
@@ -22,25 +35,16 @@ pub fn Header() -> Element {
         document::Stylesheet { href: asset!("/assets/style/header/push.css") }
 
         header {
-            div { class: "logo-icon",
-                button { class: "logo-icon",
-                    span { class: "logo-icon",
-                        Icon { name: "computer" }
-                    }
-                }
-            }
+            button { class: "logo-icon", Icon { name: "computer" } }
 
             nav { class: "nav",
                 Library {}
 
                 label { class: "search",
-                    span { class: "search-icon",
-                        Icon { name: "search" }
-                    }
+                    span { class: "search-icon", Icon { name: "search" } }
 
                     span { class: "search-field",
                         span { class: "search-label", {tid!("header-search-name")} }
-
                         input {
                             class: "search-input",
                             r#type: "text",
@@ -57,22 +61,9 @@ pub fn Header() -> Element {
             }
 
             div { class: "status",
-                button {
-                    class: "push",
-                    onclick: move |_| {
-                        let (client, toasts) = (client.clone(), toasts.clone());
-                        async move {
-                            match client.push().await {
-                                Ok(()) => toasts.push(1, tid!("toast-push-success"), String::new()),
-                                Err(e) => toasts.push(3, tid!("toast-push-failed"), e),
-                            }
-                        }
-                    },
-
+                button { class: "push", onclick: push,
                     span { class: "push-text", {tid!("header-push")} }
-                    span { class: "push-icon",
-                        Icon { name: "chevron-right" }
-                    }
+                    span { class: "push-icon", Icon { name: "chevron-right" } }
                 }
             }
         }

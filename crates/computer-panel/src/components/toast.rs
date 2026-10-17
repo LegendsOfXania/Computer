@@ -1,108 +1,108 @@
-use std::time::Duration;
-
 use dioxus::prelude::*;
+use dioxus_primitives::toast::{
+    self, Toast, ToastCloseButtonProps, ToastContentProps, ToastDescriptionProps, ToastProps,
+    ToastTitleProps,
+};
+use std::time::Duration;
 
 use crate::components::icon::Icon;
 
-#[derive(Clone, PartialEq)]
-struct Item {
-    id: u64,
-    level: u8,
-    title: String,
-    message: String,
-    duration: Duration,
-}
+pub const OK: Duration = Duration::from_secs(5);
+pub const ERR: Duration = Duration::from_secs(9);
 
-#[derive(Clone, Copy)]
-pub struct Toasts {
-    items: Signal<Vec<Item>>,
-    next: Signal<u64>,
-}
-
-impl Toasts {
-    pub fn push(&self, level: u8, title: impl Into<String>, message: impl Into<String>) {
-        let secs = match level {
-            0 | 1 => 4,
-            2 => 6,
-            _ => 8,
-        };
-        self.push_for(level, title, message, Duration::from_secs(secs));
-    }
-
-    pub fn push_for(
-        &self,
-        level: u8,
-        title: impl Into<String>,
-        message: impl Into<String>,
-        duration: Duration,
-    ) {
-        let (mut items, mut next) = (self.items, self.next);
-        let id = *next.peek();
-        *next.write() += 1;
-        items.write().push(Item {
-            id,
-            level,
-            title: title.into(),
-            message: message.into(),
-            duration,
-        });
-    }
-
-    fn remove(&self, id: u64) {
-        let mut items = self.items;
-        items.write().retain(|t| t.id != id);
-    }
-}
+#[css_module("/assets/style/toast.css")]
+struct Styles;
 
 #[component]
-pub fn ToastProvider(children: Element) -> Element {
-    let toasts = use_context_provider(|| Toasts {
-        items: Signal::new(Vec::new()),
-        next: Signal::new(0),
-    });
-
+fn StyledToast(props: ToastProps) -> Element {
     rsx! {
-        {children}
-        div { class: "toasts",
-            for t in toasts.items.read().iter().rev() {
-                Toast {
-                    key: "{t.id}",
-                    id: t.id,
-                    level: t.level,
-                    title: t.title.clone(),
-                    message: t.message.clone(),
-                    duration: t.duration,
-                }
+        Toast {
+            id: props.id,
+            index: props.index,
+            title: props.title,
+            description: props.description,
+            toast_type: props.toast_type,
+            on_close: props.on_close,
+            permanent: props.permanent,
+            duration: props.duration,
+            class: Styles::dx_toast,
+            attributes: props.attributes,
+            ToastContent {
+                ToastTitle {}
+                ToastDescription {}
+            }
+            ToastCloseButton {
+                Icon { name: "close" }
             }
         }
     }
 }
 
 #[component]
-fn Toast(id: u64, level: u8, title: String, message: String, duration: Duration) -> Element {
-    let toasts = use_context::<Toasts>();
-    let level = level.min(3);
-    let icon = ["chevron-right", "check", "warning-diamond", "close"][level as usize];
-    let t = duration.as_secs_f32();
+fn ToastContent(props: ToastContentProps) -> Element {
+    rsx! {
+        toast::ToastContent {
+            class: Styles::dx_toast_content,
+            attributes: props.attributes,
+            {props.children}
+        }
+    }
+}
+
+#[component]
+fn ToastTitle(props: ToastTitleProps) -> Element {
+    rsx! {
+        toast::ToastTitle {
+            class: Styles::dx_toast_title,
+            attributes: props.attributes,
+            children: props.children,
+        }
+    }
+}
+
+#[component]
+fn ToastDescription(props: ToastDescriptionProps) -> Element {
+    rsx! {
+        toast::ToastDescription {
+            class: Styles::dx_toast_description,
+            attributes: props.attributes,
+            children: props.children,
+        }
+    }
+}
+
+#[component]
+fn ToastCloseButton(props: ToastCloseButtonProps) -> Element {
+    rsx! {
+        toast::ToastCloseButton {
+            class: Styles::dx_toast_close,
+            attributes: props.attributes,
+            children: props.children,
+        }
+    }
+}
+
+#[component]
+pub fn ToastProvider(
+    #[props(default = ReadSignal::new(Signal::new(Some(Duration::from_secs(5)))))]
+    default_duration: ReadSignal<Option<Duration>>,
+    #[props(default = ReadSignal::new(Signal::new(10)))] max_toasts: ReadSignal<usize>,
+    #[props(default)] render_toast: Option<Callback<toast::ToastPropsWithOwner, Element>>,
+    #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
+    children: Element,
+) -> Element {
+    let render_toast = render_toast.unwrap_or_else(|| {
+        Callback::new(|p: toast::ToastPropsWithOwner| rsx! { StyledToast { ..p } })
+    });
 
     rsx! {
-        div {
-            class: "toast",
-            style: "--t:{t}s",
-            onanimationend: move |e| {
-                if e.animation_name() == "toast-collapse" {
-                    toasts.remove(id);
-                }
-            },
-            div { class: "toast-s",
-                div { class: "toast-b l{level}",
-                    div { class: "t-h",
-                        Icon { name: icon }
-                        span { "{title}" }
-                    }
-                    div { class: "t-m", "{message}" }
-                }
-            }
+        toast::ToastProvider {
+            class: Styles::dx_toast_container,
+            default_duration,
+            max_toasts,
+            render_toast,
+            attributes,
+            {children}
         }
     }
 }

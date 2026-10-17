@@ -21,7 +21,6 @@ use crate::{id, state::{ConnectionStatus, app::AppState}};
 
 const TIMEOUT_MS: u32 = 10_000;
 
-
 #[derive(Clone, Default)]
 pub(crate) struct Pending(Rc<RefCell<HashMap<u64, Sender<Result<(), String>>>>>);
 

@@ -1,24 +1,40 @@
+use computer_model::page::Page;
 use crate::{
-    components::{btn::Btn, icon::Icon, toast::Toasts},
-    state::{app::AppState, ui::UiState},
-    ws::Client,
+    components::{btn::Btn, icon::Icon, toast::ERR}, state::{app::AppState, ui::UiState}, ws::Client,
 };
 
 use dioxus::prelude::*;
 use dioxus_i18n::tid;
+use dioxus_primitives::toast::{ToastOptions, use_toast};
 
 const NONE: &str = "—";
-
-type Ctx = (AppState, Client, Toasts);
 
 #[component]
 pub fn Details() -> Element {
     let app = use_context::<AppState>();
+    let client = use_context::<Client>();
     let ui = use_context::<UiState>();
-    let ctx: Ctx = (app.clone(), use_context::<Client>(), use_context::<Toasts>());
+    let toast = use_toast();
 
     let mut opened_page = ui.opened_page;
     let mut opened_entry = ui.opened_entry;
+
+    let fail = use_callback(move |(title, e): (String, String)| {
+        toast.error(title, ToastOptions::new().description(e).duration(ERR));
+    });
+
+    let edit = use_callback({
+        let (app, client) = (app.clone(), client.clone());
+        move |f: Box<dyn FnOnce(&mut Page)>| {
+            let Some(id) = opened_page() else { return };
+            let (app, client) = (app.clone(), client.clone());
+            spawn(async move {
+                if let Err(e) = client.edit_page(&app, id, f).await {
+                    fail.call((tid!("toast-edit-page-failed"), e));
+                }
+            });
+        }
+    });
 
     let (name, id, kind, priority, chapter) = opened_page()
         .and_then(|id| {
@@ -45,6 +61,55 @@ pub fn Details() -> Element {
     let none = opened_page().is_none();
     let placeholder = if none { NONE } else { "" };
 
+    let create = {
+        let client = client.clone();
+        move |_| {
+            let client = client.clone();
+            spawn(async move {
+                if let Err(e) = client.create_page(tid!("library-new-page-name")).await {
+                    fail.call((tid!("toast-create-page-failed"), e));
+                }
+            });
+        }
+    };
+
+    let delete = {
+        let app = app.clone();
+        move |_| {
+            let Some(id) = opened_page() else { return };
+            let client = client.clone();
+
+            let mut pages: Vec<_> = app
+                .pages
+                .read()
+                .values()
+                .map(|p| (p.priority, p.id))
+                .collect();
+            pages.sort_unstable();
+
+            let next = pages
+                .iter()
+                .position(|p| p.1 == id)
+                .and_then(|i| {
+                    pages
+                        .get(i + 1)
+                        .or_else(|| pages.get(i.checked_sub(1)?))
+                })
+                .map(|p| p.1);
+
+            spawn(async move {
+                match client.delete_page(id).await {
+                    Ok(()) if opened_page() == Some(id) => {
+                        opened_page.set(next);
+                        opened_entry.set(None);
+                    }
+                    Ok(()) => {}
+                    Err(e) => fail.call((tid!("toast-delete-page-failed"), e)),
+                }
+            });
+        }
+    };
+
     rsx! {
         section { class: "library-col library-details",
             div { class: "library-head",
@@ -54,26 +119,9 @@ pub fn Details() -> Element {
                         class: "library-name-input",
                         value: "{name}",
                         disabled: none,
-                        onchange: {
-                            let app = app.clone();
-                            let client = ctx.1.clone();
-                            let toasts = ctx.2.clone();
-
-                            move |e| {
-                                let (app, client, toasts) =
-                                    (app.clone(), client.clone(), toasts.clone());
-                                let value = e.value();
-                                let Some(id) = opened_page() else { return };
-
-                                spawn(async move {
-                                    if let Err(e) = client
-                                        .edit_page(&app, id, |p| p.name = value)
-                                        .await
-                                    {
-                                        toasts.push(3, tid!("toast-edit-page-failed"), e);
-                                    }
-                                });
-                            }
+                        onchange: move |e| {
+                            let v = e.value();
+                            edit.call(Box::new(move |p| p.name = v));
                         },
                     }
                 }
@@ -99,26 +147,9 @@ pub fn Details() -> Element {
                         value: "{priority}",
                         placeholder,
                         disabled: none,
-                        onchange: {
-                            let app = app.clone();
-                            let client = ctx.1.clone();
-                            let toasts = ctx.2.clone();
-
-                            move |e| {
-                                let (app, client, toasts) =
-                                    (app.clone(), client.clone(), toasts.clone());
-                                let Ok(value) = e.value().parse() else { return };
-                                let Some(id) = opened_page() else { return };
-
-                                spawn(async move {
-                                    if let Err(e) = client
-                                        .edit_page(&app, id, |p| p.priority = value)
-                                        .await
-                                    {
-                                        toasts.push(3, tid!("toast-edit-page-failed"), e);
-                                    }
-                                });
-                            }
+                        onchange: move |e| {
+                            let Ok(v) = e.value().parse::<i32>() else { return };
+                            edit.call(Box::new(move |p| p.priority = v));
                         },
                     }
                 }
@@ -132,28 +163,11 @@ pub fn Details() -> Element {
                         value: "{chapter}",
                         placeholder,
                         disabled: none,
-                        onchange: {
-                            let app = app.clone();
-                            let client = ctx.1.clone();
-                            let toasts = ctx.2.clone();
-
-                            move |e| {
-                                let (app, client, toasts) =
-                                    (app.clone(), client.clone(), toasts.clone());
-                                let value = e.value();
-                                let Some(id) = opened_page() else { return };
-
-                                spawn(async move {
-                                    if let Err(e) = client
-                                        .edit_page(&app, id, |p| {
-                                            p.chapter = (!value.trim().is_empty()).then_some(value);
-                                        })
-                                        .await
-                                    {
-                                        toasts.push(3, tid!("toast-edit-page-failed"), e);
-                                    }
-                                });
-                            }
+                        onchange: move |e| {
+                            let v = e.value();
+                            edit.call(Box::new(move |p| {
+                                p.chapter = (!v.trim().is_empty()).then_some(v);
+                            }));
                         },
                     }
                 }
@@ -163,66 +177,12 @@ pub fn Details() -> Element {
                 Btn {
                     icon: "plus",
                     tooltip: Some(tid!("header-library-tooltip-create-page")),
-                    onclick: {
-                        let c = ctx.clone();
-                        move |_| {
-                            let (_, client, toasts) = c.clone();
-
-                            spawn(async move {
-                                if let Err(e) = client
-                                    .create_page(tid!("library-new-page-name"))
-                                    .await
-                                {
-                                    toasts.push(3, tid!("toast-create-page-failed"), e);
-                                }
-                            });
-                        }
-                    },
+                    onclick: create,
                 }
-
                 Btn {
                     icon: "trash",
                     tooltip: Some(tid!("header-library-tooltip-delete-page")),
-                    onclick: {
-                        let c = ctx.clone();
-                        move |_| {
-                            let Some(id) = opened_page() else { return };
-                            let (app, client, toasts) = c.clone();
-
-                            let mut pages: Vec<_> = app
-                                .pages
-                                .read()
-                                .values()
-                                .map(|p| (p.priority, p.id))
-                                .collect();
-                            pages.sort_unstable();
-
-                            let ids: Vec<u64> =
-                                pages.into_iter().map(|(_, id)| id).collect();
-
-                            let next = ids
-                                .iter()
-                                .position(|&i| i == id)
-                                .and_then(|pos| {
-                                    ids.get(pos + 1).or_else(|| ids.get(pos.checked_sub(1)?))
-                                })
-                                .copied();
-
-                            spawn(async move {
-                                match client.delete_page(id).await {
-                                    Ok(()) => {
-                                        if opened_page() == Some(id) {
-                                            opened_page.set(next);
-                                            opened_entry.set(None);
-                                        }
-                                    }
-                                    Err(e) => {
-                                        toasts.push(3, tid!("toast-delete-page-failed"), e);
-                                    }
-                                }
-                            });
-                        }
-                    },
+                    onclick: delete,
                 }
             }
         }

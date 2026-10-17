@@ -12,6 +12,10 @@
 
   --main: #ff5229;
   --main-soft: #ff8204;
+  
+  --success: #45ba82;
+  --warn: #ffaf01;
+  --error: #f05b62;
 
   --sans: Inter, sans-serif;
 }

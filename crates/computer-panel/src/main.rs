@@ -17,13 +17,15 @@ fn main() {
 
 #[component]
 fn App() -> Element {
-    use_context_provider(AppState::new);
+    let app = use_context_provider(AppState::new);
     use_context_provider(|| Signal::new(ConnectionStatus::Connecting));
 
     let client = ws_client();
 
     use_context_provider(|| client);
-    use_context_provider(UiState::new);
+    let ui = use_context_provider(UiState::new);
+
+    use_hook(|| state::mock::seed(app, ui));
 
     rsx! {
         Panel {}

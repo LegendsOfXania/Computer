@@ -176,11 +176,6 @@
   cursor: pointer;
 }
 
-.dx-toast-close svg {
-  width: 14px;
-  height: 14px;
-}
-
 .dx-toast-close:hover {
   color: var(--fg);
 }

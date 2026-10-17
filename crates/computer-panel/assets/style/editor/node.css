@@ -6,7 +6,7 @@
   min-height: 89px;
   padding: 0 20px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 2px;
   text-align: left;
   box-shadow: none;
 }
@@ -24,6 +24,16 @@
   pointer-events: none;
 }
 
+.dioxus-flow .df-node-default.active {
+  box-shadow: inset 0 0 0 1px var(--main);
+}
+
+.dioxus-flow .df-node-default.foreign {
+  opacity: 0.65;
+  outline: 1px dashed var(--faint);
+  outline-offset: -1px;
+}
+
 .dioxus-flow .df-node-default.linked::before {
   content: "";
   position: absolute;
@@ -32,5 +42,5 @@
   width: 8px;
   height: 8px;
   background: var(--df-edge);
-  transform: translate(-50%, -50%) rotate(45deg);
+  transform: translate(-50%, -50%);
 }

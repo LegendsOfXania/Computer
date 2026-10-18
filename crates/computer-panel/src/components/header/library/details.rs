@@ -176,12 +176,12 @@ pub fn Details() -> Element {
             div { class: "library-footer",
                 Btn {
                     icon: "plus",
-                    tooltip: Some(tid!("header-library-tooltip-create-page")),
+                    tooltip: tid!("header-library-tooltip-create-page"),
                     onclick: create,
                 }
                 Btn {
                     icon: "trash",
-                    tooltip: Some(tid!("header-library-tooltip-delete-page")),
+                    tooltip: tid!("header-library-tooltip-delete-page"),
                     onclick: delete,
                 }
             }

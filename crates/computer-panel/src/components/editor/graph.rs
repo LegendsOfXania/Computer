@@ -6,8 +6,8 @@ use dioxus_flow::{compute_layout, prelude::*, LayoutNode};
 
 use crate::state::{app::AppState, ui::UiState};
 
-const W: f64 = 259.0;
-const H: f64 = 89.0;
+const W: f64 = 160.0;
+const H: f64 = 49.0;
 
 #[derive(Clone, PartialEq)]
 pub struct NodeData {
@@ -104,6 +104,7 @@ pub fn build() -> Graph {
                 _ => entry.kind.clone(),
             };
             let position = layout.get(&id).copied().unwrap_or(Point::ZERO);
+            let foreign = !in_page.contains(key);
 
             Node::with_data(
                 id,
@@ -112,26 +113,29 @@ pub fn build() -> Graph {
                 NodeData {
                     key: *key,
                     linked: linked.contains(key),
-                    foreign: !in_page.contains(key),
+                    foreign,
                 },
             )
             .size(Size::new(W, H))
             .sides(Side::Left, Side::Right)
+            .selectable(!foreign)
             .draggable(false)
         })
         .collect();
 
-    let edges = links
+        let edges = links
         .iter()
         .map(|(s, t)| {
-            Edge::new(s.to_string(), t.to_string())
+            let mut edge = Edge::new(s.to_string(), t.to_string())
                 .kind(EdgeKind::SmoothStep)
-                .marker_end(MarkerKind::None)
                 .class(if s.page_id() == t.page_id() {
                     "same-page"
                 } else {
                     "cross-page"
-                })
+                });
+
+            edge.selectable = false;
+            edge
         })
         .collect();
 

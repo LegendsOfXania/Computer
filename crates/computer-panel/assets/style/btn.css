@@ -8,6 +8,7 @@
   border-radius: 8px;
   cursor: pointer;
   padding: 0;
+  background: var(--surface);
   transition: background 0.2s ease;
 }
 
@@ -23,28 +24,14 @@
   width: 100%;
   height: 100%;
   display: block;
-}
-
-.btn-hovered {
-  background: var(--fg);
-}
-
-.btn-hovered .icon svg {
-  fill: var(--bg);
-}
-
-.btn-unselected {
-  background: var(--surface);
-}
-
-.btn-unselected .icon svg {
   fill: var(--dim);
+  transition: fill 0.2s ease;
 }
 
-.btn-unselected:hover {
+.btn:hover {
   background: var(--fg);
 }
 
-.btn-unselected:hover .icon svg {
+.btn:hover .icon svg {
   fill: var(--bg);
 }

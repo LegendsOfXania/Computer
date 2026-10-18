@@ -44,7 +44,7 @@ fn page(id: u64, name: &str, kind: PageKind, entries: &[Entry]) -> Page {
 
 pub fn seed(app: AppState, ui: UiState) {
     let p1 = [
-        entry(1, 1, "start", "Start", &[(1, 2), (1, 3)]),
+        entry(1, 1, "start", "Start eeeeeeeeeeeeeeeeeeee", &[(1, 2), (1, 3)]),
         entry(1, 2, "say", "Welcome", &[(1, 4)]),
         entry(1, 3, "say", "Branch B", &[(1, 4)]),
         entry(1, 4, "give_item", "Reward", &[(3, 1)]), // vers une autre page

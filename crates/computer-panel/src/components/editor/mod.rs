@@ -67,8 +67,7 @@ pub fn Editor() -> Element {
                     let d = &ctx.node.data;
                     let open = *opened_entry.read() == Some(d.key);
                     let class = format!(
-                        "df-node-default{}{}{}",
-                        if d.linked { " linked" } else { "" },
+                        "df-node-default{}{}",
                         if open { " open" } else { "" },
                         if d.foreign { " foreign" } else { "" },
                     );

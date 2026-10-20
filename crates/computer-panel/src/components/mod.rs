@@ -3,11 +3,13 @@ mod editor;
 mod header;
 mod icon;
 mod toast;
+mod window;
 
 use dioxus::prelude::*;
 use dioxus_i18n::{prelude::*, unic_langid::langid};
 
 use crate::components::{editor::Editor, header::Header, toast::ToastProvider};
+use crate::state::ui::UiState;
 
 #[component]
 pub fn Panel() -> Element {
@@ -35,11 +37,14 @@ pub fn Panel() -> Element {
             ))
     });
 
+    let _ui = use_context::<UiState>();
+
     rsx! {
         document::Stylesheet { href: asset!("/assets/style/mod.css") }
         document::Stylesheet { href: asset!("/assets/style/icon.css") }
         document::Stylesheet { href: asset!("/assets/style/btn.css") }
         document::Stylesheet { href: asset!("/assets/style/toast.css") }
+        document::Stylesheet { href: asset!("/assets/style/window.css") }
 
         ToastProvider {
             Header {}

@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use computer_model::{key::EntryKey, page::PageKind, value::Value};
 use dioxus::prelude::*;
-use dioxus_flow::{compute_layout, prelude::*, LayoutNode};
+use dioxus_flow::{LayoutNode, compute_layout, prelude::*};
 
 use crate::state::{app::AppState, ui::UiState};
 
@@ -12,7 +12,6 @@ const H: f64 = 49.0;
 #[derive(Clone, PartialEq)]
 pub struct NodeData {
     pub key: EntryKey,
-    pub linked: bool,
     pub foreign: bool,
 }
 
@@ -26,7 +25,7 @@ pub fn build() -> Graph {
     let app = consume_context::<AppState>();
     let ui = consume_context::<UiState>();
 
-    let page_id = *ui.opened_page.read();
+    let page_id = *ui.page.read();
     let pages = app.pages.read();
     let entries = app.entries.read();
 
@@ -54,7 +53,10 @@ pub fn build() -> Graph {
 
         for key in &local {
             let mut targets = Vec::new();
-            entries[key].fields.values().for_each(|v| refs(v, &mut targets));
+            entries[key]
+                .fields
+                .values()
+                .for_each(|v| refs(v, &mut targets));
 
             for target in targets {
                 if target == *key
@@ -91,7 +93,6 @@ pub fn build() -> Graph {
         &LayoutOptions::default().direction(LayoutDirection::LeftToRight),
     );
 
-    let linked: HashSet<EntryKey> = links.iter().map(|(_, t)| *t).collect();
     let in_page: HashSet<EntryKey> = local.iter().copied().collect();
 
     let nodes = all
@@ -106,24 +107,15 @@ pub fn build() -> Graph {
             let position = layout.get(&id).copied().unwrap_or(Point::ZERO);
             let foreign = !in_page.contains(key);
 
-            Node::with_data(
-                id,
-                label,
-                position,
-                NodeData {
-                    key: *key,
-                    linked: linked.contains(key),
-                    foreign,
-                },
-            )
-            .size(Size::new(W, H))
-            .sides(Side::Left, Side::Right)
-            .selectable(!foreign)
-            .draggable(false)
+            Node::with_data(id, label, position, NodeData { key: *key, foreign })
+                .size(Size::new(W, H))
+                .sides(Side::Left, Side::Right)
+                .selectable(!foreign)
+                .draggable(false)
         })
         .collect();
 
-        let edges = links
+    let edges = links
         .iter()
         .map(|(s, t)| {
             let mut edge = Edge::new(s.to_string(), t.to_string())

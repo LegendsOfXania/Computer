@@ -1,49 +1,50 @@
 header {
-  position: relative;
-  height: 49px;
-  display: flex;
-  background: var(--bg);
-  border-right: 1px solid var(--line);
-  font-family: var(--sans);
+    position: relative;
+    z-index: 1000;
+    height: 49px;
+    display: flex;
+    background: var(--bg);
+    border-right: 1px solid var(--line);
+    font-family: var(--sans);
 }
 
 header::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: -1px;
-  width: 100vw;
-  height: 1px;
-  transform: translateX(-50%);
-  background: var(--line);
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: -1px;
+    width: 100vw;
+    height: 1px;
+    transform: translateX(-50%);
+    background: var(--line);
 }
 
 .nav {
-  display: flex;
-  flex: 1;
+    display: flex;
+    flex: 1;
 }
 
 .status {
-  display: flex;
-  border-left: 1px solid var(--line);
+    display: flex;
+    border-left: 1px solid var(--line);
 }
 
 button,
 .search {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  height: 100%;
-  padding: 0 16px;
-  background: var(--bg);
-  color: var(--fg);
-  border: 0;
-  border-right: 1px solid var(--line);
-  font-family: inherit;
-  font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 100%;
+    padding: 0 16px;
+    background: var(--bg);
+    color: var(--fg);
+    border: 0;
+    border-right: 1px solid var(--line);
+    font-family: inherit;
+    font-size: 1rem;
 }
 
 .status button {
-  border-right: 0;
+    border-right: 0;
 }

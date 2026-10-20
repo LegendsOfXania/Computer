@@ -11,7 +11,7 @@ use details::Details;
 use dioxus::{prelude::*, signals::ReadableExt};
 use dioxus_i18n::tid;
 use std::collections::HashSet;
-use tree::{flatten, Row};
+use tree::{Row, flatten};
 
 #[component]
 pub fn Library() -> Element {
@@ -19,8 +19,7 @@ pub fn Library() -> Element {
     let ui = use_context::<UiState>();
 
     let mut collapsed = use_signal(HashSet::<String>::new);
-    let mut opened_page = ui.opened_page;
-    let mut opened_entry = ui.opened_entry;
+    let mut opened_page = ui.page;
 
     let rows = flatten(app.pages.read().values());
     let opened = opened_page();
@@ -102,10 +101,7 @@ pub fn Library() -> Element {
                                         },
                                         style: "--depth: {depth}",
                                         onclick: move |_| {
-                                            if opened_page() != Some(id) {
-                                                opened_page.set(Some(id));
-                                                opened_entry.set(None);
-                                            }
+                                            if opened_page() != Some(id) { opened_page.set(Some(id)) }
                                         },
                                         Icon { name: icon }
                                         "{name}"

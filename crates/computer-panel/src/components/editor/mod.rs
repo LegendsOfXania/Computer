@@ -5,21 +5,23 @@ use std::collections::HashSet;
 use dioxus::prelude::*;
 use dioxus_flow::prelude::*;
 
-use crate::state::ui::UiState;
-use graph::{build, NodeData};
+use crate::{components::window::Window, state::ui::UiState};
+use graph::{NodeData, build};
 
 #[component]
 pub fn Editor() -> Element {
     let ui = use_context::<UiState>();
-    let mut opened_entry = ui.opened_entry;
 
     let mut nodes = use_signal(Vec::<Node<NodeData>>::new);
     let mut edges = use_signal(Vec::<Edge>::new);
     let mut shown = use_signal(|| None::<u64>);
     let handle = use_flow_handle::<NodeData>();
 
+    let wins = ui.windows.read().clone();
+    let last = wins.len().saturating_sub(1);
+
     use_effect(move || {
-        let page_id = *ui.opened_page.read();
+        let page_id = *ui.page.read();
         let graph = build();
 
         let selected: HashSet<String> = nodes
@@ -57,15 +59,20 @@ pub fn Editor() -> Element {
                 nodes_draggable: false,
 
                 on_node_click: move |id: String| {
-                    let key = nodes.read().iter().find(|n| n.id == id).map(|n| n.data.key);
+                    let key = nodes
+                        .read()
+                        .iter()
+                        .find(|n| n.id == id && !n.data.foreign)
+                        .map(|n| n.data.key);
+
                     if let Some(key) = key {
-                        opened_entry.set(Some(key));
+                        ui.open(key);
                     }
                 },
 
                 node_view: move |ctx: NodeViewCtx<NodeData>| {
                     let d = &ctx.node.data;
-                    let open = *opened_entry.read() == Some(d.key);
+                    let open = ui.windows.read().iter().any(|w| w.key == d.key);
                     let class = format!(
                         "df-node-default{}{}",
                         if open { " open" } else { "" },
@@ -79,7 +86,32 @@ pub fn Editor() -> Element {
                     }
                 },
 
-                Background { variant: BackgroundVariant::Lines, gap: 72.0 }
+                Background {
+                    variant: BackgroundVariant::Lines,
+                    gap: 72.0,
+                }
+            }
+
+            for (i, w) in wins.iter().enumerate() {
+                Window {
+                    key: "{w.key.0}-{w.key.1}",
+                    entry: w.key,
+                    x: w.x,
+                    y: 100 + w.y,
+                    z: 100 + i as i32,
+                    active: i == last,
+                    on_close: {
+                        let key = w.key;
+                        move |_| {
+                            ui.close(key);
+                            nodes.with_mut(|nodes| {
+                                for node in nodes {
+                                    node.selected = false;
+                                }
+                            });
+                        }
+                    },
+                }
             }
         }
     }

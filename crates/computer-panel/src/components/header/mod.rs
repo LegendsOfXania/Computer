@@ -1,6 +1,12 @@
 mod library;
 
-use crate::{components::{icon::Icon, toast::{ERR, OK}}, ws::Client};
+use crate::{
+    components::{
+        icon::Icon,
+        toast::{ERR, OK},
+    },
+    ws::Client,
+};
 
 use dioxus::prelude::*;
 use dioxus_i18n::tid;
@@ -12,22 +18,6 @@ pub fn Header() -> Element {
     let toast = use_toast();
     let client = use_context::<Client>();
     let mut query = use_signal(String::new);
-
-    let push = move |_| {
-        let (client, toast) = (client.clone(), toast.clone());
-        async move {
-            match client.push().await {
-                Ok(()) => toast.success(
-                    tid!("toast-push-succes"),
-                    ToastOptions::new().duration(OK),
-                ),
-                Err(e) => toast.error(
-                    tid!("toast-push-failed"),
-                    ToastOptions::new().description(e).duration(ERR),
-                ),
-            }
-        }
-    };
 
     rsx! {
         document::Stylesheet { href: asset!("/assets/style/header/mod.css") }
@@ -61,7 +51,23 @@ pub fn Header() -> Element {
             }
 
             div { class: "status",
-                button { class: "push", onclick: push,
+                button { class: "push",
+                    onclick: move |_| {
+                        let (client, toast) = (client.clone(), toast.clone());
+                        async move {
+                            match client.push().await {
+                                Ok(()) => toast.success(
+                                    tid!("toast-push-succes"),
+                                    ToastOptions::new().duration(OK),
+                                ),
+                                Err(e) => toast.error(
+                                    tid!("toast-push-failed"),
+                                    ToastOptions::new().description(e).duration(ERR),
+                                ),
+                            }
+                        }
+                    },
+
                     span { class: "push-text", {tid!("header-push")} }
                     span { class: "push-icon", Icon { name: "chevron-right" } }
                 }

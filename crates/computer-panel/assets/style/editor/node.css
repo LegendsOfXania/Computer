@@ -1,33 +1,33 @@
 .dioxus-flow .df-node-default {
-  position: relative;
-  display: flex;
-  align-items: center;
-  min-width: 160px;
-  min-height: 49px;
-  border: 0;
-  border-radius: 4px;
-  text-align: left;
-  font-size: smaller;
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-width: 160px;
+    min-height: 49px;
+    border: 0;
+    border-radius: 4px;
+    text-align: left;
+    font-size: smaller;
 }
 
 .dioxus-flow .df-node.df-selected .df-node-default {
-  background: var(--main);
-  box-shadow: none;
-  outline: 3px solid var(--bg);
-  outline-offset: -6px;
+    background: var(--main);
+    box-shadow: none;
+    outline: 3px solid var(--bg);
+    outline-offset: -6px;
 }
 
 .dioxus-flow .df-node-default.foreign {
-  opacity: 0.5;
-  outline: 1px groove var(--faint);
-  outline-offset: -1px;
+    opacity: 0.5;
+    outline: 1px solid var(--faint);
+    outline-offset: -1px;
 }
 
 .dioxus-flow .df-node:focus {
-  outline: none;
+    outline: none;
 }
 
 .dioxus-flow .df-node:focus-visible .df-node-default {
-  outline: 2px groove var(--main);
-  outline-offset: 3px;
+    outline: 4px solid var(--main);
+    outline-offset: 3px;
 }

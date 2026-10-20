@@ -44,7 +44,13 @@ fn page(id: u64, name: &str, kind: PageKind, entries: &[Entry]) -> Page {
 
 pub fn seed(app: AppState, ui: UiState) {
     let p1 = [
-        entry(1, 1, "start", "Start eeeeeeeeeeeeeeeeeeee", &[(1, 2), (1, 3)]),
+        entry(
+            1,
+            1,
+            "start",
+            "Start eeeeeeeeeeeeeeeeeeee",
+            &[(1, 2), (1, 3)],
+        ),
         entry(1, 2, "say", "Welcome", &[(1, 4)]),
         entry(1, 3, "say", "Branch B", &[(1, 4)]),
         entry(1, 4, "give_item", "Reward", &[(3, 1)]), // vers une autre page
@@ -67,7 +73,7 @@ pub fn seed(app: AppState, ui: UiState) {
 
     let mut app_pages = app.pages;
     let mut app_entries = app.entries;
-    let mut opened_page = ui.opened_page;
+    let mut opened_page = ui.page;
 
     app_pages.set(pages.into_iter().map(|p| (p.id, p)).collect());
     app_entries.set(

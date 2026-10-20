@@ -1,7 +1,9 @@
-use computer_model::page::Page;
 use crate::{
-    components::{btn::Btn, icon::Icon, toast::ERR}, state::{app::AppState, ui::UiState}, ws::Client,
+    components::{btn::Btn, icon::Icon, toast::ERR},
+    state::{app::AppState, ui::UiState},
+    ws::Client,
 };
+use computer_model::page::Page;
 
 use dioxus::prelude::*;
 use dioxus_i18n::tid;
@@ -16,8 +18,7 @@ pub fn Details() -> Element {
     let ui = use_context::<UiState>();
     let toast = use_toast();
 
-    let mut opened_page = ui.opened_page;
-    let mut opened_entry = ui.opened_entry;
+    let mut opened_page = ui.page;
 
     let fail = use_callback(move |(title, e): (String, String)| {
         toast.error(title, ToastOptions::new().description(e).duration(ERR));
@@ -90,19 +91,12 @@ pub fn Details() -> Element {
             let next = pages
                 .iter()
                 .position(|p| p.1 == id)
-                .and_then(|i| {
-                    pages
-                        .get(i + 1)
-                        .or_else(|| pages.get(i.checked_sub(1)?))
-                })
+                .and_then(|i| pages.get(i + 1).or_else(|| pages.get(i.checked_sub(1)?)))
                 .map(|p| p.1);
 
             spawn(async move {
                 match client.delete_page(id).await {
-                    Ok(()) if opened_page() == Some(id) => {
-                        opened_page.set(next);
-                        opened_entry.set(None);
-                    }
+                    Ok(()) if opened_page() == Some(id) => opened_page.set(next),
                     Ok(()) => {}
                     Err(e) => fail.call((tid!("toast-delete-page-failed"), e)),
                 }

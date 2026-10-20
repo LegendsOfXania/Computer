@@ -2,6 +2,7 @@ mod graph;
 
 use std::collections::HashSet;
 
+use computer_model::key::EntryKey;
 use dioxus::prelude::*;
 use dioxus_flow::prelude::*;
 
@@ -17,8 +18,24 @@ pub fn Editor() -> Element {
     let mut shown = use_signal(|| None::<u64>);
     let handle = use_flow_handle::<NodeData>();
 
-    let wins = ui.windows.read().clone();
-    let last = wins.len().saturating_sub(1);
+    let opened = use_memo(move || {
+        let mut keys: Vec<EntryKey> = ui.windows.read().iter().map(|w| w.key).collect();
+        keys.sort();
+        keys
+    });
+
+    let mut select = move |key: Option<EntryKey>| {
+        let id = key.map(|k| k.to_string());
+        let wanted = |n: &Node<NodeData>| id.as_deref() == Some(n.id.as_str()) && !n.data.foreign;
+        if nodes.peek().iter().all(|n| n.selected == wanted(n)) {
+            return;
+        }
+        nodes.with_mut(|list| {
+            for n in list.iter_mut() {
+                n.selected = wanted(n);
+            }
+        });
+    };
 
     use_effect(move || {
         let page_id = *ui.page.read();
@@ -72,7 +89,7 @@ pub fn Editor() -> Element {
 
                 node_view: move |ctx: NodeViewCtx<NodeData>| {
                     let d = &ctx.node.data;
-                    let open = ui.windows.read().iter().any(|w| w.key == d.key);
+                    let open = opened.read().contains(&d.key);
                     let class = format!(
                         "df-node-default{}{}",
                         if open { " open" } else { "" },
@@ -92,24 +109,17 @@ pub fn Editor() -> Element {
                 }
             }
 
-            for (i, w) in wins.iter().enumerate() {
+            for key in opened() {
                 Window {
-                    key: "{w.key.0}-{w.key.1}",
-                    entry: w.key,
-                    x: w.x,
-                    y: 100 + w.y,
-                    z: 100 + i as i32,
-                    active: i == last,
-                    on_close: {
-                        let key = w.key;
-                        move |_| {
-                            ui.close(key);
-                            nodes.with_mut(|nodes| {
-                                for node in nodes {
-                                    node.selected = false;
-                                }
-                            });
-                        }
+                    key: "{key.0}-{key.1}",
+                    entry: key,
+                    onfocus: move |_| {
+                        ui.focus(key);
+                        select(Some(key));
+                    },
+                    onclose: move |_| {
+                        ui.close(key);
+                        select(ui.active());
                     },
                 }
             }

@@ -82,3 +82,18 @@
     margin: 0;
     overflow-wrap: anywhere;
 }
+
+.window-bar {
+    touch-action: none;
+}
+
+.window-bar:active {
+    cursor: grabbing;
+}
+
+.window-drag {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    cursor: grabbing;
+}

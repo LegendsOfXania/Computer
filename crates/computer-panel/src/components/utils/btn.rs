@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::components::icon::Icon;
+use crate::components::utils::icon::Icon;
 
 #[component]
 pub fn Btn(

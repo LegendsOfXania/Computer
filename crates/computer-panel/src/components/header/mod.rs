@@ -1,7 +1,7 @@
 mod library;
 
 use crate::{
-    components::{
+    components::utils::{
         icon::Icon,
         toast::{ERR, OK},
     },

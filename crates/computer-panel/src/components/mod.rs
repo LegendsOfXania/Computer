@@ -1,15 +1,12 @@
-mod btn;
 mod editor;
 mod header;
-mod icon;
-mod toast;
-mod window;
+mod inspector;
+mod utils;
 
 use dioxus::prelude::*;
 use dioxus_i18n::{prelude::*, unic_langid::langid};
 
-use crate::components::{editor::Editor, header::Header, toast::ToastProvider};
-use crate::state::ui::UiState;
+use crate::components::{editor::Editor, header::Header, utils::toast::ToastProvider};
 
 #[component]
 pub fn Panel() -> Element {
@@ -37,14 +34,13 @@ pub fn Panel() -> Element {
             ))
     });
 
-    let _ui = use_context::<UiState>();
-
     rsx! {
         document::Stylesheet { href: asset!("/assets/style/mod.css") }
-        document::Stylesheet { href: asset!("/assets/style/icon.css") }
-        document::Stylesheet { href: asset!("/assets/style/btn.css") }
-        document::Stylesheet { href: asset!("/assets/style/toast.css") }
-        document::Stylesheet { href: asset!("/assets/style/window.css") }
+        document::Stylesheet { href: asset!("/assets/style/utils/icon.css") }
+        document::Stylesheet { href: asset!("/assets/style/utils/btn.css") }
+        document::Stylesheet { href: asset!("/assets/style/utils/toast.css") }
+        document::Stylesheet { href: asset!("/assets/style/inspector/window.css") }
+        document::Stylesheet { href: asset!("/assets/style/inspector/fields.css") }
 
         ToastProvider {
             Header {}

@@ -2,7 +2,7 @@ mod details;
 mod tree;
 
 use crate::{
-    components::icon::Icon,
+    components::utils::icon::Icon,
     state::{app::AppState, ui::UiState},
 };
 

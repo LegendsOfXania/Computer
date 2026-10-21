@@ -5,12 +5,12 @@ use dioxus_primitives::toast::{
 };
 use std::time::Duration;
 
-use crate::components::icon::Icon;
+use crate::components::utils::icon::Icon;
 
 pub const OK: Duration = Duration::from_secs(5);
 pub const ERR: Duration = Duration::from_secs(9);
 
-#[css_module("/assets/style/toast.css")]
+#[css_module("/assets/style/utils/toast.css")]
 struct Styles;
 
 #[component]

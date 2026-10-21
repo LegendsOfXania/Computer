@@ -1,7 +1,8 @@
 use computer_model::{key::EntryKey, value::Value};
 use dioxus::{html::input_data::MouseButton, prelude::*};
 
-use crate::components::btn::Btn;
+use crate::components::inspector::fields::Fields;
+use crate::components::utils::btn::Btn;
 use crate::state::{app::AppState, ui::UiState};
 
 #[component]
@@ -73,6 +74,8 @@ pub fn Window(entry: EntryKey, onfocus: EventHandler<()>, onclose: EventHandler<
                     Btn { onclick: move |_| onclose.call(()) }
                 }
             }
+
+            Fields { entry }
         }
 
         if last().is_some() {

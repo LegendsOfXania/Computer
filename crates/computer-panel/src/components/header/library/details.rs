@@ -1,5 +1,5 @@
 use crate::{
-    components::{btn::Btn, icon::Icon, toast::ERR},
+    components::utils::{btn::Btn, icon::Icon, toast::ERR},
     state::{app::AppState, ui::UiState},
     ws::Client,
 };

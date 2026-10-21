@@ -6,7 +6,7 @@ use computer_model::key::EntryKey;
 use dioxus::prelude::*;
 use dioxus_flow::prelude::*;
 
-use crate::{components::window::Window, state::ui::UiState};
+use crate::{components::inspector::window::Window, state::ui::UiState};
 use graph::{NodeData, build};
 
 #[component]

@@ -30,7 +30,7 @@ impl AppState {
     }
 
     pub fn with_entry<E>(&self, key: EntryKey, f: impl FnOnce(&Entry) -> E) -> Option<E> {
-        self.entries.read().get(&key).map(f)
+        self.entries.peek().get(&key).map(f)
     }
 
     pub fn apply(&mut self, msg: ServerMessage) {
@@ -41,8 +41,13 @@ impl AppState {
             }
 
             ServerMessage::Registry(registry) => {
-                self.registry
-                    .set(registry.0.into_iter().map(|d| (d.kind.clone(), d)).collect());
+                self.registry.set(
+                    registry
+                        .0
+                        .into_iter()
+                        .map(|d| (d.kind.clone(), d))
+                        .collect(),
+                );
             }
 
             ServerMessage::Event { event } => self.apply_event(event),
@@ -50,14 +55,6 @@ impl AppState {
             _ => {}
         }
     }
-
-    
-
-    
-
-    
-
-    
 
     pub fn apply_event(&mut self, event: Event) {
         match event {

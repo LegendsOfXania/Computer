@@ -6,6 +6,8 @@ use std::{
 };
 
 use computer_model::{
+    Entry,
+    key::EntryKey,
     page::{Page, PageKind},
     protocol::{message::ClientMessage, request::Request},
 };
@@ -14,10 +16,13 @@ use dioxus::{
     signals::{ReadableExt, Signal},
 };
 use futures_channel::oneshot::{self, Sender};
-use futures_util::future::{select, Either};
+use futures_util::future::{Either, select};
 use gloo_timers::future::TimeoutFuture;
 
-use crate::{id, state::{ConnectionStatus, app::AppState}};
+use crate::{
+    id,
+    state::{ConnectionStatus, app::AppState},
+};
 
 const TIMEOUT_MS: u32 = 10_000;
 
@@ -51,7 +56,12 @@ impl Client {
         status: Signal<ConnectionStatus>,
         pending: Pending,
     ) -> Self {
-        Self { coroutine, status, pending, next_id: Rc::default() }
+        Self {
+            coroutine,
+            status,
+            pending,
+            next_id: Rc::default(),
+        }
     }
 
     pub async fn push(&self) -> Result<(), String> {
@@ -89,6 +99,20 @@ impl Client {
         self.request(Request::UpdatePage { page }).await
     }
 
+    pub async fn edit_entry(
+        &self,
+        app: &AppState,
+        key: EntryKey,
+        change: impl FnOnce(&mut Entry),
+    ) -> Result<(), String> {
+        let Some(mut entry) = app.with_entry(key, Clone::clone) else {
+            return Ok(());
+        };
+
+        change(&mut entry);
+        self.request(Request::UpdateEntry { entry }).await
+    }
+
     async fn request(&self, request: Request) -> Result<(), String> {
         if !matches!(*self.status.peek(), ConnectionStatus::Connected) {
             return Err("Not connected".into());
@@ -97,14 +121,15 @@ impl Client {
         let id = self.next_id.replace(self.next_id.get().wrapping_add(1));
         let (sender, receiver) = oneshot::channel();
         self.pending.0.borrow_mut().insert(id, sender);
-        let _guard = Guard { pending: &self.pending, id };
+        let _guard = Guard {
+            pending: &self.pending,
+            id,
+        };
 
         self.coroutine.send(ClientMessage::Request { id, request });
 
         match select(pin!(receiver), pin!(TimeoutFuture::new(TIMEOUT_MS))).await {
-            Either::Left((answer, _)) => {
-                answer.unwrap_or_else(|_| Err("Connection closed".into()))
-            }
+            Either::Left((answer, _)) => answer.unwrap_or_else(|_| Err("Connection closed".into())),
             Either::Right(_) => Err("The server did not answer in time".into()),
         }
     }

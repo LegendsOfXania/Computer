@@ -67,33 +67,55 @@
 
 .window-fields {
     display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 6px 24px;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 0 24px;
     margin: 0;
-    font-family: monospace;
     font-size: 12px;
 }
 
-.window-fields dt {
-    color: color-mix(in srgb, var(--fg) 55%, transparent);
-}
-
+.window-fields dt,
 .window-fields dd {
+    padding: 7px 0;
     margin: 0;
-    overflow-wrap: anywhere;
+    border-bottom: 1px solid var(--surface-2);
 }
 
-.window-bar {
-    touch-action: none;
+.window-fields dt {
+    color: var(--dim);
 }
 
-.window-bar:active {
-    cursor: grabbing;
+.field-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0;
+    border: 0;
+    border-bottom: 1px solid transparent;
+    background: transparent;
+    color: var(--fg);
+    font: inherit;
+    outline: 0;
+    appearance: textfield;
+}
+.field-input::-webkit-inner-spin-button,
+.field-input::-webkit-outer-spin-button {
+    appearance: none;
+}
+.field-input:hover {
+    border-bottom-color: var(--faint);
+}
+.field-input:focus {
+    border-bottom-color: var(--main);
 }
 
-.window-drag {
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    cursor: grabbing;
+.field-toggle {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--fg);
+    font: inherit;
+    cursor: pointer;
+}
+.field-toggle:hover,
+.field-toggle:focus-visible {
+    color: var(--main);
 }

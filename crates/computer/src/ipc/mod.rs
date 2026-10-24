@@ -1,7 +1,14 @@
 mod registry;
 
 use computer_model::ipc::{ComputerMessage, ExtensionMessage, IpcMessage};
-use pumpkin_plugin_api::{Result, ipc::send_ipc_message};
+use pumpkin_plugin_api::{
+    FromIntoEvent, Result, Server,
+    events::{EventHandler, ServerLoadEvent},
+    events_wit::ServerLoadType,
+    ipc::send_ipc_message,
+};
+
+use crate::data;
 
 pub fn handle(sender: String, message: Vec<u8>) -> Result<Vec<u8>> {
     let message = ExtensionMessage::decode(&message).map_err(|error| error.to_string())?;
@@ -15,21 +22,34 @@ pub fn handle(sender: String, message: Vec<u8>) -> Result<Vec<u8>> {
     Ok(Vec::new())
 }
 
-pub fn pull(extension: &str) {
-    let request = match ComputerMessage::RequestRegistry.encode() {
-        Ok(request) => request,
-        Err(error) => return tracing::error!("Could not encode the registry request: {error}"),
-    };
+pub fn ask(extension: &str, message: ComputerMessage) -> Result<()> {
+    let request = message.encode()?;
 
-    match send_ipc_message(extension, &request) {
-        Ok(Ok(response)) => {
-            if let Err(error) = handle(extension.to_owned(), response) {
-                tracing::error!("Invalid registry from {extension}: {error}");
+    let response = send_ipc_message(extension, &request)
+        .map_err(|()| "this plugin is not loaded".to_string())?
+        .map_err(|reason| format!("it did not answer: {reason}"))?;
+
+    handle(extension.to_owned(), response)?;
+
+    Ok(())
+}
+
+pub struct OnServerLoad;
+
+impl EventHandler<ServerLoadEvent> for OnServerLoad {
+    fn handle(
+        &self,
+        _server: Server,
+        event: <ServerLoadEvent as FromIntoEvent>::Data,
+    ) -> <ServerLoadEvent as FromIntoEvent>::Data {
+        if matches!(event.load_type, ServerLoadType::Startup) {
+            for extension in &data::conf::get_conf().extensions {
+                if let Err(error) = ask(extension, ComputerMessage::RequestRegistry) {
+                    tracing::warn!("No entries from {extension}: {error}");
+                }
             }
         }
-        Ok(Err(reason)) => tracing::warn!("{extension} did not give its registry: {reason}"),
-        Err(()) => tracing::warn!(
-            "{extension} is not loaded (yet): it will register itself if it loads after Computer"
-        ),
+
+        event
     }
 }

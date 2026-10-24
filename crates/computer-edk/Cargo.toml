@@ -8,5 +8,3 @@ authors.workspace = true
 [dependencies]
 computer-edk-macro.workspace = true
 computer-model.workspace = true
-pumpkin-plugin-api.workspace = true
-tracing.workspace = true

@@ -3,13 +3,7 @@ use std::{
     sync::{Mutex, MutexGuard},
 };
 
-use computer_model::{
-    EntryDefinition, Registry,
-    ipc::{ComputerMessage, ExtensionMessage, IpcMessage},
-};
-use pumpkin_plugin_api::ipc::send_ipc_message;
-
-const COMPUTER: &str = "computer";
+use computer_model::{EntryDefinition, Registry, ipc::ExtensionMessage};
 
 static LOCAL: Mutex<Option<Registry>> = Mutex::new(None);
 
@@ -44,7 +38,7 @@ fn validate(definitions: &[EntryDefinition]) -> Result<(), String> {
     Ok(())
 }
 
-pub fn register(entries: &[fn() -> EntryDefinition]) -> Result<(), String> {
+pub fn register_entries(entries: &[fn() -> EntryDefinition]) -> Result<(), String> {
     if local().is_some() {
         return Err(
             "entries are already registered: list every entry in a single `register`".into(),
@@ -54,36 +48,13 @@ pub fn register(entries: &[fn() -> EntryDefinition]) -> Result<(), String> {
     let definitions: Vec<_> = entries.iter().map(|entry| entry()).collect();
     validate(&definitions)?;
 
-    let registry = Registry::new(definitions);
-    let bytes = ExtensionMessage::Registry(registry.clone()).encode()?;
-
-    *local() = Some(registry);
-
-    match send_ipc_message(COMPUTER, &bytes) {
-        Ok(Ok(_)) => {}
-        Ok(Err(reason)) => {
-            *local() = None;
-
-            return Err(format!("Computer rejected the registry: {reason}"));
-        }
-        Err(()) => {
-            tracing::warn!("Computer is not loaded (yet): the entries will be sent when it asks")
-        }
-    }
+    *local() = Some(Registry::new(definitions));
 
     Ok(())
 }
 
-pub fn handle_ipc(sender: &str, message: &[u8]) -> Result<Vec<u8>, String> {
-    if sender != COMPUTER {
-        return Err(format!("unexpected sender `{sender}`"));
-    }
+pub fn answer() -> Result<ExtensionMessage, String> {
+    let registry = local().clone().ok_or("no entries registered yet")?;
 
-    match ComputerMessage::decode(message)? {
-        ComputerMessage::RequestRegistry => {
-            let registry = local().clone().ok_or("no entries registered yet")?;
-
-            ExtensionMessage::Registry(registry).encode()
-        }
-    }
+    Ok(ExtensionMessage::Registry(registry))
 }

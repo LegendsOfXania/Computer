@@ -4,7 +4,10 @@ mod ipc;
 mod net;
 mod util;
 
-use pumpkin_plugin_api::{Context, Plugin, PluginMetadata, Result};
+use pumpkin_plugin_api::{
+    Context, Plugin, PluginMetadata, Result,
+    events::{EventPriority, ServerLoadEvent},
+};
 
 pub struct ComputerPlugin;
 
@@ -40,13 +43,13 @@ impl Plugin for ComputerPlugin {
         data::init_data_folder(context.get_data_folder());
         data::library::init_live();
 
-        let conf = data::conf::get_conf();
+        context.register_event_handler::<ServerLoadEvent, _>(
+            ipc::OnServerLoad,
+            EventPriority::Normal,
+            false,
+        )?;
 
-        for extension in &conf.extensions {
-            ipc::pull(extension);
-        }
-
-        if conf.panel.enabled {
+        if data::conf::get_conf().panel.enabled {
             net::panel::ensure_panel_up_to_date();
         } else {
             tracing::info!("Panel is disable in the configuration. No check for update.")

@@ -4,10 +4,9 @@ use pumpkin_plugin_api::Result;
 use crate::data;
 
 pub fn handle(sender: String, registry: Registry) -> Result<()> {
-    match data::registry::set(sender.clone(), registry) {
-        Ok(()) => tracing::info!("Registered extension from {sender}"),
-        Err(err) => tracing::error!("Could not register extension from {sender}: {err}"),
-    }
+    data::registry::set(sender.clone(), registry)?;
+
+    tracing::info!("Got the entries of {sender}");
 
     Ok(())
 }

@@ -22,7 +22,7 @@ computer-edk-macro = { path = "crates/computer-edk-macro" }
 computer-model = { path = "crates/computer-model" }
 computer-panel = { path = "crates/computer-panel" }
 
-pumpkin-plugin-api = { git = "https://github.com/Pumpkin-MC/Pumpkin", tag = "0.2.0+26.3-26.51" }
+pumpkin-plugin-api = "0.2.0"
 tracing = "0.1"
 
 arc-swap = "1.9.2"

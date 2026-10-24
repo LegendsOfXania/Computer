@@ -23,10 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 
-# Rust
+# Rust
 target/
 Cargo.lock
 
-# AI
-.claude/
-.mcp.json
+# Tests
+extension/

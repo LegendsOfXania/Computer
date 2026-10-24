@@ -1,43 +1,53 @@
 use proc_macro::TokenStream;
-
+use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{
-    Data, DataEnum, DataStruct, DeriveInput, Fields, FieldsNamed, FieldsUnnamed, Variant,
-    parse_macro_input,
+    Data, DataEnum, DataStruct, DeriveInput, Fields, Variant, parse_macro_input, parse_quote,
 };
 
+use crate::util;
+
 pub fn expand(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
+    let mut input = parse_macro_input!(input as DeriveInput);
 
-    let ident = &input.ident;
-
-    let body = match &input.data {
+    let kind = match &input.data {
         Data::Struct(data) => expand_struct(data),
         Data::Enum(data) => expand_enum(data),
-        Data::Union(_) => {
-            return syn::Error::new_spanned(
-                ident,
-                "`Field` cannot be derived for a union",
-            )
-            .to_compile_error()
-            .into();
-        }
+        Data::Union(_) => Err(syn::Error::new_spanned(
+            &input.ident,
+            "`Field` cannot be derived for a union",
+        )),
     };
 
-    let body = match body {
-        Ok(body) => body,
+    let kind = match kind {
+        Ok(kind) => kind,
         Err(error) => return error.to_compile_error().into(),
     };
 
+    let params: Vec<_> = input
+        .generics
+        .type_params()
+        .map(|p| p.ident.clone())
+        .collect();
+    let predicates = params
+        .iter()
+        .map(|p| -> syn::WherePredicate { parse_quote!(#p: ::computer_edk::Field) });
+    input
+        .generics
+        .make_where_clause()
+        .predicates
+        .extend(predicates);
+
+    let ident = &input.ident;
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+
     quote! {
-        impl ::computer_edk::Field for #ident {
-            fn definition(
-                name: &str,
-            ) -> ::computer_model::field::FieldDefinition {
-                ::computer_model::field::FieldDefinition {
+        impl #impl_generics ::computer_edk::Field for #ident #ty_generics #where_clause {
+            fn definition(name: &str) -> ::computer_edk::model::field::FieldDefinition {
+                ::computer_edk::model::field::FieldDefinition {
                     name: name.into(),
-                    kind: #body,
-                    flags: Vec::new(),
+                    kind: #kind,
+                    flags: ::std::vec::Vec::new(),
                 }
             }
         }
@@ -45,145 +55,66 @@ pub fn expand(input: TokenStream) -> TokenStream {
     .into()
 }
 
-fn expand_struct(data: &DataStruct) -> syn::Result<proc_macro2::TokenStream> {
-    let fields = match &data.fields {
-        Fields::Named(fields) => fields,
-        _ => {
-            return Err(syn::Error::new_spanned(
-                &data.fields,
-                "`Field` requires structs to have named fields",
-            ));
-        }
+fn expand_struct(data: &DataStruct) -> syn::Result<TokenStream2> {
+    let Fields::Named(fields) = &data.fields else {
+        return Err(syn::Error::new_spanned(
+            &data.fields,
+            "`Field` requires a struct with named fields",
+        ));
     };
 
-    let definitions = named_field_definitions(fields);
+    let definitions = util::named(fields);
 
     Ok(quote! {
-        ::computer_model::field::FieldKind::Struct(vec![
-            #(#definitions),*
-        ])
+        ::computer_edk::model::field::FieldKind::Struct(::std::vec![#(#definitions),*])
     })
 }
 
-fn expand_enum(data: &DataEnum) -> syn::Result<proc_macro2::TokenStream> {
+fn expand_enum(data: &DataEnum) -> syn::Result<TokenStream2> {
     if data.variants.is_empty() {
-        return Err(syn::Error::new(
-            proc_macro2::Span::call_site(),
-            "`Field` requires enums to have at least one variant",
+        return Err(syn::Error::new_spanned(
+            &data.variants,
+            "`Field` requires an enum with at least one variant",
         ));
     }
 
-    let is_simple = data
+    if data
         .variants
         .iter()
-        .all(|variant| matches!(variant.fields, Fields::Unit));
-
-    if is_simple {
-        let variants = data.variants.iter().map(|variant| {
-            let name = variant.ident.to_string();
-
-            quote! {
-                #name.to_string()
-            }
-        });
+        .all(|variant| matches!(variant.fields, Fields::Unit))
+    {
+        let names = data
+            .variants
+            .iter()
+            .map(|variant| variant.ident.to_string());
 
         return Ok(quote! {
-            ::computer_model::field::FieldKind::Enum(vec![
-                #(#variants),*
-            ])
+            ::computer_edk::model::field::FieldKind::Enum(
+                ::std::vec![#(::std::string::String::from(#names)),*]
+            )
         });
     }
 
-    let cases = data
-        .variants
-        .iter()
-        .map(expand_variant)
-        .collect::<syn::Result<Vec<_>>>()?;
+    let cases = data.variants.iter().map(expand_case);
 
     Ok(quote! {
-        ::computer_model::field::FieldKind::Variant(vec![
-            #(#cases),*
-        ])
+        ::computer_edk::model::field::FieldKind::Variant(::std::vec![#(#cases),*])
     })
 }
 
-fn expand_variant(
-    variant: &Variant,
-) -> syn::Result<proc_macro2::TokenStream> {
+fn expand_case(variant: &Variant) -> TokenStream2 {
     let name = variant.ident.to_string();
 
-    let fields = match &variant.fields {
-        Fields::Unit => {
-            quote! {
-                Vec::new()
-            }
-        }
-
-        Fields::Named(fields) => {
-            let definitions = named_field_definitions(fields);
-
-            quote! {
-                vec![
-                    #(#definitions),*
-                ]
-            }
-        }
-
-        Fields::Unnamed(fields) => {
-            let definitions = unnamed_field_definitions(fields);
-
-            quote! {
-                vec![
-                    #(#definitions),*
-                ]
-            }
-        }
+    let definitions = match &variant.fields {
+        Fields::Unit => Vec::new(),
+        Fields::Named(fields) => util::named(fields),
+        Fields::Unnamed(fields) => util::unnamed(fields),
     };
 
-    Ok(quote! {
-        ::computer_model::field::Case {
-            name: #name.into(),
-            fields: #fields,
+    quote! {
+        ::computer_edk::model::field::Case {
+            name: ::std::string::String::from(#name),
+            fields: ::std::vec![#(#definitions),*],
         }
-    })
-}
-
-fn named_field_definitions(
-    fields: &FieldsNamed,
-) -> Vec<proc_macro2::TokenStream> {
-    fields
-        .named
-        .iter()
-        .map(|field| {
-            let name = field
-                .ident
-                .as_ref()
-                .expect("named fields always have an identifier");
-
-            let name = name.to_string();
-            let ty = &field.ty;
-
-            quote! {
-                <#ty as ::computer_edk::Field>::definition(#name)
-            }
-        })
-        .collect()
-}
-
-fn unnamed_field_definitions(
-    fields: &FieldsUnnamed,
-) -> Vec<proc_macro2::TokenStream> {
-    fields
-        .unnamed
-        .iter()
-        .enumerate()
-        .map(|(index, field)| {
-            let name = index.to_string();
-            let ty = &field.ty;
-
-            quote! {
-                <#ty as ::computer_edk::Field>::definition(#name)
-            }
-        })
-        .collect()
+    }
 }

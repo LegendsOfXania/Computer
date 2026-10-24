@@ -1,5 +1,6 @@
 mod entry;
 mod field;
+mod util;
 
 use proc_macro::TokenStream;
 

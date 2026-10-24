@@ -8,13 +8,7 @@ use std::{
 };
 
 use arc_swap::ArcSwap;
-use computer_model::{
-    entry::Entry,
-    key::EntryKey,
-    page::Page,
-    protocol::event::Event,
-    Library,
-};
+use computer_model::{Library, entry::Entry, key::EntryKey, page::Page, protocol::event::Event};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 
@@ -76,12 +70,12 @@ pub fn live() -> Arc<Library> {
 fn with_dev<T>(f: impl FnOnce(&mut Dev) -> Result<T, String>) -> Result<T, String> {
     let mut guard = DEV.lock();
 
-    f(guard.as_mut().ok_or("dev library is not open: no panel has connected.")?)
+    f(guard
+        .as_mut()
+        .ok_or("dev library is not open: no panel has connected.")?)
 }
 
-fn edit_dev<T>(
-    f: impl FnOnce(&mut Library) -> Result<(T, Vec<u64>), String>,
-) -> Result<T, String> {
+fn edit_dev<T>(f: impl FnOnce(&mut Library) -> Result<(T, Vec<u64>), String>) -> Result<T, String> {
     with_dev(|dev| {
         let (value, touched) = f(&mut dev.library)?;
 
@@ -155,7 +149,10 @@ fn load(dir: &Path) -> Result<Library, String> {
 
         for key in keys {
             if !page.entries.contains(&key) {
-                tracing::warn!("Entry {key} was not listed by its page {}, re-attached", page.id);
+                tracing::warn!(
+                    "Entry {key} was not listed by its page {}, re-attached",
+                    page.id
+                );
                 page.entries.push(key);
             }
         }
@@ -295,7 +292,9 @@ pub fn reload() -> Result<(), String> {
 
 pub fn push() -> Result<(), String> {
     let mut guard = DEV.lock();
-    let dev = guard.as_mut().ok_or("dev library is not open: no panel has connected.")?;
+    let dev = guard
+        .as_mut()
+        .ok_or("dev library is not open: no panel has connected.")?;
 
     if let Err(error) = flush(dev) {
         tracing::error!("Could not save the dev library before the push: {error}");
@@ -441,7 +440,12 @@ pub fn edit_page(page: Page) -> Result<Event, String> {
 
         // `entries` is kept as it is in the library, and the event carries the
         // resulting page, not the one sent by the client.
-        Ok((Event::PageUpdated { page: existing.clone() }, vec![id]))
+        Ok((
+            Event::PageUpdated {
+                page: existing.clone(),
+            },
+            vec![id],
+        ))
     })
 }
 
@@ -492,7 +496,10 @@ pub fn edit_entry(entry: Entry) -> Result<Event, String> {
 
         *existing = entry.clone();
 
-        Ok((Event::EntryUpdated { entry }, pages_containing(library, &key)))
+        Ok((
+            Event::EntryUpdated { entry },
+            pages_containing(library, &key),
+        ))
     })
 }
 
@@ -513,7 +520,9 @@ pub fn move_entry(key: EntryKey, page_id: u64) -> Result<Event, String> {
         }
 
         if !library.pages.contains_key(&page_id) {
-            return Err(format!("page {page_id} not found: it may have been deleted"));
+            return Err(format!(
+                "page {page_id} not found: it may have been deleted"
+            ));
         }
 
         let mut touched = detach(library, &key);

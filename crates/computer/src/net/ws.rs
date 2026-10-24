@@ -4,41 +4,32 @@ use std::{
 };
 
 use computer_model::protocol::{
+    PROTOCOL_VERSION,
     event::Event,
     message::{ClientMessage, ProtocolMessage, ServerMessage},
     request::Request,
-    PROTOCOL_VERSION,
 };
 
 use tungstenite::{
+    Bytes, Error as WsError, Message, WebSocket,
     handshake::derive_accept_key,
     protocol::{Role, WebSocketConfig},
-    Bytes,
-    Error as WsError,
-    Message,
-    WebSocket,
 };
 
-use crate::{data, net::{
-    connection::{Connection, Socket},
-    limits::{
-        IDLE_TIMEOUT,
-        MAX_INVALID_FRAMES,
-        MAX_MESSAGE_SIZE,
-        MAX_MESSAGES_PER_TICK,
-        MAX_WRITE_BUFFER,
-        PENDING_TIMEOUT,
-        PING_INTERVAL,
+use crate::{
+    data,
+    net::{
+        connection::{Connection, Socket},
+        limits::{
+            IDLE_TIMEOUT, MAX_INVALID_FRAMES, MAX_MESSAGE_SIZE, MAX_MESSAGES_PER_TICK,
+            MAX_WRITE_BUFFER, PENDING_TIMEOUT, PING_INTERVAL,
+        },
+        request,
+        srv::State,
     },
-    request,
-    srv::State,
-}};
+};
 
-pub fn upgrade(
-    mut stream: TcpStream,
-    buffer: Vec<u8>,
-    key: String,
-) -> Option<Connection> {
+pub fn upgrade(mut stream: TcpStream, buffer: Vec<u8>, key: String) -> Option<Connection> {
     let header_end = find_header_end(&buffer)?;
 
     let accept_key = derive_accept_key(key.as_bytes());
@@ -55,17 +46,13 @@ pub fn upgrade(
         Ok(()) => {}
 
         Err(error) if error.kind() == ErrorKind::WouldBlock => {
-            tracing::debug!(
-                "WebSocket handshake response would block"
-            );
+            tracing::debug!("WebSocket handshake response would block");
 
             return None;
         }
 
         Err(error) => {
-            tracing::warn!(
-                "WebSocket handshake response failed: {error}"
-            );
+            tracing::warn!("WebSocket handshake response failed: {error}");
 
             return None;
         }
@@ -83,12 +70,7 @@ pub fn upgrade(
         .max_frame_size(Some(MAX_MESSAGE_SIZE))
         .max_write_buffer_size(MAX_WRITE_BUFFER);
 
-    let ws = WebSocket::from_partially_read(
-        stream,
-        remaining,
-        Role::Server,
-        Some(config),
-    );
+    let ws = WebSocket::from_partially_read(stream, remaining, Role::Server, Some(config));
 
     tracing::debug!("WebSocket handshake completed");
 
@@ -121,19 +103,17 @@ pub fn poll(socket: &mut Socket) -> (bool, Vec<Event>) {
                 socket.idle = 0;
 
                 match message {
-                    Message::Binary(bytes) => {
-                        match on_data(socket, &bytes) {
-                            Outcome::Continue => {}
+                    Message::Binary(bytes) => match on_data(socket, &bytes) {
+                        Outcome::Continue => {}
 
-                            Outcome::Event(event) => {
-                                events.push(event);
-                            }
-
-                            Outcome::Close => {
-                                return (false, events);
-                            }
+                        Outcome::Event(event) => {
+                            events.push(event);
                         }
-                    }
+
+                        Outcome::Close => {
+                            return (false, events);
+                        }
+                    },
 
                     Message::Text(_) => {
                         if note_invalid(socket, "text frame") {
@@ -145,9 +125,7 @@ pub fn poll(socket: &mut Socket) -> (bool, Vec<Event>) {
                         return (false, events);
                     }
 
-                    Message::Ping(_)
-                    | Message::Pong(_)
-                    | Message::Frame(_) => {}
+                    Message::Ping(_) | Message::Pong(_) | Message::Frame(_) => {}
                 }
             }
 
@@ -160,9 +138,7 @@ pub fn poll(socket: &mut Socket) -> (bool, Vec<Event>) {
             }
 
             Err(error) => {
-                tracing::warn!(
-                    "WebSocket error: {error}"
-                );
+                tracing::warn!("WebSocket error: {error}");
 
                 return (false, events);
             }
@@ -192,9 +168,7 @@ fn keep_alive(socket: &mut Socket) -> bool {
             Err(error) if is_would_block(&error) => {}
 
             Err(error) => {
-                tracing::debug!(
-                    "Could not ping WebSocket client: {error}"
-                );
+                tracing::debug!("Could not ping WebSocket client: {error}");
 
                 return false;
             }
@@ -233,13 +207,9 @@ fn on_data(socket: &mut Socket, data: &[u8]) -> Outcome {
     socket.invalid = 0;
 
     match message {
-        ClientMessage::Hello { version } => {
-            on_hello(socket, version)
-        }
+        ClientMessage::Hello { version } => on_hello(socket, version),
 
-        ClientMessage::Request { id, request } => {
-            on_request(socket, id, request)
-        }
+        ClientMessage::Request { id, request } => on_request(socket, id, request),
     }
 }
 
@@ -253,9 +223,7 @@ fn on_hello(socket: &mut Socket, version: u32) -> Outcome {
 
         let _ = send_message(
             &mut socket.ws,
-            &ServerMessage::Handshake(Err(format!(
-                "Unsupported protocol version: {version}"
-            ))),
+            &ServerMessage::Handshake(Err(format!("Unsupported protocol version: {version}"))),
         );
 
         return Outcome::Close;
@@ -265,15 +233,11 @@ fn on_hello(socket: &mut Socket, version: u32) -> Outcome {
         Ok(library) => library,
 
         Err(error) => {
-            tracing::error!(
-                "Could not load dev library: {error}"
-            );
+            tracing::error!("Could not load dev library: {error}");
 
             let _ = send_message(
                 &mut socket.ws,
-                &ServerMessage::Handshake(Err(format!(
-                    "Could not load the library: {error}"
-                ))),
+                &ServerMessage::Handshake(Err(format!("Could not load the library: {error}"))),
             );
 
             return Outcome::Close;
@@ -284,12 +248,7 @@ fn on_hello(socket: &mut Socket, version: u32) -> Outcome {
         &mut socket.ws,
         &ServerMessage::Handshake(Ok(PROTOCOL_VERSION)),
     )
-    .and_then(|()| {
-        send_message(
-            &mut socket.ws,
-            &ServerMessage::Library(library),
-        )
-    })
+    .and_then(|()| send_message(&mut socket.ws, &ServerMessage::Library(library)))
     .and_then(|()| {
         send_message(
             &mut socket.ws,
@@ -304,7 +263,7 @@ fn on_hello(socket: &mut Socket, version: u32) -> Outcome {
     socket.ready = true;
 
     tracing::info!(
-        "Panel client #{} connected from {} (protocol v{version})",
+        "Client #{} connected from {} (protocol v{version})",
         socket.id,
         socket.peer,
     );
@@ -312,15 +271,9 @@ fn on_hello(socket: &mut Socket, version: u32) -> Outcome {
     Outcome::Continue
 }
 
-fn on_request(
-    socket: &mut Socket,
-    id: u64,
-    request: Request,
-) -> Outcome {
+fn on_request(socket: &mut Socket, id: u64, request: Request) -> Outcome {
     if !socket.ready {
-        tracing::warn!(
-            "Request received before the handshake, rejected"
-        );
+        tracing::warn!("Request received before the handshake, rejected");
 
         socket.replies.push(ServerMessage::Response {
             id,
@@ -342,10 +295,9 @@ fn on_request(
                 );
             }
 
-            socket.replies.push(ServerMessage::Response {
-                id,
-                result: Ok(()),
-            });
+            socket
+                .replies
+                .push(ServerMessage::Response { id, result: Ok(()) });
 
             Outcome::Event(event)
         }
@@ -368,57 +320,40 @@ fn is_would_block(error: &WsError) -> bool {
     )
 }
 
-fn send_bytes(
-    ws: &mut WebSocket<TcpStream>,
-    bytes: Bytes,
-) -> Result<(), ()> {
+fn send_bytes(ws: &mut WebSocket<TcpStream>, bytes: Bytes) -> Result<(), ()> {
     match ws.send(Message::Binary(bytes)) {
         Ok(()) => Ok(()),
 
         Err(error) if is_would_block(&error) => Ok(()),
 
         Err(WsError::WriteBufferFull(_)) => {
-            tracing::warn!(
-                "Dropped a WebSocket client that is too slow"
-            );
+            tracing::warn!("Dropped a WebSocket client that is too slow");
 
             Err(())
         }
 
         Err(error) => {
-            tracing::debug!(
-                "Could not send message: {error}"
-            );
+            tracing::debug!("Could not send message: {error}");
 
             Err(())
         }
     }
 }
 
-fn send_message(
-    ws: &mut WebSocket<TcpStream>,
-    message: &ServerMessage,
-) -> Result<(), ()> {
+fn send_message(ws: &mut WebSocket<TcpStream>, message: &ServerMessage) -> Result<(), ()> {
     let bytes = message.encode().map_err(|error| {
-        tracing::error!(
-            "Could not encode ServerMessage: {error}"
-        );
+        tracing::error!("Could not encode ServerMessage: {error}");
     })?;
 
     send_bytes(ws, Bytes::from(bytes))
 }
 
-pub fn broadcast_event(
-    state: &mut State,
-    event: Event,
-) {
+pub fn broadcast_event(state: &mut State, event: Event) {
     let bytes = match (ServerMessage::Event { event }).encode() {
         Ok(bytes) => Bytes::from(bytes),
 
         Err(error) => {
-            tracing::error!(
-                "Could not encode event: {error}"
-            );
+            tracing::error!("Could not encode event: {error}");
             return;
         }
     };
@@ -454,9 +389,7 @@ pub fn send_replies(state: &mut State) {
             Err(error) if is_would_block(&error) => true,
 
             Err(error) => {
-                tracing::debug!(
-                    "Could not flush WebSocket: {error}"
-                );
+                tracing::debug!("Could not flush WebSocket: {error}");
 
                 false
             }

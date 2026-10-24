@@ -7,6 +7,7 @@ members = [
     "crates/computer-model",
     "crates/computer-panel",
 ]
+exclude = ["extension/dev-extension"]
 
 [workspace.package]
 edition = "2024"
@@ -32,7 +33,9 @@ tar = "0.4.46"
 sha1 = "0.11.0"
 base64 = "0.23.1"
 postcard = { version = "1.1.3", features = ["alloc"] }
-flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+flate2 = { version = "1", default-features = false, features = [
+    "rust_backend",
+] }
 indexmap = { version = "2.14.2", features = ["serde"] }
 toml = "1.1"
 include_dir = "0.7.4"
@@ -47,7 +50,9 @@ gloo-net = { version = "0.7.0", features = ["websocket"] }
 gloo-timers = { version = "0.3", features = ["futures"] }
 waki = "0.5.1"
 httparse = "1.10.1"
-tungstenite = { version = "0.30.0", default-features = false, features = ["handshake"] }
+tungstenite = { version = "0.30.0", default-features = false, features = [
+    "handshake",
+] }
 
 proc-macro2 = "1"
 quote = "1"

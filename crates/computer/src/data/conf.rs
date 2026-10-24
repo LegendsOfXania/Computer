@@ -8,6 +8,8 @@ static CONFIG: OnceLock<ComputerConfig> = OnceLock::new();
 
 #[derive(Deserialize, Serialize, Default)]
 pub struct ComputerConfig {
+    #[serde(default)]
+    pub extensions: Vec<String>,
     pub panel: PanelConfig,
 }
 

@@ -40,12 +40,17 @@ impl Plugin for ComputerPlugin {
         data::init_data_folder(context.get_data_folder());
         data::library::init_live();
 
-        if data::conf::get_conf().panel.enabled {
+        let conf = data::conf::get_conf();
+
+        for extension in &conf.extensions {
+            ipc::pull(extension);
+        }
+
+        if conf.panel.enabled {
             net::panel::ensure_panel_up_to_date();
         } else {
             tracing::info!("Panel is disable in the configuration. No check for update.")
         }
-
 
         cmd::register(&context);
 
@@ -58,11 +63,7 @@ impl Plugin for ComputerPlugin {
         Ok(())
     }
 
-    fn handle_ipc_message(
-        &self,
-        sender: String,
-        message: Vec<u8>,
-    ) -> Result<Vec<u8>> {
+    fn handle_ipc_message(&self, sender: String, message: Vec<u8>) -> Result<Vec<u8>> {
         ipc::handle(sender, message)
     }
 }

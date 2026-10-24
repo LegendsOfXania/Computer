@@ -1,179 +1,152 @@
 use proc_macro::TokenStream;
-
 use quote::quote;
 use syn::{
-    Fields, Ident, ItemStruct, LitStr, Token,
+    Fields, Ident, ItemStruct, LitInt, LitStr, Path, Token,
     parse::{Parse, ParseStream},
     parse_macro_input,
     punctuated::Punctuated,
 };
 
-struct EntryArgs {
+use crate::util;
+
+struct Args {
     kind: LitStr,
-    base: Option<Ident>,
+    base: Option<Path>,
+    version: Option<LitInt>,
     tags: Vec<LitStr>,
 }
 
-impl Parse for EntryArgs {
+impl Parse for Args {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let mut kind = None;
         let mut base = None;
-        let mut tags = Vec::new();
+        let mut version = None;
+        let mut tags: Option<Vec<LitStr>> = None;
 
         while !input.is_empty() {
             let key: Ident = input.parse()?;
 
             match key.to_string().as_str() {
-                "kind" => {
+                "kind" => set(&mut kind, &key, || {
                     input.parse::<Token![=]>()?;
-
-                    if kind.is_some() {
-                        return Err(syn::Error::new_spanned(
-                            key,
-                            "duplicate `kind`",
-                        ));
-                    }
-
-                    kind = Some(input.parse()?);
-                }
-
-                "base" => {
+                    input.parse()
+                })?,
+                "base" => set(&mut base, &key, || {
                     input.parse::<Token![=]>()?;
-
-                    if base.is_some() {
-                        return Err(syn::Error::new_spanned(
-                            key,
-                            "duplicate `base`",
-                        ));
-                    }
-
-                    base = Some(input.parse()?);
-                }
-
-                "tags" => {
+                    input.parse()
+                })?,
+                "version" => set(&mut version, &key, || {
+                    input.parse::<Token![=]>()?;
+                    input.parse()
+                })?,
+                "tags" => set(&mut tags, &key, || {
                     let content;
                     syn::parenthesized!(content in input);
-
-                    let values =
-                        Punctuated::<LitStr, Token![,]>::parse_terminated(
-                            &content,
-                        )?;
-
-                    tags.extend(values);
-                }
-
+                    Ok(Punctuated::<LitStr, Token![,]>::parse_terminated(&content)?
+                        .into_iter()
+                        .collect())
+                })?,
                 _ => {
                     return Err(syn::Error::new_spanned(
                         key,
-                        "unknown #[entry] argument",
+                        "unknown argument, expected `kind`, `base`, `version` or `tags(...)`",
                     ));
                 }
             }
 
-            if input.peek(Token![,]) {
+            if !input.is_empty() {
                 input.parse::<Token![,]>()?;
             }
         }
 
-        let kind = kind.ok_or_else(|| {
+        let kind: LitStr = kind.ok_or_else(|| {
             syn::Error::new(
                 proc_macro2::Span::call_site(),
-                "#[entry] requires `kind`",
+                "#[entry] requires `kind = \"...\"`",
             )
         })?;
+
+        let tags = tags.ok_or_else(|| {
+            syn::Error::new(
+                proc_macro2::Span::call_site(),
+                "#[entry] requires `tags(...)`, even empty: `tags()`",
+            )
+        })?;
+
+        if kind.value().trim().is_empty() {
+            return Err(syn::Error::new_spanned(kind, "`kind` cannot be empty"));
+        }
 
         Ok(Self {
             kind,
             base,
+            version,
             tags,
         })
     }
 }
 
+fn set<T>(
+    slot: &mut Option<T>,
+    key: &Ident,
+    parse: impl FnOnce() -> syn::Result<T>,
+) -> syn::Result<()> {
+    if slot.is_some() {
+        return Err(syn::Error::new_spanned(key, format!("duplicate `{key}`")));
+    }
+
+    *slot = Some(parse()?);
+
+    Ok(())
+}
+
 pub fn expand(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let args = parse_macro_input!(attr as EntryArgs);
+    let args = parse_macro_input!(attr as Args);
     let item = parse_macro_input!(item as ItemStruct);
 
-    let ident = &item.ident;
-    let kind = args.kind;
-    let base = args.base;
-    let tags = args.tags;
-
-    let fields = match &item.fields {
-        Fields::Named(fields) => fields,
-
-        _ => {
-            return syn::Error::new_spanned(
-                &item.fields,
-                "#[entry] requires a struct with named fields",
-            )
+    if !item.generics.params.is_empty() {
+        return syn::Error::new_spanned(&item.generics, "#[entry] does not support generics")
             .to_compile_error()
             .into();
-        }
+    }
+
+    let Fields::Named(fields) = &item.fields else {
+        return syn::Error::new_spanned(
+            &item.fields,
+            "#[entry] requires a struct with named fields",
+        )
+        .to_compile_error()
+        .into();
     };
 
-    let field_definitions = fields
-        .named
-        .iter()
-        .map(|field| {
-            let name = match &field.ident {
-                Some(name) => name.to_string(),
+    let ident = &item.ident;
+    let kind = &args.kind;
+    let tags = &args.tags;
+    let definitions = util::named(fields);
 
-                None => {
-                    return syn::Error::new_spanned(
-                        field,
-                        "#[entry] requires named fields",
-                    )
-                    .to_compile_error();
-                }
-            };
+    let version = match &args.version {
+        Some(version) => quote!(#version),
+        None => quote!(0),
+    };
 
-            let ty = &field.ty;
-
-            quote! {
-                <#ty as ::computer_edk::Field>::definition(#name)
-            }
-        })
-        .collect::<Vec<_>>();
-
-    let base_metadata = match &base {
-        Some(base) => {
-            quote! {
-                Some(#base::ENTRY_KIND)
-            }
-        }
-
-        None => {
-            quote! {
-                None
-            }
-        }
+    let inherited = match &args.base {
+        Some(base) => quote!(<#base as ::computer_edk::Entry>::definition().fields),
+        None => quote!(::std::vec::Vec::new()),
     };
 
     quote! {
         #item
 
-        impl #ident {
-            pub const ENTRY_KIND: &'static str = #kind;
+        impl ::computer_edk::Entry for #ident {
+            fn definition() -> ::computer_edk::model::EntryDefinition {
+                let mut fields = #inherited;
+                fields.extend(::std::vec![#(#definitions),*]);
 
-            pub const ENTRY_BASE: Option<&'static str> = #base_metadata;
-
-            pub const TAGS: &'static [&'static str] = &[
-                #(#tags),*
-            ];
-
-            pub fn fields() -> Vec<::computer_model::field::FieldDefinition> {
-                vec![
-                    #(#field_definitions),*
-                ]
-            }
-
-            pub fn blueprint() -> ::computer_edk::EntryBlueprint {
-                ::computer_edk::EntryBlueprint {
-                    kind: Self::ENTRY_KIND,
-                    base: Self::ENTRY_BASE,
-                    fields: Self::fields(),
-                    tags: Self::TAGS,
+                ::computer_edk::model::EntryDefinition {
+                    kind: ::std::string::String::from(#kind),
+                    version: #version,
+                    tags: ::std::vec![#(::std::string::String::from(#tags)),*],
+                    fields,
                 }
             }
         }

@@ -1,10 +1,9 @@
 mod graph;
 
-use std::collections::HashSet;
-
 use computer_model::key::EntryKey;
 use dioxus::prelude::*;
 use dioxus_flow::prelude::*;
+use std::collections::HashSet;
 
 use crate::{components::inspector::window::Window, state::ui::UiState};
 use graph::{NodeData, build};
@@ -26,13 +25,9 @@ pub fn Editor() -> Element {
 
     let mut select = move |key: Option<EntryKey>| {
         let id = key.map(|k| k.to_string());
-        let wanted = |n: &Node<NodeData>| id.as_deref() == Some(n.id.as_str()) && !n.data.foreign;
-        if nodes.peek().iter().all(|n| n.selected == wanted(n)) {
-            return;
-        }
         nodes.with_mut(|list| {
             for n in list.iter_mut() {
-                n.selected = wanted(n);
+                n.selected = id.as_deref() == Some(&n.id) && !n.data.foreign;
             }
         });
     };
@@ -47,11 +42,14 @@ pub fn Editor() -> Element {
             .filter(|n| n.selected)
             .map(|n| n.id.clone())
             .collect();
-
-        let mut next = graph.nodes;
-        for node in &mut next {
-            node.selected = selected.contains(&node.id);
-        }
+        let next = graph
+            .nodes
+            .into_iter()
+            .map(|mut n| {
+                n.selected = selected.contains(&n.id);
+                n
+            })
+            .collect();
 
         nodes.set(next);
         edges.set(graph.edges);
@@ -76,13 +74,7 @@ pub fn Editor() -> Element {
                 nodes_draggable: false,
 
                 on_node_click: move |id: String| {
-                    let key = nodes
-                        .read()
-                        .iter()
-                        .find(|n| n.id == id && !n.data.foreign)
-                        .map(|n| n.data.key);
-
-                    if let Some(key) = key {
+                    if let Some(key) = nodes.read().iter().find(|n| n.id == id && !n.data.foreign).map(|n| n.data.key) {
                         ui.open(key);
                     }
                 },
@@ -90,23 +82,14 @@ pub fn Editor() -> Element {
                 node_view: move |ctx: NodeViewCtx<NodeData>| {
                     let d = &ctx.node.data;
                     let open = opened.read().contains(&d.key);
-                    let class = format!(
-                        "df-node-default{}{}",
-                        if open { " open" } else { "" },
-                        if d.foreign { " foreign" } else { "" },
-                    );
-
                     rsx! {
-                        div { class,
+                        div { class: format!("df-node-default{}{}", if open { " open" } else { "" }, if d.foreign { " foreign" } else { "" }),
                             span { class: "df-node-label", "{ctx.node.label}" }
                         }
                     }
                 },
 
-                Background {
-                    variant: BackgroundVariant::Lines,
-                    gap: 72.0,
-                }
+                Background { variant: BackgroundVariant::Lines, gap: 72.0 }
             }
 
             for key in opened() {

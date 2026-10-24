@@ -1,10 +1,8 @@
-use std::collections::HashSet;
-
+use crate::state::{app::AppState, ui::UiState};
 use computer_model::{key::EntryKey, page::PageKind, value::Value};
 use dioxus::prelude::*;
 use dioxus_flow::{LayoutNode, compute_layout, prelude::*};
-
-use crate::state::{app::AppState, ui::UiState};
+use std::collections::HashSet;
 
 const W: f64 = 160.0;
 const H: f64 = 49.0;
@@ -22,14 +20,10 @@ pub struct Graph {
 }
 
 pub fn build() -> Graph {
-    let app = consume_context::<AppState>();
-    let ui = consume_context::<UiState>();
+    let (app, ui) = (consume_context::<AppState>(), consume_context::<UiState>());
+    let (pages, entries) = (app.pages.read(), app.entries.read());
 
-    let page_id = *ui.page.read();
-    let pages = app.pages.read();
-    let entries = app.entries.read();
-
-    let Some(page) = page_id.and_then(|id| pages.get(&id)) else {
+    let Some(page) = ui.page.read().and_then(|id| pages.get(&id)) else {
         return Graph::default();
     };
 
@@ -45,12 +39,10 @@ pub fn build() -> Graph {
         .copied()
         .filter(|k| entries.contains_key(k))
         .collect();
-
-    let mut links: Vec<(EntryKey, EntryKey)> = Vec::new();
+    let mut links = Vec::new();
 
     if page.kind != PageKind::Static {
         let mut seen = HashSet::new();
-
         for key in &local {
             let mut targets = Vec::new();
             entries[key]
@@ -59,14 +51,13 @@ pub fn build() -> Graph {
                 .for_each(|v| refs(v, &mut targets));
 
             for target in targets {
-                if target == *key
-                    || !entries.contains_key(&target)
-                    || is_static(&target)
-                    || !seen.insert((*key, target))
+                if target != *key
+                    && entries.contains_key(&target)
+                    && !is_static(&target)
+                    && seen.insert((*key, target))
                 {
-                    continue;
+                    links.push((*key, target));
                 }
-                links.push((*key, target));
             }
         }
     }
@@ -104,14 +95,18 @@ pub fn build() -> Graph {
                 Some(Value::String(s)) if !s.is_empty() => s.clone(),
                 _ => entry.kind.clone(),
             };
-            let position = layout.get(&id).copied().unwrap_or(Point::ZERO);
             let foreign = !in_page.contains(key);
 
-            Node::with_data(id, label, position, NodeData { key: *key, foreign })
-                .size(Size::new(W, H))
-                .sides(Side::Left, Side::Right)
-                .selectable(!foreign)
-                .draggable(false)
+            Node::with_data(
+                id,
+                label,
+                layout.get(&key.to_string()).copied().unwrap_or(Point::ZERO),
+                NodeData { key: *key, foreign },
+            )
+            .size(Size::new(W, H))
+            .sides(Side::Left, Side::Right)
+            .selectable(!foreign)
+            .draggable(false)
         })
         .collect();
 
@@ -125,7 +120,6 @@ pub fn build() -> Graph {
                 } else {
                     "cross-page"
                 });
-
             edge.selectable = false;
             edge
         })

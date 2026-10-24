@@ -5,7 +5,6 @@ use crate::{
     components::utils::icon::Icon,
     state::{app::AppState, ui::UiState},
 };
-
 use computer_model::page::PageKind;
 use details::Details;
 use dioxus::{prelude::*, signals::ReadableExt};
@@ -15,40 +14,39 @@ use tree::{Row, flatten};
 
 #[component]
 pub fn Library() -> Element {
-    let app = use_context::<AppState>();
-    let ui = use_context::<UiState>();
-
+    let (app, ui) = (use_context::<AppState>(), use_context::<UiState>());
     let mut collapsed = use_signal(HashSet::<String>::new);
     let mut opened_page = ui.page;
 
-    let rows = flatten(app.pages.read().values());
-    let opened = opened_page();
-    let closed = collapsed.read().clone();
+    let (rows, opened, closed) = (
+        flatten(app.pages.read().values()),
+        opened_page(),
+        collapsed.read().clone(),
+    );
 
-    let mut stack: Vec<(usize, bool)> = Vec::new();
-    let mut visible = Vec::new();
+    let mut stack = Vec::new();
+    let visible: Vec<_> = rows
+        .into_iter()
+        .filter_map(|row| {
+            let depth = match &row {
+                Row::Chapter { depth, .. } | Row::Page { depth, .. } => *depth,
+            };
 
-    for row in rows {
-        let depth = match &row {
-            Row::Chapter { depth, .. } | Row::Page { depth, .. } => *depth,
-        };
+            while stack.last().is_some_and(|&(d, _)| d >= depth) {
+                stack.pop();
+            }
 
-        while stack.last().is_some_and(|(d, _)| *d >= depth) {
-            stack.pop();
-        }
+            if stack.iter().any(|&(_, is_closed)| is_closed) {
+                return None;
+            }
 
-        if stack.iter().any(|(_, is_closed)| *is_closed) {
-            continue;
-        }
+            if let Row::Chapter { path, .. } = &row {
+                stack.push((depth, closed.contains(path)));
+            }
 
-        if let Row::Chapter { path, .. } = &row {
-            stack.push((depth, closed.contains(path)));
-        }
-
-        visible.push(row);
-    }
-
-    let empty = visible.is_empty();
+            Some(row)
+        })
+        .collect();
 
     rsx! {
         document::Stylesheet { href: asset!("/assets/style/header/library.css") }
@@ -61,7 +59,7 @@ pub fn Library() -> Element {
 
             div { class: "library-panel",
                 section { class: "library-col library-list",
-                    if empty {
+                    if visible.is_empty() {
                         p { class: "library-empty", {tid!("library-empty")} }
                     }
 
@@ -74,9 +72,7 @@ pub fn Library() -> Element {
                                     style: "--depth: {depth}",
                                     onclick: move |_| {
                                         collapsed.with_mut(|set| {
-                                            if !set.remove(&path) {
-                                                set.insert(path.clone());
-                                            }
+                                            if !set.remove(&path) { set.insert(path.clone()); }
                                         });
                                     },
                                     Icon { name: "folder" }
@@ -84,30 +80,24 @@ pub fn Library() -> Element {
                                 }
                             },
                             Row::Page { id, name, depth } => {
-                                let icon = app
-                                    .with_page(id, |page| match page.kind {
-                                        PageKind::Sequence => "article",
-                                        PageKind::Static => "bulletlist",
-                                    })
-                                    .unwrap_or("bulletlist");
+                                let icon = app.with_page(id, |p| match p.kind {
+                                    PageKind::Sequence => "article",
+                                    PageKind::Static => "bulletlist",
+                                }).unwrap_or("bulletlist");
 
                                 rsx! {
                                     p {
                                         key: "p{id}",
-                                        class: if opened == Some(id) {
-                                            "library-page library-opened"
-                                        } else {
-                                            "library-page"
-                                        },
+                                        class: if opened == Some(id) { "library-page library-opened" } else { "library-page" },
                                         style: "--depth: {depth}",
                                         onclick: move |_| {
-                                            if opened_page() != Some(id) { opened_page.set(Some(id)) }
+                                            if opened_page() != Some(id) { opened_page.set(Some(id)); }
                                         },
                                         Icon { name: icon }
                                         "{name}"
                                     }
                                 }
-                            },
+                            }
                         }
                     }
                 }

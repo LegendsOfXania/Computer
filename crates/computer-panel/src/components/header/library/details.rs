@@ -4,7 +4,6 @@ use crate::{
     ws::Client,
 };
 use computer_model::page::Page;
-
 use dioxus::prelude::*;
 use dioxus_i18n::tid;
 use dioxus_primitives::toast::{ToastOptions, use_toast};
@@ -13,10 +12,12 @@ const NONE: &str = "—";
 
 #[component]
 pub fn Details() -> Element {
-    let app = use_context::<AppState>();
-    let client = use_context::<Client>();
-    let ui = use_context::<UiState>();
-    let toast = use_toast();
+    let (app, client, ui, toast) = (
+        use_context::<AppState>(),
+        use_context::<Client>(),
+        use_context::<UiState>(),
+        use_toast(),
+    );
 
     let mut opened_page = ui.page;
 
@@ -113,10 +114,7 @@ pub fn Details() -> Element {
                         class: "library-name-input",
                         value: "{name}",
                         disabled: none,
-                        onchange: move |e| {
-                            let v = e.value();
-                            edit.call(Box::new(move |p| p.name = v));
-                        },
+                        onchange: move |e| edit.call(Box::new(move |p| p.name = e.value())),
                     }
                 }
                 p { class: "library-id", "{id}" }
@@ -124,60 +122,40 @@ pub fn Details() -> Element {
 
             div { class: "library-meta",
                 p {
-                    span { class: "library-label",
-                        Icon { name: "git-commit" }
-                        {tid!("header-library-opened-page-kind")}
-                    }
+                    span { class: "library-label", Icon { name: "git-commit" } {tid!("header-library-opened-page-kind")} }
                     span { "{kind}" }
                 }
-
                 p {
-                    span { class: "library-label",
-                        Icon { name: "arrow-big-up-dash" }
-                        {tid!("header-library-opened-page-priority")}
-                    }
+                    span { class: "library-label", Icon { name: "arrow-big-up-dash" } {tid!("header-library-opened-page-priority")} }
                     input {
                         r#type: "number",
                         value: "{priority}",
                         placeholder,
                         disabled: none,
                         onchange: move |e| {
-                            let Ok(v) = e.value().parse::<i32>() else { return };
-                            edit.call(Box::new(move |p| p.priority = v));
+                            if let Ok(v) = e.value().parse::<i32>() {
+                                edit.call(Box::new(move |p| p.priority = v));
+                            }
                         },
                     }
                 }
-
                 p {
-                    span { class: "library-label",
-                        Icon { name: "folder" }
-                        {tid!("header-library-opened-page-chapter")}
-                    }
+                    span { class: "library-label", Icon { name: "folder" } {tid!("header-library-opened-page-chapter")} }
                     input {
                         value: "{chapter}",
                         placeholder,
                         disabled: none,
                         onchange: move |e| {
                             let v = e.value();
-                            edit.call(Box::new(move |p| {
-                                p.chapter = (!v.trim().is_empty()).then_some(v);
-                            }));
+                            edit.call(Box::new(move |p| p.chapter = (!v.trim().is_empty()).then_some(v)));
                         },
                     }
                 }
             }
 
             div { class: "library-footer",
-                Btn {
-                    icon: "plus",
-                    tooltip: tid!("header-library-tooltip-create-page"),
-                    onclick: create,
-                }
-                Btn {
-                    icon: "trash",
-                    tooltip: tid!("header-library-tooltip-delete-page"),
-                    onclick: delete,
-                }
+                Btn { icon: "plus", tooltip: tid!("header-library-tooltip-create-page"), onclick: create }
+                Btn { icon: "trash", tooltip: tid!("header-library-tooltip-delete-page"), onclick: delete }
             }
         }
     }

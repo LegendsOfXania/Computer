@@ -40,7 +40,6 @@ pub fn Panel() -> Element {
         document::Stylesheet { href: asset!("/assets/style/utils/btn.css") }
         document::Stylesheet { href: asset!("/assets/style/utils/toast.css") }
         document::Stylesheet { href: asset!("/assets/style/inspector/window.css") }
-        document::Stylesheet { href: asset!("/assets/style/inspector/fields.css") }
 
         ToastProvider {
             Header {}

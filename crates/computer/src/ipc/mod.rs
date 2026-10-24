@@ -2,8 +2,8 @@ mod registry;
 
 use computer_model::ipc::{ComputerMessage, ExtensionMessage, IpcMessage};
 use pumpkin_plugin_api::{
-    FromIntoEvent, Result, Server,
-    events::{EventHandler, ServerLoadEvent},
+    Result, Server,
+    events::{EventData, EventHandler, ServerLoadEvent},
     events_wit::ServerLoadType,
     ipc::send_ipc_message,
 };
@@ -40,8 +40,8 @@ impl EventHandler<ServerLoadEvent> for OnServerLoad {
     fn handle(
         &self,
         _server: Server,
-        event: <ServerLoadEvent as FromIntoEvent>::Data,
-    ) -> <ServerLoadEvent as FromIntoEvent>::Data {
+        event: EventData<ServerLoadEvent>,
+    ) -> EventData<ServerLoadEvent> {
         if matches!(event.load_type, ServerLoadType::Startup) {
             for extension in &data::conf::get_conf().extensions {
                 if let Err(error) = ask(extension, ComputerMessage::RequestRegistry) {

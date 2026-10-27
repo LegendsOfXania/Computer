@@ -6,6 +6,8 @@ license.workspace = true
 authors.workspace = true
 
 [dependencies]
+rand.workspace = true
+uuid.workspace = true
 indexmap.workspace = true
 serde.workspace = true
 postcard.workspace = true

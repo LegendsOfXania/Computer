@@ -16,16 +16,13 @@ pub enum FieldKind {
     Reference,
     Enum(Vec<String>),
     Struct(Vec<FieldDefinition>),
-    List(Box<FieldKind>),
-    Map {
-        key: Box<FieldKind>,
-        value: Box<FieldKind>,
-    },
-    Variant(Vec<Case>)
+    List(Box<Self>),
+    Map { key: Box<Self>, value: Box<Self> },
+    Variant(Vec<Variant>),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Case {
+pub struct Variant {
     pub name: String,
     pub fields: Vec<FieldDefinition>,
 }

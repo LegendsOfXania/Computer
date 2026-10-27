@@ -1,37 +1,26 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{entry::Entry, key::EntryKey, page::Page};
+use crate::{
+    entry::Entry,
+    id::{EntryId, PageId},
+    page::Page,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Request {
-    CreatePage { 
-        page: Page
-    },
-    
-    UpdatePage {
-        page: Page
-    },
+    CreatePage { page: Page },
 
-    DeletePage { 
-        page_id: u64
-    },
+    UpdatePage { page: Page },
 
-    CreateEntry {
-        entry: Entry
-    },
+    DeletePage { page_id: PageId },
 
-    UpdateEntry {
-        entry: Entry
-    },
+    CreateEntry { entry: Entry },
 
-    DeleteEntry {
-        key: EntryKey
-    },
+    UpdateEntry { entry: Entry },
 
-    MoveEntry {
-        key: EntryKey,
-        page_id: u64
-    },
+    DeleteEntry { entry_id: EntryId },
+
+    MoveEntry { entry_id: EntryId, page_id: PageId },
 
     Push,
 }

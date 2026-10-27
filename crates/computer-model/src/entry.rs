@@ -1,35 +1,22 @@
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
-use crate::{field::FieldDefinition, key::EntryKey, value::Value};
+use crate::{field::FieldDefinition, id::EntryId, value::Value};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EntryDefinition {
     pub kind: String,
-    pub version: u32,
     pub tags: Vec<String>,
     pub fields: Vec<FieldDefinition>,
+    pub icon: String,
+    pub color: String,
+    pub version: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Entry {
-    pub key: EntryKey,
+    pub id: EntryId,
     pub kind: String,
-    pub version: u32,
     pub fields: IndexMap<String, Value>,
-}
-
-pub(crate) mod entries {
-    use serde::Deserializer;
-
-    use super::*;
-
-    pub(crate) use crate::list::serialize;
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<IndexMap<EntryKey, Entry>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        crate::list::deserialize(deserializer, |entry: &Entry| entry.key)
-    }
+    pub version: u32,
 }

@@ -1,6 +1,8 @@
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use uuid::Uuid;
 
-use crate::Registry;
+use crate::{Registry, entry::Entry, id::TaskId, interaction::InteractionContext, value::Value};
 
 pub const IPC_VERSION: u32 = 1;
 
@@ -16,7 +18,7 @@ pub trait IpcMessage: Serialize + DeserializeOwned {
         if version != IPC_VERSION {
             return Err(format!(
                 "IPC version mismatch: received v{version}, expected v{IPC_VERSION} \
-                 (Computer and the extension are built against different versions)"
+                 (Computer and the extension are built against different versions.)"
             ));
         }
 
@@ -27,6 +29,27 @@ pub trait IpcMessage: Serialize + DeserializeOwned {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ExtensionMessage {
     Registry(Registry),
+
+    Fire {
+        kind: String,
+        fields: IndexMap<String, Value>,
+        player: Uuid,
+    },
+
+    Pending {
+        task: TaskId,
+    },
+
+    Finished {
+        context: InteractionContext,
+        task: TaskId,
+    },
+
+    Error {
+        context: InteractionContext,
+        task: TaskId,
+        error: String,
+    },
 }
 
 impl IpcMessage for ExtensionMessage {}
@@ -34,6 +57,18 @@ impl IpcMessage for ExtensionMessage {}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ComputerMessage {
     RequestRegistry,
+
+    ActiveKinds(Vec<String>),
+
+    Trigger {
+        entry: Entry,
+        context: InteractionContext,
+        task: TaskId,
+    },
+
+    Cancel {
+        task: TaskId,
+    },
 }
 
 impl IpcMessage for ComputerMessage {}

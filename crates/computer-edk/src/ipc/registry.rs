@@ -1,60 +1,54 @@
-use std::{
-    collections::HashSet,
-    sync::{Mutex, MutexGuard},
-};
+use std::{collections::HashSet, sync::Mutex};
 
 use computer_model::{EntryDefinition, Registry, ipc::ExtensionMessage};
 
 static LOCAL: Mutex<Option<Registry>> = Mutex::new(None);
 
-fn local() -> MutexGuard<'static, Option<Registry>> {
-    LOCAL
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
-}
-
-fn validate(definitions: &[EntryDefinition]) -> Result<(), String> {
-    let mut kinds = HashSet::new();
-
-    for definition in definitions {
-        if !kinds.insert(definition.kind.as_str()) {
-            return Err(format!("entry `{}` is registered twice", definition.kind));
-        }
-
-        let mut names = HashSet::new();
-
-        if let Some(field) = definition
-            .fields
-            .iter()
-            .find(|field| !names.insert(field.name.as_str()))
-        {
-            return Err(format!(
-                "entry `{}` has the field `{}` twice (inherited from its base?)",
-                definition.kind, field.name
-            ));
-        }
-    }
-
-    Ok(())
-}
+pub static ACTIVE_KINDS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
 pub fn register_entries(entries: &[fn() -> EntryDefinition]) -> Result<(), String> {
-    if local().is_some() {
-        return Err(
-            "entries are already registered: list every entry in a single `register`".into(),
-        );
+    let definitions: Vec<_> = entries.iter().map(|entry| entry()).collect();
+    let mut kinds = HashSet::new();
+
+    for definition in &definitions {
+        if !kinds.insert(definition.kind.as_str()) {
+            return Err(format!(
+                "Entry kind `{}` is registered more than once",
+                definition.kind
+            ));
+        }
+
+        let mut fields = HashSet::new();
+
+        for field in &definition.fields {
+            if !fields.insert(field.name.as_str()) {
+                return Err(format!(
+                    "Entry `{}` declares field `{}` more than once",
+                    definition.kind, field.name
+                ));
+            }
+        }
     }
 
-    let definitions: Vec<_> = entries.iter().map(|entry| entry()).collect();
-    validate(&definitions)?;
+    let mut registry = LOCAL
+        .lock()
+        .map_err(|_| "Entry registry lock poisoned".to_owned())?;
 
-    *local() = Some(Registry::new(definitions));
+    if registry.is_some() {
+        return Err("Entries have already been registered".into());
+    }
+
+    *registry = Some(Registry::new(definitions));
 
     Ok(())
 }
 
 pub fn answer() -> Result<ExtensionMessage, String> {
-    let registry = local().clone().ok_or("no entries registered yet")?;
+    let registry = LOCAL
+        .lock()
+        .map_err(|_| "Entry registry lock poisoned".to_owned())?
+        .clone()
+        .ok_or_else(|| "No entries have been registered".to_owned())?;
 
     Ok(ExtensionMessage::Registry(registry))
 }

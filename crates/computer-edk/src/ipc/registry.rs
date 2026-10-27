@@ -13,7 +13,7 @@ pub fn register_entries(entries: &[fn() -> EntryDefinition]) -> Result<(), Strin
     for definition in &definitions {
         if !kinds.insert(definition.kind.as_str()) {
             return Err(format!(
-                "Entry kind `{}` is registered more than once",
+                "Entry kind `{}` is registered multiple times",
                 definition.kind
             ));
         }
@@ -23,7 +23,7 @@ pub fn register_entries(entries: &[fn() -> EntryDefinition]) -> Result<(), Strin
         for field in &definition.fields {
             if !fields.insert(field.name.as_str()) {
                 return Err(format!(
-                    "Entry `{}` declares field `{}` more than once",
+                    "Entry `{}` declares field `{}` more multiple times",
                     definition.kind, field.name
                 ));
             }

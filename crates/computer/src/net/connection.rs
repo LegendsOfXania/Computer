@@ -8,7 +8,10 @@ use std::{
     },
 };
 
-use computer_model::protocol::{event::Event, message::ServerMessage};
+use computer_model::{
+    id::Token,
+    protocol::{event::Event, message::ServerMessage},
+};
 use tungstenite::WebSocket;
 
 use crate::net::{
@@ -43,7 +46,7 @@ pub struct Socket {
     pub idle: u32,
     pub since_ping: u32,
     pub invalid: u32,
-    pub session: Option<String>,
+    pub session: Option<Token>,
 }
 
 impl Socket {
@@ -97,7 +100,7 @@ impl Connection {
     pub fn poll(
         self,
         assets: &HashMap<String, Asset>,
-        sessions: &HashMap<String, Session>,
+        sessions: &HashMap<Token, Session>,
     ) -> (Option<Self>, Vec<Event>) {
         match self {
             Self::Pending {

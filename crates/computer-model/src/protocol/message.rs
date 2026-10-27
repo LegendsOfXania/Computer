@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::{
     Library, Registry,
+    id::Token,
     protocol::{event::Event, request::Request},
 };
 
@@ -40,7 +41,7 @@ pub trait ProtocolMessage: Serialize + DeserializeOwned {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ClientMessage {
-    Hello { version: u32, token: String },
+    Hello { version: u32, token: Token },
 
     Request { id: u64, request: Request },
 }

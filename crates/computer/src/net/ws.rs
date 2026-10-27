@@ -4,6 +4,7 @@ use std::{
     net::TcpStream,
 };
 
+use computer_model::id::Token;
 use computer_model::protocol::{
     PROTOCOL_VERSION,
     event::Event,
@@ -89,8 +90,20 @@ enum Outcome {
     Close,
 }
 
-pub fn poll(socket: &mut Socket, sessions: &HashMap<String, Session>) -> (bool, Vec<Event>) {
+pub fn poll(socket: &mut Socket, sessions: &HashMap<Token, Session>) -> (bool, Vec<Event>) {
     let mut events = Vec::new();
+
+    if let Some(token) = &socket.session
+        && !sessions.contains_key(token)
+    {
+        tracing::info!(
+            "Panel client #{} ({}) disconnected: its session expired",
+            socket.id,
+            socket.peer,
+        );
+
+        return (false, events);
+    }
 
     socket.age += 1;
     socket.idle += 1;
@@ -186,7 +199,7 @@ fn note_invalid(socket: &mut Socket, what: &str) -> bool {
     socket.invalid >= MAX_INVALID_FRAMES
 }
 
-fn on_data(socket: &mut Socket, data: &[u8], sessions: &HashMap<String, Session>) -> Outcome {
+fn on_data(socket: &mut Socket, data: &[u8], sessions: &HashMap<Token, Session>) -> Outcome {
     let message = match ClientMessage::decode(data) {
         Ok(message) => message,
 
@@ -211,8 +224,8 @@ fn on_data(socket: &mut Socket, data: &[u8], sessions: &HashMap<String, Session>
 fn on_hello(
     socket: &mut Socket,
     version: u32,
-    token: String,
-    sessions: &HashMap<String, Session>,
+    token: Token,
+    sessions: &HashMap<Token, Session>,
 ) -> Outcome {
     if socket.ready {
         tracing::warn!(

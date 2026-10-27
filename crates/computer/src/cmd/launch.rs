@@ -1,3 +1,4 @@
+use computer_model::id::Token;
 use pumpkin_plugin_api::{
     Result, Server,
     command::{CommandError, CommandNode, CommandSender, ConsumedArgs},
@@ -47,7 +48,12 @@ impl CommandHandler for Launch {
             }
         };
 
-        let url = format!("http://{}:{}/#t={}", conf.panel.ip, conf.panel.port, token,);
+        let url = format!(
+            "http://{}:{}/#t={}",
+            conf.panel.ip,
+            conf.panel.port,
+            token.as_str(),
+        );
 
         let panel_url = TextComponent::text("Open ")
             .add_child(
@@ -128,7 +134,7 @@ impl CommandHandler for Launch {
     }
 }
 
-fn register_session(token: String, sender: CommandSender) -> Result<(), CommandError> {
+fn register_session(token: Token, sender: CommandSender) -> Result<(), CommandError> {
     match srv::register_session(token, sender) {
         Ok(()) => Ok(()),
 

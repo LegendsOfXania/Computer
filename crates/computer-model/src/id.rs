@@ -35,6 +35,12 @@ macro_rules! define_identifier {
                 self.0
             }
         }
+
+        impl $name {
+            pub fn as_str(&self) -> &str {
+                &self.0
+            }
+        }
     };
 }
 
@@ -42,3 +48,4 @@ define_identifier!(PageId);
 define_identifier!(EntryId);
 define_identifier!(TaskId);
 define_identifier!(InteractionId);
+define_identifier!(Token);

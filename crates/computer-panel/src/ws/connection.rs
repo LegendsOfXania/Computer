@@ -1,5 +1,6 @@
 use std::{cell::Cell, pin::pin};
 
+use computer_model::id::{Identifier, Token};
 use computer_model::protocol::{
     PROTOCOL_VERSION,
     message::{ClientMessage, ProtocolMessage, ServerMessage},
@@ -127,7 +128,7 @@ async fn session(
 
     let hello = ClientMessage::Hello {
         version: PROTOCOL_VERSION,
-        token: token,
+        token,
     };
 
     let hello = match hello.encode() {
@@ -242,10 +243,10 @@ async fn ws_url() -> Result<String, String> {
         .ok_or_else(|| "Could not read WebSocket URL: unexpected eval result".to_string())
 }
 
-async fn get_token() -> Result<String, String> {
+async fn get_token() -> Result<Token, String> {
     let value = dioxus::document::eval(
         r#"
-            return new URLSearchParams(location.search).get("t");
+            return new URLSearchParams(location.hash.slice(1)).get("t");
         "#,
     )
     .await
@@ -253,7 +254,7 @@ async fn get_token() -> Result<String, String> {
 
     value
         .as_str()
-        .map(str::to_owned)
-        .filter(|t| !t.is_empty())
+        .filter(|token| !token.is_empty())
+        .map(|token| Token::from_string(token.to_owned()))
         .ok_or_else(|| "Token is missing in the page URL".to_string())
 }

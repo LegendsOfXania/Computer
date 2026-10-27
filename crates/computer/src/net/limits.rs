@@ -20,3 +20,9 @@ pub const MAX_MESSAGE_SIZE: usize = 4 << 20;
 pub const MAX_WRITE_BUFFER: usize = 16 << 20;
 
 pub const FLUSH_INTERVAL: u32 = TICKS_PER_SECOND;
+
+pub const SESSION_PENDING_TTL: u32 = 10 * 60 * TICKS_PER_SECOND;
+
+pub const SESSION_GRACE: u32 = 10 * 60 * TICKS_PER_SECOND;
+
+pub const SESSION_MAX_AGE: u32 = 12 * 60 * 60 * TICKS_PER_SECOND;

@@ -1,4 +1,4 @@
-use computer_model::page::Page;
+use computer_model::{id::PageId, page::Page};
 use std::collections::BTreeMap;
 
 pub enum Row {
@@ -8,7 +8,7 @@ pub enum Row {
         depth: usize,
     },
     Page {
-        id: u64,
+        id: PageId,
         name: String,
         depth: usize,
     },
@@ -16,7 +16,7 @@ pub enum Row {
 
 #[derive(Default)]
 struct Node {
-    pages: Vec<(i32, u64, String)>,
+    pages: Vec<(i32, PageId, String)>,
     children: BTreeMap<String, Node>,
 }
 
@@ -69,7 +69,8 @@ pub fn flatten<'a>(pages: impl Iterator<Item = &'a Page>) -> Vec<Row> {
                 n.children.entry(seg.to_string()).or_default()
             });
 
-        node.pages.push((page.priority, page.id, page.name.clone()));
+        node.pages
+            .push((page.priority, page.id.clone(), page.name.clone()));
     }
 
     let mut rows = Vec::new();

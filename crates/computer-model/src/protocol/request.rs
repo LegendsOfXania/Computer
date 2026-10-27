@@ -14,7 +14,7 @@ pub enum Request {
 
     DeletePage { page_id: PageId },
 
-    CreateEntry { entry: Entry },
+    CreateEntry { entry: Entry, page_id: PageId },
 
     UpdateEntry { entry: Entry },
 

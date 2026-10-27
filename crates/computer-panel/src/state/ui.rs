@@ -1,16 +1,16 @@
-use computer_model::key::EntryKey;
+use computer_model::id::{EntryId, PageId};
 use dioxus::prelude::*;
 
 #[derive(Clone, PartialEq)]
 pub struct Win {
-    pub key: EntryKey,
+    pub id: EntryId,
     pub x: i32,
     pub y: i32,
 }
 
 #[derive(Clone, Copy)]
 pub struct UiState {
-    pub page: Signal<Option<u64>>,
+    pub page: Signal<Option<PageId>>,
     pub windows: Signal<Vec<Win>>,
 }
 
@@ -24,32 +24,37 @@ impl UiState {
         }
     }
 
-    pub fn open(&self, key: EntryKey) {
+    pub fn open(&self, id: &EntryId) {
         let mut windows = self.windows;
         let mut wins = windows.write();
-        let win = match wins.iter().position(|w| w.key == key) {
+
+        let win = match wins.iter().position(|w| &w.id == id) {
             Some(i) => wins.remove(i),
             None => {
-                let n = wins.len() as i32;
+                let n = i32::try_from(wins.len()).unwrap_or(i32::MAX);
+                let offset = n.saturating_mul(30);
+
                 Win {
-                    key,
-                    x: 40 + 30 * n,
-                    y: ORIGIN_Y + 30 * n,
+                    id: id.clone(),
+                    x: 40_i32.saturating_add(offset),
+                    y: ORIGIN_Y.saturating_add(offset),
                 }
             }
         };
+
         wins.push(win);
     }
 
-    pub fn close(&self, key: EntryKey) {
+    pub fn close(&self, id: &EntryId) {
         let mut windows = self.windows;
-        windows.write().retain(|w| w.key != key);
+        windows.write().retain(|w| &w.id != id);
     }
 
-    pub fn focus(&self, key: EntryKey) {
+    pub fn focus(&self, id: &EntryId) {
         let mut windows = self.windows;
         let mut wins = windows.write();
-        if let Some(i) = wins.iter().position(|w| w.key == key) {
+
+        if let Some(i) = wins.iter().position(|w| &w.id == id) {
             if i + 1 != wins.len() {
                 let win = wins.remove(i);
                 wins.push(win);
@@ -57,15 +62,16 @@ impl UiState {
         }
     }
 
-    pub fn move_by(&self, key: EntryKey, dx: i32, dy: i32) {
+    pub fn move_by(&self, id: &EntryId, dx: i32, dy: i32) {
         let mut windows = self.windows;
-        if let Some(w) = windows.write().iter_mut().find(|w| w.key == key) {
-            w.x += dx;
-            w.y = (w.y + dy).max(0);
+
+        if let Some(win) = windows.write().iter_mut().find(|w| &w.id == id) {
+            win.x = win.x.saturating_add(dx);
+            win.y = win.y.saturating_add(dy).max(0);
         }
     }
 
-    pub fn active(&self) -> Option<EntryKey> {
-        self.windows.read().last().map(|w| w.key)
+    pub fn active(&self) -> Option<EntryId> {
+        self.windows.read().last().map(|w| w.id.clone())
     }
 }

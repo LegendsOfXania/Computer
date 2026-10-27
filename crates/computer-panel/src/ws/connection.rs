@@ -1,21 +1,21 @@
 use std::{cell::Cell, pin::pin};
 
 use computer_model::protocol::{
-    message::{ClientMessage, ProtocolMessage, ServerMessage},
     PROTOCOL_VERSION,
+    message::{ClientMessage, ProtocolMessage, ServerMessage},
 };
 use dioxus::hooks::{UnboundedReceiver, use_context, use_coroutine};
 use dioxus::prelude::use_hook;
 use dioxus::signals::{Signal, WritableExt};
 use futures_util::{
-    future::{select, Either},
     SinkExt, StreamExt,
+    future::{Either, select},
 };
-use gloo_net::websocket::{futures::WebSocket, Message};
+use gloo_net::websocket::{Message, futures::WebSocket};
 use gloo_timers::future::TimeoutFuture;
 use tracing::{error, warn};
 
-use crate::state::{app::AppState, ConnectionStatus};
+use crate::state::{ConnectionStatus, app::AppState};
 
 use super::client::{Client, Pending};
 
@@ -120,8 +120,14 @@ async fn session(
 
     let (mut write, mut read) = ws.split();
 
+    let token = match get_token().await {
+        Ok(t) => t,
+        Err(err) => return (End::Refused(err), false),
+    };
+
     let hello = ClientMessage::Hello {
         version: PROTOCOL_VERSION,
+        token: token,
     };
 
     let hello = match hello.encode() {
@@ -159,28 +165,24 @@ async fn session(
             };
 
             match frame {
-                Ok(Message::Bytes(bytes)) => {
-                    match ServerMessage::decode(&bytes) {
-                        Ok(ServerMessage::Handshake(Ok(_))) => {
-                            connected.set(true);
-                            status.set(ConnectionStatus::Connected);
-                        }
-
-                        Ok(ServerMessage::Handshake(Err(reason))) => {
-                            return End::Refused(reason);
-                        }
-
-                        Ok(ServerMessage::Response { id, result }) => {
-                            pending.resolve(id, result)
-                        }
-
-                        Ok(message) => state.apply(message),
-
-                        Err(error) => {
-                            error!("Could not decode ServerMessage: {error}");
-                        }
+                Ok(Message::Bytes(bytes)) => match ServerMessage::decode(&bytes) {
+                    Ok(ServerMessage::Handshake(Ok(_))) => {
+                        connected.set(true);
+                        status.set(ConnectionStatus::Connected);
                     }
-                }
+
+                    Ok(ServerMessage::Handshake(Err(reason))) => {
+                        return End::Refused(reason);
+                    }
+
+                    Ok(ServerMessage::Response { id, result }) => pending.resolve(id, result),
+
+                    Ok(message) => state.apply(message),
+
+                    Err(error) => {
+                        error!("Could not decode ServerMessage: {error}");
+                    }
+                },
 
                 Ok(Message::Text(_)) => {
                     warn!("Found text message, ignored");
@@ -195,9 +197,7 @@ async fn session(
         while let Some(message) = rx.next().await {
             match message.encode() {
                 Ok(bytes) => {
-                    if let Err(error) =
-                        write.send(Message::Bytes(bytes)).await
-                    {
+                    if let Err(error) = write.send(Message::Bytes(bytes)).await {
                         return End::Lost(error.to_string());
                     }
                 }
@@ -220,28 +220,40 @@ async fn session(
 }
 
 async fn ws_url() -> Result<String, String> {
-    let value = dioxus::document::eval(
-        if cfg!(feature = "dev") {
-            r#"
+    let value = dioxus::document::eval(if cfg!(feature = "dev") {
+        r#"
                 return location.protocol === "https:"
                     ? "wss://" + location.hostname + ":8080"
                     : "ws://" + location.hostname + ":8080";
             "#
-        } else {
-            r#"
+    } else {
+        r#"
                 return location.protocol === "https:"
                     ? "wss://" + location.host
                     : "ws://" + location.host;
             "#
-        },
-    )
+    })
     .await
     .map_err(|err| format!("Could not determine WebSocket URL: {err}"))?;
 
     value
         .as_str()
         .map(str::to_owned)
-        .ok_or_else(|| {
-            "Could not read WebSocket URL: unexpected eval result".to_string()
-        })
+        .ok_or_else(|| "Could not read WebSocket URL: unexpected eval result".to_string())
+}
+
+async fn get_token() -> Result<String, String> {
+    let value = dioxus::document::eval(
+        r#"
+            return new URLSearchParams(location.search).get("t");
+        "#,
+    )
+    .await
+    .map_err(|err| format!("Could not read token: {err}"))?;
+
+    value
+        .as_str()
+        .map(str::to_owned)
+        .filter(|t| !t.is_empty())
+        .ok_or_else(|| "Token is missing in the page URL".to_string())
 }

@@ -14,7 +14,7 @@ pub enum Event {
 
     PageDeleted { page_id: PageId },
 
-    EntryCreated { entry: Entry },
+    EntryCreated { entry: Entry, page_id: PageId },
 
     EntryUpdated { entry: Entry },
 

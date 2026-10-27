@@ -7,7 +7,7 @@ use std::{
 
 use computer_model::{
     Entry,
-    key::EntryKey,
+    id::{EntryId, Identifier, PageId},
     page::{Page, PageKind},
     protocol::{message::ClientMessage, request::Request},
 };
@@ -19,10 +19,7 @@ use futures_channel::oneshot::{self, Sender};
 use futures_util::future::{Either, select};
 use gloo_timers::future::TimeoutFuture;
 
-use crate::{
-    id,
-    state::{ConnectionStatus, app::AppState},
-};
+use crate::state::{ConnectionStatus, app::AppState};
 
 const TIMEOUT_MS: u32 = 10_000;
 
@@ -70,9 +67,9 @@ impl Client {
 
     pub async fn create_page(&self, name: String) -> Result<(), String> {
         let page = Page {
-            id: id::generate(),
+            id: PageId::new(),
             name,
-            kind: PageKind::Static,
+            kind: PageKind::Sequence,
             priority: 0,
             chapter: None,
             entries: Vec::new(),
@@ -81,17 +78,17 @@ impl Client {
         self.request(Request::CreatePage { page }).await
     }
 
-    pub async fn delete_page(&self, page_id: u64) -> Result<(), String> {
+    pub async fn delete_page(&self, page_id: PageId) -> Result<(), String> {
         self.request(Request::DeletePage { page_id }).await
     }
 
     pub async fn edit_page(
         &self,
         app: &AppState,
-        page_id: u64,
+        page_id: PageId,
         change: impl FnOnce(&mut Page),
     ) -> Result<(), String> {
-        let Some(mut page) = app.with_page(page_id, Clone::clone) else {
+        let Some(mut page) = app.with_page(&page_id, Clone::clone) else {
             return Ok(());
         };
 
@@ -102,10 +99,10 @@ impl Client {
     pub async fn edit_entry(
         &self,
         app: &AppState,
-        key: EntryKey,
+        id: EntryId,
         change: impl FnOnce(&mut Entry),
     ) -> Result<(), String> {
-        let Some(mut entry) = app.with_entry(key, Clone::clone) else {
+        let Some(mut entry) = app.with_entry(&id, Clone::clone) else {
             return Ok(());
         };
 

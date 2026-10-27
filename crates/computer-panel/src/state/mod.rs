@@ -1,5 +1,4 @@
 pub mod app;
-pub mod mock;
 pub mod ui;
 
 #[derive(Debug, Clone, PartialEq)]

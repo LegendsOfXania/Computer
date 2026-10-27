@@ -1,6 +1,6 @@
 mod graph;
 
-use computer_model::key::EntryKey;
+use computer_model::id::{EntryId, Identifier, PageId};
 use dioxus::prelude::*;
 use dioxus_flow::prelude::*;
 use std::collections::HashSet;
@@ -14,47 +14,41 @@ pub fn Editor() -> Element {
 
     let mut nodes = use_signal(Vec::<Node<NodeData>>::new);
     let mut edges = use_signal(Vec::<Edge>::new);
-    let mut shown = use_signal(|| None::<u64>);
+    let mut shown = use_signal(|| None::<PageId>);
     let handle = use_flow_handle::<NodeData>();
 
     let opened = use_memo(move || {
-        let mut keys: Vec<EntryKey> = ui.windows.read().iter().map(|w| w.key).collect();
-        keys.sort();
-        keys
+        ui.windows
+            .read()
+            .iter()
+            .map(|window| window.id.clone())
+            .collect::<Vec<EntryId>>()
     });
 
-    let mut select = move |key: Option<EntryKey>| {
-        let id = key.map(|k| k.to_string());
-        nodes.with_mut(|list| {
-            for n in list.iter_mut() {
-                n.selected = id.as_deref() == Some(&n.id) && !n.data.foreign;
-            }
-        });
-    };
-
     use_effect(move || {
-        let page_id = *ui.page.read();
+        let page_id = ui.page.read().clone();
         let graph = build();
 
         let selected: HashSet<String> = nodes
             .peek()
             .iter()
-            .filter(|n| n.selected)
-            .map(|n| n.id.clone())
+            .filter(|node| node.selected)
+            .map(|node| node.id.clone())
             .collect();
+
         let next = graph
             .nodes
             .into_iter()
-            .map(|mut n| {
-                n.selected = selected.contains(&n.id);
-                n
+            .map(|mut node| {
+                node.selected = selected.contains(&node.id);
+                node
             })
             .collect();
 
         nodes.set(next);
         edges.set(graph.edges);
 
-        if *shown.peek() != page_id {
+        if shown.peek().as_ref() != page_id.as_ref() {
             shown.set(page_id);
             handle.fit_view(250);
         }
@@ -74,38 +68,77 @@ pub fn Editor() -> Element {
                 nodes_draggable: false,
 
                 on_node_click: move |id: String| {
-                    if let Some(key) = nodes.read().iter().find(|n| n.id == id && !n.data.foreign).map(|n| n.data.key) {
-                        ui.open(key);
+                    let key = nodes
+                        .read()
+                        .iter()
+                        .find(|node| node.id == id && !node.data.foreign)
+                        .map(|node| node.data.key.clone());
+
+                    if let Some(key) = key {
+                        ui.open(&key);
                     }
                 },
 
                 node_view: move |ctx: NodeViewCtx<NodeData>| {
-                    let d = &ctx.node.data;
-                    let open = opened.read().contains(&d.key);
+                    let data = &ctx.node.data;
+                    let open = opened.read().contains(&data.key);
+
                     rsx! {
-                        div { class: format!("df-node-default{}{}", if open { " open" } else { "" }, if d.foreign { " foreign" } else { "" }),
-                            span { class: "df-node-label", "{ctx.node.label}" }
+                        div {
+                            class: format!(
+                                "df-node-default{}{}",
+                                if open { " open" } else { "" },
+                                if data.foreign { " foreign" } else { "" },
+                            ),
+                            span {
+                                class: "df-node-label",
+                                "{ctx.node.label}"
+                            }
                         }
                     }
                 },
 
-                Background { variant: BackgroundVariant::Lines, gap: 72.0 }
+                Background {
+                    variant: BackgroundVariant::Lines,
+                    gap: 72.0,
+                }
             }
 
             for key in opened() {
-                Window {
-                    key: "{key.0}-{key.1}",
-                    entry: key,
-                    onfocus: move |_| {
-                        ui.focus(key);
-                        select(Some(key));
-                    },
-                    onclose: move |_| {
-                        ui.close(key);
-                        select(ui.active());
-                    },
+                {
+                    let key_string = key.clone().into_string();
+                    let focus_id = key.clone();
+                    let close_id = key.clone();
+
+                    rsx! {
+                        Window {
+                            key: "{key_string}",
+                            entry: key,
+
+                            onfocus: move |_| {
+                                ui.focus(&focus_id);
+                                select_node(nodes, Some(&focus_id));
+                            },
+
+                            onclose: move |_| {
+                                ui.close(&close_id);
+                                let active = ui.active();
+                                select_node(nodes, active.as_ref());
+                            },
+                        }
+                    }
                 }
             }
         }
     }
+}
+
+fn select_node(mut nodes: Signal<Vec<Node<NodeData>>>, key: Option<&EntryId>) {
+    let id = key.map(|key| key.clone().into_string());
+
+    nodes.with_mut(|list| {
+        for node in list {
+            node.selected = id.as_deref() == Some(node.id.as_str()) && !node.data.foreign;
+        }
+    });
 }

@@ -1,16 +1,18 @@
 mod library;
 
 use crate::{
-    components::utils::{
-        icon::Icon,
-        toast::{ERR, OK},
+    components::{
+        header::library::Library,
+        utils::{
+            icon::Icon,
+            toast::{ERR, OK},
+        },
     },
     ws::Client,
 };
 use dioxus::prelude::*;
 use dioxus_i18n::tid;
 use dioxus_primitives::toast::{ToastOptions, use_toast};
-use library::Library;
 
 #[component]
 pub fn Header() -> Element {

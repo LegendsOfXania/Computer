@@ -5,7 +5,7 @@ use crate::{
     components::utils::icon::Icon,
     state::{app::AppState, ui::UiState},
 };
-use computer_model::page::PageKind;
+use computer_model::{id::Identifier, page::PageKind};
 use details::Details;
 use dioxus::{prelude::*, signals::ReadableExt};
 use dioxus_i18n::tid;
@@ -65,33 +65,51 @@ pub fn Library() -> Element {
 
                     for row in visible {
                         match row {
-                            Row::Chapter { name, path, depth } => rsx! {
-                                p {
-                                    key: "c{path}",
-                                    class: "library-chapter",
-                                    style: "--depth: {depth}",
-                                    onclick: move |_| {
-                                        collapsed.with_mut(|set| {
-                                            if !set.remove(&path) { set.insert(path.clone()); }
-                                        });
-                                    },
-                                    Icon { name: "folder" }
-                                    "{name}"
+                            Row::Chapter { name, path, depth } => {
+                                let key = path.clone();
+                                rsx! {
+                                    p {
+                                        key: "c{path}",
+                                        class: "library-chapter",
+                                        style: "--depth: {depth}",
+                                        onclick: move |_| {
+                                            collapsed.with_mut(|set| {
+                                                if !set.remove(&key) {
+                                                    set.insert(key.clone());
+                                                }
+                                            });
+                                        },
+                                        Icon { name: "folder" }
+                                        "{name}"
+                                    }
                                 }
                             },
+
                             Row::Page { id, name, depth } => {
-                                let icon = app.with_page(id, |p| match p.kind {
-                                    PageKind::Sequence => "article",
-                                    PageKind::Static => "bulletlist",
-                                }).unwrap_or("bulletlist");
+                                let icon = app
+                                    .with_page(&id, |page| match page.kind {
+                                        PageKind::Sequence => "article",
+                                        PageKind::Static => "bulletlist",
+                                    })
+                                    .unwrap_or("bulletlist");
+
+                                let selected = opened.as_ref() == Some(&id);
+                                let key = id.clone().into_string();
+                                let target = id.clone();
 
                                 rsx! {
                                     p {
-                                        key: "p{id}",
-                                        class: if opened == Some(id) { "library-page library-opened" } else { "library-page" },
+                                        key: "p{key}",
+                                        class: if selected {
+                                            "library-page library-opened"
+                                        } else {
+                                            "library-page"
+                                        },
                                         style: "--depth: {depth}",
                                         onclick: move |_| {
-                                            if opened_page() != Some(id) { opened_page.set(Some(id)); }
+                                            if opened_page().as_ref() != Some(&target) {
+                                                opened_page.set(Some(target.clone()));
+                                            }
                                         },
                                         Icon { name: icon }
                                         "{name}"

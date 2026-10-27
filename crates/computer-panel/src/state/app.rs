@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use computer_model::{
     entry::{Entry, EntryDefinition},
-    key::EntryKey,
+    id::{EntryId, PageId},
     page::Page,
     protocol::{event::Event, message::ServerMessage},
 };
@@ -11,8 +11,8 @@ use dioxus::signals::{ReadableExt, Signal, WritableExt};
 
 #[derive(Clone, Copy)]
 pub struct AppState {
-    pub pages: Signal<IndexMap<u64, Page>>,
-    pub entries: Signal<IndexMap<EntryKey, Entry>>,
+    pub pages: Signal<IndexMap<PageId, Page>>,
+    pub entries: Signal<IndexMap<EntryId, Entry>>,
     pub registry: Signal<HashMap<String, EntryDefinition>>,
 }
 
@@ -25,12 +25,12 @@ impl AppState {
         }
     }
 
-    pub fn with_page<P>(&self, id: u64, f: impl FnOnce(&Page) -> P) -> Option<P> {
-        self.pages.read().get(&id).map(f)
+    pub fn with_page<P>(&self, id: &PageId, f: impl FnOnce(&Page) -> P) -> Option<P> {
+        self.pages.read().get(id).map(f)
     }
 
-    pub fn with_entry<E>(&self, key: EntryKey, f: impl FnOnce(&Entry) -> E) -> Option<E> {
-        self.entries.peek().get(&key).map(f)
+    pub fn with_entry<E>(&self, id: &EntryId, f: impl FnOnce(&Entry) -> E) -> Option<E> {
+        self.entries.read().get(id).map(f)
     }
 
     pub fn apply(&mut self, msg: ServerMessage) {
@@ -45,7 +45,7 @@ impl AppState {
                     registry
                         .0
                         .into_iter()
-                        .map(|d| (d.kind.clone(), d))
+                        .map(|definition| (definition.kind.clone(), definition))
                         .collect(),
                 );
             }
@@ -59,11 +59,14 @@ impl AppState {
     pub fn apply_event(&mut self, event: Event) {
         match event {
             Event::PageCreated { page } => {
-                self.pages.write().insert(page.id, page);
+                let id = page.id.clone();
+                self.pages.write().insert(id, page);
             }
 
             Event::PageUpdated { page } => {
-                if let Some(existing) = self.pages.write().get_mut(&page.id) {
+                let id = page.id.clone();
+
+                if let Some(existing) = self.pages.write().get_mut(&id) {
                     *existing = page;
                 }
             }
@@ -74,39 +77,46 @@ impl AppState {
                 if let Some(page) = removed {
                     let mut entries = self.entries.write();
 
-                    for key in &page.entries {
-                        entries.shift_remove(key);
+                    for id in &page.entries {
+                        entries.shift_remove(id);
                     }
                 }
             }
 
-            Event::EntryCreated { entry } => {
-                let key = entry.key;
+            Event::EntryCreated { entry, page_id } => {
+                let id = entry.id.clone();
+                let mut pages = self.pages.write();
 
-                self.entries.write().insert(key, entry);
+                if !pages.contains_key(&page_id) {
+                    return;
+                }
 
-                if let Some(page) = self.pages.write().get_mut(&key.page_id()) {
-                    if !page.entries.contains(&key) {
-                        page.entries.push(key);
+                self.entries.write().insert(id.clone(), entry);
+
+                if let Some(page) = pages.get_mut(&page_id) {
+                    if !page.entries.contains(&id) {
+                        page.entries.push(id);
                     }
                 }
             }
 
             Event::EntryUpdated { entry } => {
-                if let Some(existing) = self.entries.write().get_mut(&entry.key) {
+                let id = entry.id.clone();
+
+                if let Some(existing) = self.entries.write().get_mut(&id) {
                     *existing = entry;
                 }
             }
 
-            Event::EntryDeleted { key } => {
-                self.entries.write().shift_remove(&key);
+            Event::EntryDeleted { entry_id } => {
+                self.entries.write().shift_remove(&entry_id);
 
                 for page in self.pages.write().values_mut() {
-                    page.entries.retain(|k| *k != key);
+                    page.entries.retain(|id| id != &entry_id);
                 }
             }
 
-            Event::EntryMoved { key, page_id } => {
+            Event::EntryMoved { entry_id, page_id } => {
                 let mut pages = self.pages.write();
 
                 if !pages.contains_key(&page_id) {
@@ -114,11 +124,11 @@ impl AppState {
                 }
 
                 for page in pages.values_mut() {
-                    page.entries.retain(|k| *k != key);
+                    page.entries.retain(|id| id != &entry_id);
                 }
 
                 if let Some(page) = pages.get_mut(&page_id) {
-                    page.entries.push(key);
+                    page.entries.push(entry_id);
                 }
             }
 

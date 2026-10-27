@@ -1,4 +1,3 @@
-use rand::RngExt;
 use serde::{Deserialize, Serialize};
 
 const CHARSET: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -17,9 +16,12 @@ macro_rules! define_identifier {
 
         impl Identifier for $name {
             fn new() -> Self {
-                let mut rng = rand::rng();
-                let value = (0..15)
-                    .map(|_| CHARSET[rng.random_range(0..CHARSET.len())] as char)
+                let mut bytes = [0u8; 15];
+                getrandom::fill(&mut bytes).expect("entropy source unavailable");
+
+                let value = bytes
+                    .iter()
+                    .map(|byte| CHARSET[*byte as usize % CHARSET.len()] as char)
                     .collect();
 
                 Self(value)

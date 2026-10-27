@@ -6,7 +6,7 @@ license.workspace = true
 authors.workspace = true
 
 [dependencies]
-rand.workspace = true
+getrandom.workspace = true
 uuid.workspace = true
 indexmap.workspace = true
 serde.workspace = true

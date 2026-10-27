@@ -17,17 +17,33 @@ pub fn handle(sender: String, message: Vec<u8>) -> Result<Vec<u8>> {
         ExtensionMessage::Registry(registry) => {
             registry::handle(sender, registry)?;
         }
+
+        ExtensionMessage::Fire { .. }
+        | ExtensionMessage::Pending { .. }
+        | ExtensionMessage::Finished { .. }
+        | ExtensionMessage::Error { .. } => {
+            return Err("This extension message is not handled yet".into());
+        }
     }
 
     Ok(Vec::new())
 }
 
 pub fn ask(extension: &str, message: ComputerMessage) -> Result<()> {
+    let expects_response = !matches!(&message, ComputerMessage::ActiveKinds(_));
     let request = message.encode()?;
 
     let response = send_ipc_message(extension, &request)
         .map_err(|()| "this plugin is not loaded".to_string())?
         .map_err(|reason| format!("it did not answer: {reason}"))?;
+
+    if response.is_empty() {
+        return if expects_response {
+            Err(format!("{extension} returned an empty IPC response").into())
+        } else {
+            Ok(())
+        };
+    }
 
     handle(extension.to_owned(), response)?;
 

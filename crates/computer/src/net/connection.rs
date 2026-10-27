@@ -3,8 +3,8 @@ use std::{
     io::{ErrorKind, Read, Write},
     net::TcpStream,
     sync::{
-        atomic::{AtomicU64, Ordering},
         Arc,
+        atomic::{AtomicU64, Ordering},
     },
 };
 
@@ -15,7 +15,7 @@ use crate::net::{
     assets::Asset,
     http,
     limits::{PENDING_TIMEOUT, TICKS_PER_SECOND, WRITE_STALL_TIMEOUT},
-    srv::REQUEST_BUFFER,
+    srv::{REQUEST_BUFFER, Session},
     ws,
 };
 
@@ -31,8 +31,6 @@ pub enum Connection {
     Writing(Writing),
 }
 
-
-
 static NEXT_SOCKET_ID: AtomicU64 = AtomicU64::new(1);
 
 pub struct Socket {
@@ -41,10 +39,11 @@ pub struct Socket {
     pub peer: String,
     pub ready: bool,
     pub replies: Vec<ServerMessage>,
-    pub age: u32,    
+    pub age: u32,
     pub idle: u32,
     pub since_ping: u32,
     pub invalid: u32,
+    pub session: Option<String>,
 }
 
 impl Socket {
@@ -59,6 +58,7 @@ impl Socket {
             idle: 0,
             since_ping: 0,
             invalid: 0,
+            session: None,
         }
     }
 }
@@ -86,10 +86,7 @@ pub struct Writing {
 }
 
 impl Connection {
-    pub fn pending(
-        stream: TcpStream,
-        buffer_size: usize,
-    ) -> Self {
+    pub fn pending(stream: TcpStream, buffer_size: usize) -> Self {
         Self::Pending {
             stream,
             buffer: Vec::with_capacity(buffer_size),
@@ -100,33 +97,27 @@ impl Connection {
     pub fn poll(
         self,
         assets: &HashMap<String, Asset>,
+        sessions: &HashMap<String, Session>,
     ) -> (Option<Self>, Vec<Event>) {
         match self {
-            Self::Pending { stream, buffer, age } => {
+            Self::Pending {
+                stream,
+                buffer,
+                age,
+            } => {
                 if age >= PENDING_TIMEOUT {
-                    tracing::debug!(
-                        "Dropped a connection that never sent a complete request"
-                    );
+                    tracing::debug!("Dropped a connection that never sent a complete request");
 
                     return (None, Vec::new());
                 }
 
-                (
-                    poll_pending(stream, buffer, age + 1, assets),
-                    Vec::new(),
-                )
+                (poll_pending(stream, buffer, age + 1, assets), Vec::new())
             }
 
-            Self::Writing(writing) => {
-                (
-                    poll_writing(writing),
-                    Vec::new(),
-                )
-            }
+            Self::Writing(writing) => (poll_writing(writing), Vec::new()),
 
             Self::WebSocket(mut socket) => {
-                let (alive, events) =
-                    ws::poll(&mut socket);
+                let (alive, events) = ws::poll(&mut socket, sessions);
 
                 if alive {
                     (Some(Self::WebSocket(socket)), events)
@@ -157,29 +148,21 @@ fn poll_pending(
                     break;
                 }
 
-                if http::parse(&buffer)
-                    .is_ok_and(|request| request.is_some())
-                {
+                if http::parse(&buffer).is_ok_and(|request| request.is_some()) {
                     break;
                 }
             }
 
-            Err(error)
-                if error.kind() == ErrorKind::WouldBlock =>
-            {
+            Err(error) if error.kind() == ErrorKind::WouldBlock => {
                 break;
             }
 
-            Err(error)
-                if error.kind() == ErrorKind::Interrupted =>
-            {
+            Err(error) if error.kind() == ErrorKind::Interrupted => {
                 continue;
             }
 
             Err(error) => {
-                tracing::debug!(
-                    "HTTP read failed: {error}"
-                );
+                tracing::debug!("HTTP read failed: {error}");
                 return None;
             }
         }
@@ -190,9 +173,7 @@ fn poll_pending(
 
         Ok(None) => {
             if buffer.len() >= REQUEST_BUFFER {
-                tracing::warn!(
-                    "Request headers exceeded {REQUEST_BUFFER} bytes"
-                );
+                tracing::warn!("Request headers exceeded {REQUEST_BUFFER} bytes");
 
                 return None;
             }
@@ -214,11 +195,7 @@ fn poll_pending(
         return ws::upgrade(stream, buffer, key);
     }
 
-    Some(serve_file(
-        stream,
-        assets,
-        &request.path,
-    ))
+    Some(serve_file(stream, assets, &request.path))
 }
 
 fn serve_file(
@@ -226,22 +203,16 @@ fn serve_file(
     assets: &HashMap<String, Asset>,
     request_path: &str,
 ) -> Connection {
-    let (status, reason, content_type, body) =
-        match http::resolve(assets, request_path) {
-            Some(asset) => (
-                200,
-                "OK",
-                asset.content_type,
-                asset.body.clone(),
-            ),
+    let (status, reason, content_type, body) = match http::resolve(assets, request_path) {
+        Some(asset) => (200, "OK", asset.content_type, asset.body.clone()),
 
-            None => (
-                404,
-                "Not Found",
-                "text/plain; charset=utf-8",
-                Arc::from(&b"Not Found"[..]),
-            ),
-        };
+        None => (
+            404,
+            "Not Found",
+            "text/plain; charset=utf-8",
+            Arc::from(&b"Not Found"[..]),
+        ),
+    };
 
     let header = format!(
         "HTTP/1.1 {status} {reason}\r\n\
@@ -268,7 +239,10 @@ fn poll_writing(mut writing: Writing) -> Option<Connection> {
 
     loop {
         let (data, sent) = if writing.header_sent < writing.header.len() {
-            (&writing.header[writing.header_sent..], &mut writing.header_sent)
+            (
+                &writing.header[writing.header_sent..],
+                &mut writing.header_sent,
+            )
         } else if writing.body_sent < writing.body.len() {
             (&writing.body[writing.body_sent..], &mut writing.body_sent)
         } else {
@@ -283,9 +257,7 @@ fn poll_writing(mut writing: Writing) -> Option<Connection> {
                 progressed = true;
             }
 
-            Err(error)
-                if error.kind() == ErrorKind::WouldBlock =>
-            {
+            Err(error) if error.kind() == ErrorKind::WouldBlock => {
                 if progressed {
                     writing.stalled = 0;
                 } else {
@@ -293,9 +265,7 @@ fn poll_writing(mut writing: Writing) -> Option<Connection> {
                 }
 
                 if writing.stalled >= WRITE_STALL_TIMEOUT {
-                    tracing::debug!(
-                        "Dropped a client that stopped reading"
-                    );
+                    tracing::debug!("Dropped a client that stopped reading");
 
                     return None;
                 }
@@ -303,13 +273,10 @@ fn poll_writing(mut writing: Writing) -> Option<Connection> {
                 return Some(Connection::Writing(writing));
             }
 
-            Err(error)
-                if error.kind() == ErrorKind::Interrupted => {}
+            Err(error) if error.kind() == ErrorKind::Interrupted => {}
 
             Err(error) => {
-                tracing::debug!(
-                    "HTTP write failed: {error}"
-                );
+                tracing::debug!("HTTP write failed: {error}");
                 return None;
             }
         }

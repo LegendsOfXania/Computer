@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     io::{ErrorKind, Write},
     net::TcpStream,
 };
@@ -25,7 +26,7 @@ use crate::{
             MAX_WRITE_BUFFER, PENDING_TIMEOUT, PING_INTERVAL,
         },
         request,
-        srv::State,
+        srv::{Session, State},
     },
 };
 
@@ -47,13 +48,11 @@ pub fn upgrade(mut stream: TcpStream, buffer: Vec<u8>, key: String) -> Option<Co
 
         Err(error) if error.kind() == ErrorKind::WouldBlock => {
             tracing::debug!("WebSocket handshake response would block");
-
             return None;
         }
 
         Err(error) => {
             tracing::warn!("WebSocket handshake response failed: {error}");
-
             return None;
         }
     }
@@ -90,7 +89,7 @@ enum Outcome {
     Close,
 }
 
-pub fn poll(socket: &mut Socket) -> (bool, Vec<Event>) {
+pub fn poll(socket: &mut Socket, sessions: &HashMap<String, Session>) -> (bool, Vec<Event>) {
     let mut events = Vec::new();
 
     socket.age += 1;
@@ -103,7 +102,7 @@ pub fn poll(socket: &mut Socket) -> (bool, Vec<Event>) {
                 socket.idle = 0;
 
                 match message {
-                    Message::Binary(bytes) => match on_data(socket, &bytes) {
+                    Message::Binary(bytes) => match on_data(socket, &bytes, sessions) {
                         Outcome::Continue => {}
 
                         Outcome::Event(event) => {
@@ -129,9 +128,7 @@ pub fn poll(socket: &mut Socket) -> (bool, Vec<Event>) {
                 }
             }
 
-            Err(error) if is_would_block(&error) => {
-                break;
-            }
+            Err(error) if is_would_block(&error) => break,
 
             Err(WsError::ConnectionClosed | WsError::AlreadyClosed) => {
                 return (false, events);
@@ -139,7 +136,6 @@ pub fn poll(socket: &mut Socket) -> (bool, Vec<Event>) {
 
             Err(error) => {
                 tracing::warn!("WebSocket error: {error}");
-
                 return (false, events);
             }
         }
@@ -169,7 +165,6 @@ fn keep_alive(socket: &mut Socket) -> bool {
 
             Err(error) => {
                 tracing::debug!("Could not ping WebSocket client: {error}");
-
                 return false;
             }
         }
@@ -191,7 +186,7 @@ fn note_invalid(socket: &mut Socket, what: &str) -> bool {
     socket.invalid >= MAX_INVALID_FRAMES
 }
 
-fn on_data(socket: &mut Socket, data: &[u8]) -> Outcome {
+fn on_data(socket: &mut Socket, data: &[u8], sessions: &HashMap<String, Session>) -> Outcome {
     let message = match ClientMessage::decode(data) {
         Ok(message) => message,
 
@@ -207,13 +202,43 @@ fn on_data(socket: &mut Socket, data: &[u8]) -> Outcome {
     socket.invalid = 0;
 
     match message {
-        ClientMessage::Hello { version } => on_hello(socket, version),
+        ClientMessage::Hello { version, token } => on_hello(socket, version, token, sessions),
 
         ClientMessage::Request { id, request } => on_request(socket, id, request),
     }
 }
 
-fn on_hello(socket: &mut Socket, version: u32) -> Outcome {
+fn on_hello(
+    socket: &mut Socket,
+    version: u32,
+    token: String,
+    sessions: &HashMap<String, Session>,
+) -> Outcome {
+    if socket.ready {
+        tracing::warn!(
+            "Panel client #{} ({}) sent Hello more than once",
+            socket.id,
+            socket.peer,
+        );
+
+        return Outcome::Close;
+    }
+
+    if !sessions.contains_key(&token) {
+        tracing::warn!(
+            "Panel client #{} ({}) refused: invalid session token",
+            socket.id,
+            socket.peer,
+        );
+
+        let _ = send_message(
+            &mut socket.ws,
+            &ServerMessage::Handshake(Err("Invalid or expired session token".to_string())),
+        );
+
+        return Outcome::Close;
+    }
+
     if version != PROTOCOL_VERSION {
         tracing::warn!(
             "Panel client #{} ({}) refused: it speaks protocol v{version}, the engine v{PROTOCOL_VERSION}",
@@ -260,6 +285,7 @@ fn on_hello(socket: &mut Socket, version: u32) -> Outcome {
         return Outcome::Close;
     }
 
+    socket.session = Some(token);
     socket.ready = true;
 
     tracing::info!(
@@ -272,7 +298,7 @@ fn on_hello(socket: &mut Socket, version: u32) -> Outcome {
 }
 
 fn on_request(socket: &mut Socket, id: u64, request: Request) -> Outcome {
-    if !socket.ready {
+    if !socket.ready || socket.session.is_none() {
         tracing::warn!("Request received before the handshake, rejected");
 
         socket.replies.push(ServerMessage::Response {
@@ -328,13 +354,11 @@ fn send_bytes(ws: &mut WebSocket<TcpStream>, bytes: Bytes) -> Result<(), ()> {
 
         Err(WsError::WriteBufferFull(_)) => {
             tracing::warn!("Dropped a WebSocket client that is too slow");
-
             Err(())
         }
 
         Err(error) => {
             tracing::debug!("Could not send message: {error}");
-
             Err(())
         }
     }
@@ -390,7 +414,6 @@ pub fn send_replies(state: &mut State) {
 
             Err(error) => {
                 tracing::debug!("Could not flush WebSocket: {error}");
-
                 false
             }
         }

@@ -16,7 +16,7 @@ use tree::{Row, flatten};
 pub fn Library() -> Element {
     let (app, ui) = (use_context::<AppState>(), use_context::<UiState>());
     let mut collapsed = use_signal(HashSet::<String>::new);
-    let mut opened_page = ui.page;
+    let mut opened_page = ui.opened_page;
 
     let (rows, opened, closed) = (
         flatten(app.pages.read().values()),

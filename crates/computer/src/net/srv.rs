@@ -1,6 +1,6 @@
 use std::{collections::HashMap, io::ErrorKind, net::TcpListener};
 
-use computer_model::id::Token;
+use computer_model::id::{Identifier, Token};
 use parking_lot::Mutex;
 use pumpkin_plugin_api::{Server, command::CommandSender, scheduler::SchedulerExt};
 

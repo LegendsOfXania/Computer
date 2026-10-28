@@ -19,7 +19,7 @@ pub fn Details() -> Element {
         use_toast(),
     );
 
-    let mut opened_page = ui.page;
+    let mut opened_page = ui.opened_page;
 
     let fail = use_callback(move |(title, error): (String, String)| {
         toast.error(title, ToastOptions::new().description(error).duration(ERR));

@@ -1,32 +1,25 @@
 mod graph;
 
-use computer_model::id::{EntryId, Identifier, PageId};
+use computer_model::id::PageId;
 use dioxus::prelude::*;
 use dioxus_flow::prelude::*;
 use std::collections::HashSet;
 
-use crate::{components::inspector::window::Window, state::ui::UiState};
+use crate::state::ui::UiState;
 use graph::{NodeData, build};
 
 #[component]
 pub fn Editor() -> Element {
     let ui = use_context::<UiState>();
+    let mut opened_entry = ui.opened_entry;
 
     let mut nodes = use_signal(Vec::<Node<NodeData>>::new);
     let mut edges = use_signal(Vec::<Edge>::new);
     let mut shown = use_signal(|| None::<PageId>);
     let handle = use_flow_handle::<NodeData>();
 
-    let opened = use_memo(move || {
-        ui.windows
-            .read()
-            .iter()
-            .map(|window| window.id.clone())
-            .collect::<Vec<EntryId>>()
-    });
-
     use_effect(move || {
-        let page_id = ui.page.read().clone();
+        let page_id = ui.opened_page.read().clone();
         let graph = build();
 
         let selected: HashSet<String> = nodes
@@ -50,6 +43,7 @@ pub fn Editor() -> Element {
 
         if shown.peek().as_ref() != page_id.as_ref() {
             shown.set(page_id);
+            opened_entry.set(None);
             handle.fit_view(250);
         }
     });
@@ -75,25 +69,19 @@ pub fn Editor() -> Element {
                         .map(|node| node.data.key.clone());
 
                     if let Some(key) = key {
-                        ui.open(&key);
+                        opened_entry.set(Some(key));
                     }
                 },
 
                 node_view: move |ctx: NodeViewCtx<NodeData>| {
-                    let data = &ctx.node.data;
-                    let open = opened.read().contains(&data.key);
-
                     rsx! {
                         div {
-                            class: format!(
-                                "df-node-default{}{}",
-                                if open { " open" } else { "" },
-                                if data.foreign { " foreign" } else { "" },
-                            ),
-                            span {
-                                class: "df-node-label",
-                                "{ctx.node.label}"
-                            }
+                            class: if ctx.node.data.foreign {
+                                "df-node-default foreign"
+                            } else {
+                                "df-node-default"
+                            },
+                            span { class: "df-node-label", "{ctx.node.label}" }
                         }
                     }
                 },
@@ -103,42 +91,6 @@ pub fn Editor() -> Element {
                     gap: 72.0,
                 }
             }
-
-            for key in opened() {
-                {
-                    let key_string = key.clone().into_string();
-                    let focus_id = key.clone();
-                    let close_id = key.clone();
-
-                    rsx! {
-                        Window {
-                            key: "{key_string}",
-                            entry: key,
-
-                            onfocus: move |_| {
-                                ui.focus(&focus_id);
-                                select_node(nodes, Some(&focus_id));
-                            },
-
-                            onclose: move |_| {
-                                ui.close(&close_id);
-                                let active = ui.active();
-                                select_node(nodes, active.as_ref());
-                            },
-                        }
-                    }
-                }
-            }
         }
     }
-}
-
-fn select_node(mut nodes: Signal<Vec<Node<NodeData>>>, key: Option<&EntryId>) {
-    let id = key.map(|key| key.clone().into_string());
-
-    nodes.with_mut(|list| {
-        for node in list {
-            node.selected = id.as_deref() == Some(node.id.as_str()) && !node.data.foreign;
-        }
-    });
 }

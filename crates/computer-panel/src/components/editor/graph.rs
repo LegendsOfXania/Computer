@@ -27,7 +27,7 @@ pub fn build() -> Graph {
     let (app, ui) = (consume_context::<AppState>(), consume_context::<UiState>());
     let (pages, entries) = (app.pages.read(), app.entries.read());
 
-    let Some(page_id) = ui.page.read().as_ref().cloned() else {
+    let Some(page_id) = ui.opened_page.read().as_ref().cloned() else {
         return Graph::default();
     };
 

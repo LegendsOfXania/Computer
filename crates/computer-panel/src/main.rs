@@ -18,7 +18,11 @@ fn main() {
 fn App() -> Element {
     use_context_provider(|| Signal::new(ConnectionStatus::Connecting));
 
-    use_context_provider(AppState::new);
+    use_context_provider(|| {
+        let mut state = AppState::new();
+        state::mock::load(&mut state);
+        state
+    });
     use_context_provider(UiState::new);
 
     let client = ws_client();

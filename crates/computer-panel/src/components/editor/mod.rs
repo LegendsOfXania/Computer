@@ -5,8 +5,8 @@ use dioxus::prelude::*;
 use dioxus_flow::prelude::*;
 use std::collections::HashSet;
 
-use crate::state::ui::UiState;
-use graph::{NodeData, build};
+use crate::{components::utils::icon::Icon, state::ui::UiState};
+use graph::{NodeData, build, layout};
 
 #[component]
 pub fn Editor() -> Element {
@@ -44,6 +44,16 @@ pub fn Editor() -> Element {
         if shown.peek().as_ref() != page_id.as_ref() {
             shown.set(page_id);
             opened_entry.set(None);
+        }
+    });
+
+    use_effect(move || {
+        let current = nodes.read().clone();
+        let current_edges = edges.read().clone();
+        let mut next = current.clone();
+
+        if layout(&mut next, &current_edges) {
+            nodes.set(next);
             handle.fit_view(250);
         }
     });
@@ -53,7 +63,9 @@ pub fn Editor() -> Element {
         document::Stylesheet { href: asset!("/assets/style/editor/node.css") }
         document::Stylesheet { href: asset!("/assets/style/editor/edge.css") }
 
-        div { style: "width: 100%; height: 100%;",
+        div {
+            style: "width: 100%; height: 100%;",
+
             Flow {
                 nodes,
                 edges,
@@ -81,7 +93,13 @@ pub fn Editor() -> Element {
                             } else {
                                 "df-node-default"
                             },
-                            span { class: "df-node-label", "{ctx.node.label}" }
+
+                            Icon { name: ctx.node.data.icon.clone() }
+
+                            span {
+                                class: "df-node-label",
+                                "{ctx.node.label}"
+                            }
                         }
                     }
                 },

@@ -1,16 +1,15 @@
 use dioxus::prelude::*;
-use include_dir::{include_dir, Dir};
 
-static ICONS_DIR: Dir = include_dir!("crates/computer-panel/assets/icons");
+const ICONS: Asset = asset!("/assets/icons");
 
 #[component]
-pub fn Icon(#[props(default = "close")] name: &'static str) -> Element {
-    let content = ICONS_DIR
-        .get_file(format!("{}.svg", name))
-        .and_then(|f| f.contents_utf8())
-        .unwrap_or("");
+pub fn Icon(#[props(into, default = "close".to_string())] name: String) -> Element {
+    let url = format!("{ICONS}/{name}.svg");
 
     rsx! {
-        div { class: "icon", dangerous_inner_html: content }
+        span {
+            class: "icon",
+            style: "-webkit-mask-image: url({url}); mask-image: url({url});",
+        }
     }
 }

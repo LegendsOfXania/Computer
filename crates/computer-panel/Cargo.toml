@@ -16,7 +16,6 @@ gloo-timers.workspace = true
 futures-util.workspace = true
 futures-channel.workspace = true
 tracing.workspace = true
-include_dir.workspace = true
 serde_json.workspace = true
 js-sys.workspace = true
 dioxus-primitives.workspace = true

@@ -8,6 +8,8 @@
     border-radius: 4px;
     text-align: left;
     font-size: smaller;
+    background: var(--node-color, var(--surface-2));
+    gap: 10px;
 }
 
 .dioxus-flow .df-node.df-selected .df-node-default {
@@ -18,9 +20,11 @@
 }
 
 .dioxus-flow .df-node-default.foreign {
-    opacity: 0.5;
-    outline: 1px solid var(--faint);
-    outline-offset: -1px;
+    opacity: 70%;
+}
+
+.dioxus-flow .df-node-default.foreign:hover {
+    opacity: 1;
 }
 
 .dioxus-flow .df-node:focus {

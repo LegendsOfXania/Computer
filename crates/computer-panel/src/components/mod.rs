@@ -1,5 +1,6 @@
 mod editor;
 mod header;
+mod inspector;
 mod utils;
 
 use dioxus::prelude::*;

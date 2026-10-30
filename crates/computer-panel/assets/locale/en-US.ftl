@@ -19,8 +19,19 @@ library-empty = Your library seems to be empty
 library-new-page-name = New page
 
 ## Toasts
-toast-push-success = Changes pushed
+toast-push-succes = Changes pushed
 toast-push-failed = Failed to push changes
 toast-edit-page-failed = Failed to edit the page
 toast-create-page-failed = Failed to create the page
 toast-delete-page-failed = Failed to delete the page
+
+## Inspector
+inspector-close = Close
+inspector-add = Add
+inspector-remove = Remove
+inspector-key = Key
+inspector-value = Value
+inspector-unknown-kind = Unknown entry type
+inspector-reference-none = None
+inspector-reference-missing = Entry not found
+toast-edit-entry-failed = Failed to edit the entry

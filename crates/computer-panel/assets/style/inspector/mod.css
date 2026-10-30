@@ -1,0 +1,258 @@
+.inspector {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 10;
+
+    display: flex;
+    flex-direction: column;
+
+    width: 380px;
+    max-width: 100%;
+
+    color: var(--fg);
+    background: var(--bg);
+    border-top: 1px solid var(--line);
+    border-left: 1px solid var(--line);
+
+    visibility: hidden;
+    transform: translateX(100%);
+    transition:
+        transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+        visibility 0s linear 240ms;
+}
+
+.inspector.open {
+    visibility: visible;
+    transform: none;
+    transition:
+        transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+        visibility 0s;
+}
+
+.inspector-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--line);
+}
+
+.inspector-icon {
+    --icon: 16px;
+
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+}
+
+.inspector-title {
+    flex: 1;
+    min-width: 0;
+}
+
+.inspector-kind {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.inspector-id {
+    overflow: hidden;
+    color: var(--faint);
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.inspector-fields {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 18px;
+    min-height: 0;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.inspector-empty {
+    padding: 20px;
+    color: var(--dim);
+    text-align: center;
+}
+
+/* Champs : label au-dessus, contrôle en dessous */
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.field-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 18px;
+}
+
+.field-label {
+    color: var(--dim);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.field-input {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    padding: 8px 10px;
+    color: var(--fg);
+    font: inherit;
+    font-size: 13px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    outline: none;
+    color-scheme: dark;
+    transition: border-color 160ms ease;
+}
+
+.field-input:focus {
+    border-color: var(--main);
+}
+
+.field-input[type="number"] {
+    appearance: textfield;
+    -moz-appearance: textfield;
+}
+
+.field-input[type="number"]::-webkit-inner-spin-button,
+.field-input[type="number"]::-webkit-outer-spin-button {
+    margin: 0;
+    -webkit-appearance: none;
+}
+
+textarea.field-input {
+    field-sizing: content;
+    resize: none;
+    overflow: hidden;
+    white-space: pre;
+}
+
+textarea.field-input.multiline {
+    min-height: 4.5em;
+    max-height: 240px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+}
+
+.toggle {
+    position: relative;
+    flex: none;
+    width: 32px;
+    height: 18px;
+    margin: 0;
+    background: var(--surface-2);
+    border-radius: 9px;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    transition: background 160ms ease;
+}
+
+.toggle::before {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    background: var(--dim);
+    border-radius: 50%;
+    transition:
+        transform 160ms ease,
+        background 160ms ease;
+}
+
+.toggle:checked {
+    background: var(--main);
+}
+
+.toggle:checked::before {
+    background: var(--fg);
+    transform: translateX(14px);
+}
+
+.field-ref {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 10px;
+    font-size: 13px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+}
+
+.field-ref small {
+    color: var(--dim);
+    font-size: 11px;
+}
+
+.field-ref.empty {
+    color: var(--faint);
+}
+
+.field-ref.missing {
+    color: var(--warn);
+    border-color: var(--warn);
+}
+
+/* Types composés */
+
+.field-group,
+.field-variant,
+.field-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+}
+
+.field-group {
+    padding-left: 12px;
+    border-left: 1px solid var(--line);
+}
+
+.field-variant > .field-group {
+    margin-top: 2px;
+}
+
+.field-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.field-item-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.field-pair {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.field-list > .btn {
+    align-self: flex-start;
+}

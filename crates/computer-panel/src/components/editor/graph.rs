@@ -1,6 +1,6 @@
 use crate::state::{app::AppState, ui::UiState};
 use computer_model::{
-    id::{EntryId, Identifier},
+    id::{EntryId, Identifier, PageId},
     page::PageKind,
     value::Value,
 };
@@ -11,8 +11,7 @@ use std::collections::{HashMap, HashSet};
 #[derive(Clone, PartialEq)]
 pub struct NodeData {
     pub key: EntryId,
-    pub foreign: bool,
-    pub color: String,
+    pub foreign: Option<PageId>,
     pub icon: String,
 }
 
@@ -23,83 +22,68 @@ pub struct Graph {
 }
 
 pub fn build() -> Graph {
-    let app = consume_context::<AppState>();
-    let ui = consume_context::<UiState>();
+    let (app, ui) = (consume_context::<AppState>(), consume_context::<UiState>());
     let pages = app.pages.read();
     let entries = app.entries.read();
     let registry = app.registry.read();
 
-    let Some(page_id) = ui.opened_page.read().clone() else {
+    let Some(page) = ui.opened_page.read().as_ref().and_then(|id| pages.get(id)) else {
         return Graph::default();
     };
 
-    let Some(page) = pages.get(&page_id) else {
-        return Graph::default();
-    };
+    let owners: HashMap<&EntryId, (&PageId, bool)> = pages
+        .iter()
+        .flat_map(|(id, origin)| {
+            let is_static = origin.kind == PageKind::Static;
+            origin
+                .entries
+                .iter()
+                .map(move |entry| (entry, (id, is_static)))
+        })
+        .collect();
 
-    let mut owners = HashMap::new();
-    let mut static_entries = HashSet::new();
-
-    for (owner, page) in pages.iter() {
-        for id in &page.entries {
-            owners.insert(id.clone(), owner.clone());
-
-            if page.kind == PageKind::Static {
-                static_entries.insert(id.clone());
-            }
-        }
-    }
-
-    let local: Vec<_> = page
+    let local: Vec<&EntryId> = page
         .entries
         .iter()
         .filter(|id| entries.contains_key(*id))
-        .cloned()
         .collect();
 
-    let mut links = Vec::new();
-    let mut seen_links = HashSet::new();
+    let in_page: HashSet<&EntryId> = local.iter().copied().collect();
+
+    let mut links: Vec<(&EntryId, EntryId)> = Vec::new();
 
     if page.kind != PageKind::Static {
-        for source in &local {
-            let Some(entry) = entries.get(source) else {
-                continue;
-            };
-
+        for &source in &local {
             let mut targets = HashSet::new();
 
-            for value in entry.fields.values() {
+            for value in entries[source].fields.values() {
                 collect_refs(value, &mut targets);
             }
 
-            for target in targets {
-                if target == *source
-                    || static_entries.contains(&target)
-                    || !entries.contains_key(&target)
-                    || !seen_links.insert((source.clone(), target.clone()))
-                {
-                    continue;
-                }
-
-                links.push((source.clone(), target));
-            }
+            links.extend(
+                targets
+                    .into_iter()
+                    .filter(|target| {
+                        target != source
+                            && entries.contains_key(target)
+                            && owners.get(target).is_some_and(|&(_, is_static)| !is_static)
+                    })
+                    .map(|target| (source, target)),
+            );
         }
     }
 
-    let mut all = local.clone();
-    let mut known: HashSet<_> = local.iter().cloned().collect();
-
-    for (_, target) in &links {
-        if known.insert(target.clone()) {
-            all.push(target.clone());
-        }
-    }
-
-    let in_page: HashSet<_> = local.into_iter().collect();
-
-    let nodes = all
+    let foreign: HashMap<&EntryId, &PageId> = links
         .iter()
-        .filter_map(|key| {
+        .filter(|(_, target)| !in_page.contains(target))
+        .map(|(_, target)| (target, owners[target].0))
+        .collect();
+
+    let nodes = local
+        .iter()
+        .map(|&key| (key, None))
+        .chain(foreign.into_iter().map(|(key, origin)| (key, Some(origin))))
+        .filter_map(|(key, origin)| {
             let entry = entries.get(key)?;
             let definition = registry.get(&entry.kind);
 
@@ -109,15 +93,13 @@ pub fn build() -> Graph {
             };
 
             let color = definition
-                .map(|definition| definition.color.clone())
+                .map(|definition| definition.color.as_str())
                 .filter(|color| !color.is_empty())
-                .unwrap_or_else(|| "var(--surface-2)".into());
+                .unwrap_or("var(--surface-2)");
 
             let icon = definition
                 .map(|definition| definition.icon.clone())
                 .unwrap_or_default();
-
-            let foreign = !in_page.contains(key);
 
             Some(
                 Node::with_data(
@@ -126,14 +108,13 @@ pub fn build() -> Graph {
                     Point::ZERO,
                     NodeData {
                         key: key.clone(),
-                        foreign,
-                        color: color.clone(),
+                        foreign: origin.cloned(),
                         icon,
                     },
                 )
                 .style(format!("--node-color: {color};"))
                 .sides(Side::Left, Side::Right)
-                .selectable(!foreign)
+                .selectable(origin.is_none())
                 .draggable(false),
             )
         })
@@ -142,21 +123,21 @@ pub fn build() -> Graph {
     let edges = links
         .into_iter()
         .map(|(source, target)| {
-            let same_page = owners
-                .get(&source)
-                .zip(owners.get(&target))
-                .is_some_and(|(source_page, target_page)| source_page == target_page);
-
             let color = entries
-                .get(&source)
+                .get(source)
                 .and_then(|entry| registry.get(&entry.kind))
                 .map(|definition| definition.color.as_str())
                 .filter(|color| !color.is_empty())
                 .unwrap_or("var(--faint)");
 
+            let cross_page = !in_page.contains(&target);
+
             let mut edge = Edge::new(source.clone().into_string(), target.into_string())
-                .kind(EdgeKind::SmoothStep)
-                .class(if same_page { "same-page" } else { "cross-page" });
+                .kind(EdgeKind::SmoothStep);
+
+            if cross_page {
+                edge = edge.class("cross-page");
+            }
 
             edge.style = Some(format!("stroke: {color};"));
             edge.selectable = false;
@@ -167,20 +148,17 @@ pub fn build() -> Graph {
     Graph { nodes, edges }
 }
 
-pub fn layout(nodes: &mut [Node<NodeData>], edges: &[Edge]) -> bool {
-    if nodes.is_empty() || nodes.iter().any(|node| node.measured.is_none()) {
-        return false;
-    }
-
-    let layout_nodes: Vec<_> = nodes
+pub fn layout(nodes: &[Node<NodeData>], edges: &[Edge]) -> Option<Vec<(usize, Point)>> {
+    let layout_nodes = nodes
         .iter()
-        .filter_map(|node| {
+        .map(|node| {
             Some(LayoutNode {
                 id: node.id.clone(),
                 size: node.measured?,
             })
         })
-        .collect();
+        .collect::<Option<Vec<_>>>()
+        .filter(|layout_nodes| !layout_nodes.is_empty())?;
 
     let layout_edges: Vec<_> = edges
         .iter()
@@ -193,18 +171,16 @@ pub fn layout(nodes: &mut [Node<NodeData>], edges: &[Edge]) -> bool {
         &LayoutOptions::default().direction(LayoutDirection::LeftToRight),
     );
 
-    let mut changed = false;
-
-    for node in nodes {
-        if let Some(position) = positions.get(&node.id) {
-            if node.position != *position {
-                node.position = *position;
-                changed = true;
-            }
-        }
-    }
-
-    changed
+    Some(
+        nodes
+            .iter()
+            .enumerate()
+            .filter_map(|(index, node)| {
+                let position = *positions.get(&node.id)?;
+                (node.position != position).then_some((index, position))
+            })
+            .collect(),
+    )
 }
 
 fn collect_refs(value: &Value, out: &mut HashSet<EntryId>) {

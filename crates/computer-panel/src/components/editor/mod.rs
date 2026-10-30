@@ -3,57 +3,82 @@ mod graph;
 use computer_model::id::PageId;
 use dioxus::prelude::*;
 use dioxus_flow::prelude::*;
-use std::collections::HashSet;
+use std::collections::HashMap;
 
-use crate::{components::utils::icon::Icon, state::ui::UiState};
+use crate::{
+    components::{inspector::Inspector, utils::icon::Icon},
+    state::ui::UiState,
+};
 use graph::{NodeData, build, layout};
 
 #[component]
 pub fn Editor() -> Element {
-    let ui = use_context::<UiState>();
+    let mut ui = use_context::<UiState>();
     let mut opened_entry = ui.opened_entry;
 
     let mut nodes = use_signal(Vec::<Node<NodeData>>::new);
     let mut edges = use_signal(Vec::<Edge>::new);
     let mut shown = use_signal(|| None::<PageId>);
+    let mut needs_fit = use_signal(|| false);
     let handle = use_flow_handle::<NodeData>();
 
     use_effect(move || {
         let page_id = ui.opened_page.read().clone();
         let graph = build();
+        let selected = opened_entry.peek().clone();
 
-        let selected: HashSet<String> = nodes
-            .peek()
-            .iter()
-            .filter(|node| node.selected)
-            .map(|node| node.id.clone())
-            .collect();
+        let next: Vec<_> = {
+            let old = nodes.peek();
+            let previous: HashMap<&str, _> = old
+                .iter()
+                .map(|node| (node.id.as_str(), (node.position, node.measured)))
+                .collect();
 
-        let next = graph
-            .nodes
-            .into_iter()
-            .map(|mut node| {
-                node.selected = selected.contains(&node.id);
-                node
-            })
-            .collect();
+            graph
+                .nodes
+                .into_iter()
+                .map(|mut node| {
+                    if let Some(&(position, measured)) = previous.get(node.id.as_str()) {
+                        node.position = position;
+                        node.measured = measured;
+                    }
 
-        nodes.set(next);
-        edges.set(graph.edges);
+                    node.selected =
+                        node.data.foreign.is_none() && selected.as_ref() == Some(&node.data.key);
+
+                    node
+                })
+                .collect()
+        };
 
         if shown.peek().as_ref() != page_id.as_ref() {
             shown.set(page_id);
-            opened_entry.set(None);
+            needs_fit.set(true);
+
+            if selected.is_some() && !next.iter().any(|node| node.selected) {
+                opened_entry.set(None);
+            }
         }
+
+        nodes.set(next);
+        edges.set(graph.edges);
     });
 
     use_effect(move || {
-        let current = nodes.read().clone();
-        let current_edges = edges.read().clone();
-        let mut next = current.clone();
+        let Some(moved) = layout(&nodes.read(), &edges.read()) else {
+            return;
+        };
 
-        if layout(&mut next, &current_edges) {
-            nodes.set(next);
+        if !moved.is_empty() {
+            nodes.with_mut(|nodes| {
+                for (index, position) in moved {
+                    nodes[index].position = position;
+                }
+            });
+        }
+
+        if *needs_fit.peek() {
+            needs_fit.set(false);
             handle.fit_view(250);
         }
     });
@@ -71,24 +96,30 @@ pub fn Editor() -> Element {
                 edges,
                 handle,
                 fit_view: true,
-                nodes_draggable: false,
 
                 on_node_click: move |id: String| {
-                    let key = nodes
+                    let Some((key, origin)) = nodes
                         .read()
                         .iter()
-                        .find(|node| node.id == id && !node.data.foreign)
-                        .map(|node| node.data.key.clone());
+                        .find(|node| node.id == id)
+                        .map(|node| (node.data.key.clone(), node.data.foreign.clone()))
+                    else {
+                        return;
+                    };
 
-                    if let Some(key) = key {
-                        opened_entry.set(Some(key));
+                    if let Some(page_id) = origin {
+                        ui.opened_page.set(Some(page_id));
                     }
+
+                    opened_entry.set(Some(key));
                 },
+
+                on_pane_click: move |_| opened_entry.set(None),
 
                 node_view: move |ctx: NodeViewCtx<NodeData>| {
                     rsx! {
                         div {
-                            class: if ctx.node.data.foreign {
+                            class: if ctx.node.data.foreign.is_some() {
                                 "df-node-default foreign"
                             } else {
                                 "df-node-default"
@@ -96,10 +127,7 @@ pub fn Editor() -> Element {
 
                             Icon { name: ctx.node.data.icon.clone() }
 
-                            span {
-                                class: "df-node-label",
-                                "{ctx.node.label}"
-                            }
+                            span { class: "df-node-label", "{ctx.node.label}" }
                         }
                     }
                 },
@@ -109,6 +137,8 @@ pub fn Editor() -> Element {
                     gap: 72.0,
                 }
             }
+
+            Inspector {}
         }
     }
 }

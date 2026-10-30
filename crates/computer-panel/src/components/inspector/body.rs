@@ -2,10 +2,7 @@ use computer_model::{Entry, EntryDefinition, value::Value};
 use dioxus::prelude::*;
 use dioxus_i18n::tid;
 
-use crate::components::{
-    inspector::fields::Field,
-    utils::{btn::Btn, icon::Icon},
-};
+use crate::components::{inspector::fields::Field, utils::btn::Btn};
 
 #[component]
 pub fn Body(
@@ -18,17 +15,28 @@ pub fn Body(
         .filter(|color| !color.is_empty())
         .unwrap_or("var(--surface-2)")
         .to_string();
+
     let id = entry.id.as_str().to_string();
+
+    let name = entry
+        .fields
+        .get("name")
+        .and_then(|value| match value {
+            Value::String(name) if !name.is_empty() => Some(name.as_str()),
+            _ => None,
+        })
+        .unwrap_or(&entry.kind);
 
     rsx! {
         div { class: "inspector-head",
-            span { class: "inspector-icon", style: "background: {color};",
-                Icon { name: definition.icon.clone() }
-            }
             div { class: "inspector-title",
-                p { class: "inspector-kind", "{entry.kind}" }
-                p { class: "inspector-id", "{id}" }
+                p { class: "inspector-name", style: "color: {color};", "{name}" }
+                div { class: "inspector-meta",
+                    span { class: "inspector-kind", style: "color: {color};", "{entry.kind}" }
+                    span { class: "inspector-id", "{id}" }
+                }
             }
+
             Btn {
                 icon: "close",
                 tooltip: tid!("inspector-close"),

@@ -34,39 +34,43 @@
 .inspector-head {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 16px 20px;
+    padding: 10px 16px;
     border-bottom: 1px solid var(--line);
 }
 
-.inspector-icon {
-    --icon: 16px;
-
-    display: flex;
-    flex: none;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-}
-
 .inspector-title {
-    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr;
     min-width: 0;
 }
 
-.inspector-kind {
-    font-size: 14px;
+.inspector-name {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    text-transform: capitalize;
+    font-size: 20px;
     font-weight: 600;
+    padding-right: 5px;
+}
+
+.inspector-kind {
+    grid-row: 2;
 }
 
 .inspector-id {
     overflow: hidden;
     color: var(--faint);
+    padding-left: 5px;
     font-size: 11px;
     text-overflow: ellipsis;
     white-space: nowrap;
+    grid-row: 2;
+}
+
+.inspector-head > button {
+    margin-left: auto;
+    flex-shrink: 0;
 }
 
 .inspector-fields {
@@ -84,8 +88,6 @@
     color: var(--dim);
     text-align: center;
 }
-
-/* Champs : label au-dessus, contrôle en dessous */
 
 .field {
     display: flex;
@@ -215,8 +217,6 @@ textarea.field-input.multiline {
     color: var(--warn);
     border-color: var(--warn);
 }
-
-/* Types composés */
 
 .field-group,
 .field-variant,

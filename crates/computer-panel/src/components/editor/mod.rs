@@ -136,9 +136,9 @@ pub fn Editor() -> Element {
                     variant: BackgroundVariant::Lines,
                     gap: 72.0,
                 }
-            }
 
-            Inspector {}
+                Inspector {}
+            }
         }
     }
 }

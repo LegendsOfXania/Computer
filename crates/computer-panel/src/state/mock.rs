@@ -230,7 +230,7 @@ pub fn library() -> Library {
             "sword",
             "basic:give_item",
             vec![
-                ("name", text("Starter sword")),
+                ("name", text("Starter sword CACAC CACACCAACCACACACACCACA")),
                 (
                     "item",
                     Value::Variant {

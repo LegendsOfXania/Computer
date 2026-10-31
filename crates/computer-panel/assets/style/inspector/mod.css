@@ -256,3 +256,29 @@ textarea.field-input.multiline {
 .field-list > .btn {
     align-self: flex-start;
 }
+
+.inspector-content {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    transition: filter 160ms ease;
+}
+
+.inspector.offline .inspector-content {
+    filter: blur(4px);
+    user-select: none;
+}
+
+.inspector-offline {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--error);
+    font-size: 14px;
+    font-weight: 600;
+    background: color-mix(in srgb, var(--bg) 55%, transparent);
+}

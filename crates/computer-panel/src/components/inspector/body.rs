@@ -8,6 +8,7 @@ use crate::components::{inspector::fields::Field, utils::btn::Btn};
 pub fn Body(
     entry: Entry,
     definition: EntryDefinition,
+    revision: u32,
     edit: Callback<(String, Value)>,
     close: EventHandler<()>,
 ) -> Element {
@@ -47,7 +48,7 @@ pub fn Body(
         div { class: "inspector-fields",
             for field in definition.fields.iter() {
                 Field {
-                    key: "{id}-{field.name}",
+                    key: "{id}-{revision}-{field.name}",
                     def: field.clone(),
                     value: entry.fields.get(&field.name).cloned().unwrap_or_else(|| field.default_value()),
                     onchange: {

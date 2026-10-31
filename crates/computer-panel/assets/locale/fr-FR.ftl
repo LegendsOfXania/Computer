@@ -35,3 +35,4 @@ inspector-unknown-kind = Type d'entrée inconnu
 inspector-reference-none = Aucune
 inspector-reference-missing = Entrée introuvable
 toast-edit-entry-failed = Échec de la modification de l'entrée
+inspector-offline = Déconnecté

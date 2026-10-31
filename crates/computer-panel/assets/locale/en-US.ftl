@@ -35,3 +35,4 @@ inspector-unknown-kind = Unknown entry type
 inspector-reference-none = None
 inspector-reference-missing = Entry not found
 toast-edit-entry-failed = Failed to edit the entry
+inspector-offline = Not connected

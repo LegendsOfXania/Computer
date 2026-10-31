@@ -15,7 +15,7 @@ pub struct NodeData {
     pub icon: String,
 }
 
-#[derive(Default)]
+#[derive(Default, PartialEq)]
 pub struct Graph {
     pub nodes: Vec<Node<NodeData>>,
     pub edges: Vec<Edge>,

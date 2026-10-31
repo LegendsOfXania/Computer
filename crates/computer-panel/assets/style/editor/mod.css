@@ -1,5 +1,12 @@
+.editor {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
 .dioxus-flow {
-  --df-grid: var(--surface-2);
-  --df-bg: var(--surface);
-  border-top: 1px solid var(--line);
+    --df-grid: var(--surface-2);
+    --df-bg: var(--surface);
+    border-top: 1px solid var(--line);
 }

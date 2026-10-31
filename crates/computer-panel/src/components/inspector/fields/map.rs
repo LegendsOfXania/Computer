@@ -5,10 +5,11 @@ use computer_model::{
 use dioxus::prelude::*;
 use dioxus_i18n::tid;
 
-use crate::components::{inspector::fields::Field, utils::btn::Btn};
+use crate::components::inspector::fields::{Field, card::Card, collapse::Collapse};
 
 #[component]
 pub fn MapEditor(
+    title: String,
     key_kind: FieldKind,
     value_kind: FieldKind,
     pairs: Vec<(Value, Value)>,
@@ -25,33 +26,30 @@ pub fn MapEditor(
             let (for_key, for_value, for_remove) = (pairs.clone(), pairs.clone(), pairs.clone());
 
             rsx! {
-                div { class: "field-item", key: "{index}",
-                    div { class: "field-item-body field-pair",
-                        Field {
-                            def: key_def.clone(),
-                            value: pair_key,
-                            onchange: move |new_key: Value| {
-                                let mut next = for_key.clone();
-                                next[index].0 = new_key;
-                                onchange.call(next);
-                            },
-                        }
-                        Field {
-                            def: value_def.clone(),
-                            value: pair_value,
-                            onchange: move |new_value: Value| {
-                                let mut next = for_value.clone();
-                                next[index].1 = new_value;
-                                onchange.call(next);
-                            },
-                        }
+                Card {
+                    key: "{index}",
+                    title: format!("{title} #{}", index + 1),
+                    onremove: move |_| {
+                        let mut next = for_remove.clone();
+                        next.remove(index);
+                        onchange.call(next);
+                    },
+
+                    Field {
+                        def: key_def.clone(),
+                        value: pair_key,
+                        onchange: move |new_key: Value| {
+                            let mut next = for_key.clone();
+                            next[index].0 = new_key;
+                            onchange.call(next);
+                        },
                     }
-                    Btn {
-                        icon: "trash",
-                        tooltip: tid!("inspector-remove"),
-                        onclick: move |_| {
-                            let mut next = for_remove.clone();
-                            next.remove(index);
+                    Field {
+                        def: value_def.clone(),
+                        value: pair_value,
+                        onchange: move |new_value: Value| {
+                            let mut next = for_value.clone();
+                            next[index].1 = new_value;
                             onchange.call(next);
                         },
                     }
@@ -72,9 +70,12 @@ pub fn MapEditor(
     };
 
     rsx! {
-        div { class: "field-list",
+        Collapse {
+            title: title.clone(),
+            count: Some(pairs.len()),
+            addable: true,
+            onadd: add,
             {rows}
-            Btn { icon: "plus", tooltip: tid!("inspector-add"), onclick: add }
         }
     }
 }

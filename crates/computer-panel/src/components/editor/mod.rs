@@ -124,7 +124,6 @@ pub fn Editor() -> Element {
                 nodes,
                 edges,
                 handle,
-                fit_view: true,
 
                 on_node_click: move |id: String| {
                     let Some((key, origin)) = nodes

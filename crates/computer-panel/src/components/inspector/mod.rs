@@ -8,25 +8,22 @@ use dioxus_primitives::toast::{ToastOptions, use_toast};
 
 use crate::{
     components::{inspector::body::Body, utils::toast::ERR},
-    state::{ConnectionStatus, app::AppState, ui::UiState},
+    state::{app::AppState, ui::UiState},
     ws::Client,
 };
 
 #[component]
 pub fn Inspector() -> Element {
-    let (app, ui, client, status, toast) = (
+    let (app, ui, client, toast) = (
         use_context::<AppState>(),
         use_context::<UiState>(),
         use_context::<Client>(),
-        use_context::<Signal<ConnectionStatus>>(),
         use_toast(),
     );
 
     let mut opened_entry = ui.opened_entry;
 
-    let mut revision = use_signal(|| 0_u32);
-
-    let offline = use_memo(move || !matches!(*status.read(), ConnectionStatus::Connected));
+    let mut revision = use_signal(|| 0u32);
 
     let fail = use_callback(move |error: String| {
         revision.set(revision() + 1);
@@ -61,38 +58,24 @@ pub fn Inspector() -> Element {
 
     let is_open = entry.read().is_some();
 
-    let class = match (is_open, offline()) {
-        (false, _) => "inspector",
-        (true, false) => "inspector open",
-        (true, true) => "inspector open offline",
-    };
-
     rsx! {
         document::Stylesheet { href: asset!("/assets/style/inspector/mod.css") }
 
-        aside { class,
-            div { class: "inspector-content", "inert": offline(),
-                {
-                    match (entry(), definition()) {
-                        (Some(entry), Some(definition)) => rsx! {
-                            Body {
-                                entry,
-                                definition,
-                                revision: revision(),
-                                edit,
-                                close: move |_| opened_entry.set(None),
-                            }
-                        },
-                        (Some(_), None) => rsx! {
-                            p { class: "inspector-empty", {tid!("inspector-unknown-kind")} }
-                        },
-                        _ => rsx! {},
+        aside { class: if is_open { "inspector open" } else { "inspector" },
+            match (entry(), definition()) {
+                (Some(entry), Some(definition)) => rsx! {
+                    Body {
+                        entry,
+                        definition,
+                        revision: revision(),
+                        edit,
+                        close: move |_| opened_entry.set(None),
                     }
-                }
-            }
-
-            if is_open && offline() {
-                div { class: "inspector-offline", {tid!("inspector-offline")} }
+                },
+                (Some(_), None) => rsx! {
+                    p { class: "inspector-empty", {tid!("inspector-unknown-kind")} }
+                },
+                _ => rsx! {},
             }
         }
     }

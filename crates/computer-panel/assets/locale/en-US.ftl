@@ -24,6 +24,7 @@ toast-push-failed = Failed to push changes
 toast-edit-page-failed = Failed to edit the page
 toast-create-page-failed = Failed to create the page
 toast-delete-page-failed = Failed to delete the page
+toast-edit-entry-failed = Failed to edit the entry
 
 ## Inspector
 inspector-close = Close
@@ -34,5 +35,3 @@ inspector-value = Value
 inspector-unknown-kind = Unknown entry type
 inspector-reference-none = None
 inspector-reference-missing = Entry not found
-toast-edit-entry-failed = Failed to edit the entry
-inspector-offline = Not connected

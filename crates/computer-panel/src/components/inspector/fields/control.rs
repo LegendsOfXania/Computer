@@ -6,12 +6,17 @@ use dioxus::prelude::*;
 use indexmap::IndexMap;
 
 use crate::components::inspector::fields::{
-    fields::Fields, float::FloatField, int::IntField, list::ListField, map::MapEditor,
-    reference::ReferenceField, text::TextField, variant::VariantEditor,
+    collapse::Collapse, fields::Fields, float::FloatField, int::IntField, list::ListField,
+    map::MapEditor, reference::ReferenceField, text::TextField, variant::VariantEditor,
 };
 
 #[component]
-pub fn Control(def: FieldDefinition, value: Value, onchange: EventHandler<Value>) -> Element {
+pub fn Control(
+    def: FieldDefinition,
+    value: Value,
+    onchange: EventHandler<Value>,
+    #[props(default)] title: String,
+) -> Element {
     match &def.kind {
         FieldKind::String => {
             let text = match value {
@@ -101,13 +106,21 @@ pub fn Control(def: FieldDefinition, value: Value, onchange: EventHandler<Value>
                 _ => IndexMap::new(),
             };
 
-            rsx! {
+            let group = rsx! {
                 Fields {
                     fields: fields.clone(),
                     values,
                     onchange: move |values: IndexMap<String, Value>| {
                         onchange.call(Value::Struct(values));
                     },
+                }
+            };
+
+            if title.is_empty() {
+                group
+            } else {
+                rsx! {
+                    Collapse { title, {group} }
                 }
             }
         }
@@ -120,6 +133,7 @@ pub fn Control(def: FieldDefinition, value: Value, onchange: EventHandler<Value>
 
             rsx! {
                 ListField {
+                    title,
                     inner: (**inner).clone(),
                     items,
                     onchange: move |items: Vec<Value>| onchange.call(Value::List(items)),
@@ -138,6 +152,7 @@ pub fn Control(def: FieldDefinition, value: Value, onchange: EventHandler<Value>
 
             rsx! {
                 MapEditor {
+                    title,
                     key_kind: (**map_key).clone(),
                     value_kind: (**map_value).clone(),
                     pairs,

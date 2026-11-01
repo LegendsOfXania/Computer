@@ -9,12 +9,14 @@ use crate::components::inspector::fields::control::Control;
 mod card;
 mod collapse;
 mod control;
+mod enumeration;
 mod fields;
 mod float;
 mod int;
 mod list;
 mod map;
 mod reference;
+mod structure;
 mod text;
 mod variant;
 
@@ -23,7 +25,7 @@ pub fn Field(def: FieldDefinition, value: Value, onchange: EventHandler<Value>) 
     let optional = def.has_flag("optional") && !matches!(def.kind, FieldKind::Reference);
     let composite = matches!(
         def.kind,
-        FieldKind::Struct(_) | FieldKind::List(_) | FieldKind::Map { .. }
+        FieldKind::Struct(_) | FieldKind::List(_) | FieldKind::Map { .. } | FieldKind::Variant(_)
     );
 
     let enabled = !optional || value != Value::Null;

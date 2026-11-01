@@ -6,8 +6,8 @@ use dioxus::prelude::*;
 use indexmap::IndexMap;
 
 use crate::components::inspector::fields::{
-    collapse::Collapse, fields::Fields, float::FloatField, int::IntField, list::ListField,
-    map::MapEditor, reference::ReferenceField, text::TextField, variant::VariantEditor,
+    enumeration::EnumField, float::FloatField, int::IntField, list::ListField, map::MapEditor,
+    reference::ReferenceField, structure::StructEditor, text::TextField, variant::VariantEditor,
 };
 
 #[component]
@@ -81,17 +81,10 @@ pub fn Control(
             };
 
             rsx! {
-                select {
-                    class: "field-input",
-                    onchange: move |event: FormEvent| onchange.call(Value::Enum(event.value())),
-                    for option in options.iter() {
-                        option {
-                            key: "{option}",
-                            value: "{option}",
-                            selected: *option == current,
-                            "{option}"
-                        }
-                    }
+                EnumField {
+                    options: options.clone(),
+                    value: current,
+                    onchange: move |name: String| onchange.call(Value::Enum(name)),
                 }
             }
         }
@@ -106,21 +99,14 @@ pub fn Control(
                 _ => IndexMap::new(),
             };
 
-            let group = rsx! {
-                Fields {
+            rsx! {
+                StructEditor {
+                    title,
                     fields: fields.clone(),
                     values,
                     onchange: move |values: IndexMap<String, Value>| {
                         onchange.call(Value::Struct(values));
                     },
-                }
-            };
-
-            if title.is_empty() {
-                group
-            } else {
-                rsx! {
-                    Collapse { title, {group} }
                 }
             }
         }
@@ -162,7 +148,7 @@ pub fn Control(
         }
 
         FieldKind::Variant(variants) => rsx! {
-            VariantEditor { variants: variants.clone(), value, onchange }
+            VariantEditor { title, variants: variants.clone(), value, onchange }
         },
     }
 }

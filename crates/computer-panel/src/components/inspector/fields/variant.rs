@@ -2,10 +2,14 @@ use computer_model::{field::Variant, value::Value};
 use dioxus::prelude::*;
 use indexmap::IndexMap;
 
-use crate::components::inspector::fields::fields::Fields;
+use crate::components::{
+    inspector::fields::{card::Card, collapse::Collapse, fields::Fields},
+    utils::icon::Icon,
+};
 
 #[component]
 pub fn VariantEditor(
+    title: String,
     variants: Vec<Variant>,
     value: Value,
     onchange: EventHandler<Value>,
@@ -56,20 +60,35 @@ pub fn VariantEditor(
         }
     };
 
-    rsx! {
+    let body = rsx! {
         div { class: "field-variant",
-            select { class: "field-input", onchange: pick,
-                for variant in variants.iter() {
-                    option {
-                        key: "{variant.name}",
-                        value: "{variant.name}",
-                        selected: variant.name == name,
-                        "{variant.name}"
+            div { class: "field-select-wrap",
+                Icon { name: "git-branch" }
+
+                select { class: "field-input", onchange: pick,
+                    for variant in variants.iter() {
+                        option {
+                            key: "{variant.name}",
+                            value: "{variant.name}",
+                            selected: variant.name == name,
+                            "{variant.name}"
+                        }
                     }
                 }
             }
+
             if !fields.is_empty() {
                 Fields { fields, values, onchange: update }
+            }
+        }
+    };
+
+    if title.is_empty() {
+        body
+    } else {
+        rsx! {
+            Collapse { title,
+                Card { {body} }
             }
         }
     }

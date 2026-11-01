@@ -104,6 +104,14 @@
     min-height: 18px;
 }
 
+.field-group,
+.field-variant {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+}
+
 .field-input {
     display: block;
     width: 100%;
@@ -112,7 +120,7 @@
     color: var(--fg);
     font: inherit;
     font-size: 13px;
-    background: var(--surface);
+    background: var(--field-bg, var(--surface));
     border: 1px solid transparent;
     border-radius: 5px;
     outline: none;
@@ -211,6 +219,25 @@ textarea.field-input.multiline {
     padding-left: 32px;
 }
 
+.field-select-wrap {
+    position: relative;
+}
+
+.field-select-wrap > .icon {
+    --icon: 14px;
+
+    position: absolute;
+    top: 50%;
+    left: 10px;
+    color: var(--dim);
+    pointer-events: none;
+    transform: translateY(-50%);
+}
+
+.field-select-wrap > .field-input {
+    padding-left: 32px;
+}
+
 .field-ref {
     display: flex;
     align-items: center;
@@ -250,6 +277,8 @@ textarea.field-input.multiline {
 }
 
 .group {
+    --field-bg: var(--bg);
+
     display: flex;
     flex-direction: column;
     min-width: 0;
@@ -326,6 +355,8 @@ textarea.field-input.multiline {
 }
 
 .card {
+    --field-bg: var(--surface);
+
     display: flex;
     flex-direction: column;
     background: var(--bg);
@@ -337,6 +368,10 @@ textarea.field-input.multiline {
     flex-direction: column;
     gap: 14px;
     padding: 4px 12px 12px;
+}
+
+.card.plain > .card-body {
+    padding: 12px;
 }
 
 .card-actions {

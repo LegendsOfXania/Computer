@@ -29,6 +29,7 @@ pub fn MapEditor(
                 Card {
                     key: "{index}",
                     title: format!("{title} #{}", index + 1),
+                    removable: true,
                     onremove: move |_| {
                         let mut next = for_remove.clone();
                         next.remove(index);

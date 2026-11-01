@@ -23,6 +23,7 @@ pub fn ListField(
                 key: "{index}",
                 title: format!("{title} #{}", index + 1),
                 duplicable: true,
+                removable: true,
                 onduplicate: move |_| {
                     let mut next = for_duplicate.clone();
                     next.insert(index + 1, for_duplicate[index].clone());

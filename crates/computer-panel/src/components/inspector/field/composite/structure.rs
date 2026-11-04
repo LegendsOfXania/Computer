@@ -1,10 +1,8 @@
-use std::rc::Rc;
-
 use computer_model::{field::FieldDefinition, value::Value};
 use dioxus::prelude::*;
 use indexmap::IndexMap;
 
-use crate::components::inspector::field::{Field, frame::Section, ops};
+use crate::components::inspector::field::{Field, frame::Section};
 
 #[component]
 pub fn StructEditor(
@@ -26,12 +24,10 @@ pub fn FieldGroup(
     values: IndexMap<String, Value>,
     onchange: EventHandler<IndexMap<String, Value>>,
 ) -> Element {
-    let values = Rc::new(values);
-
     let rows = fields.into_iter().map(|def| {
         let name = def.name.clone();
-        let for_change = def.name.clone();
-        let for_values = values.clone();
+        let for_change = values.clone();
+
         let value = values
             .get(&name)
             .cloned()
@@ -43,7 +39,9 @@ pub fn FieldGroup(
                 def,
                 value,
                 onchange: move |value: Value| {
-                    onchange.call(ops::insert(&for_values, for_change.clone(), value));
+                    let mut next = for_change.clone();
+                    next.insert(name.clone(), value);
+                    onchange.call(next);
                 },
             }
         }

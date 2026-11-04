@@ -1,11 +1,9 @@
-use std::rc::Rc;
-
 use computer_model::{field::Variant, value::Value};
 use dioxus::prelude::*;
 use indexmap::IndexMap;
 
 use super::FieldGroup;
-use crate::components::inspector::field::{frame::Section, input::EnumField, ops::ValueExt};
+use crate::components::inspector::field::{frame::Section, input::EnumField};
 
 #[component]
 pub fn VariantEditor(
@@ -14,8 +12,6 @@ pub fn VariantEditor(
     value: Value,
     onchange: EventHandler<Value>,
 ) -> Element {
-    let variants = Rc::new(variants);
-
     let active = match &value {
         Value::Variant { name, .. } => variants.iter().find(|variant| variant.name == *name),
         _ => None,
@@ -32,18 +28,20 @@ pub fn VariantEditor(
     };
 
     let name = active.name.clone();
+
     let options: Vec<String> = variants
         .iter()
         .map(|variant| variant.name.clone())
         .collect();
 
-    let pick = {
-        let variants = variants.clone();
+    let defaults: Vec<(String, Value)> = variants
+        .iter()
+        .map(|variant| (variant.name.clone(), variant.default_value()))
+        .collect();
 
-        move |picked: String| {
-            if let Some(variant) = variants.iter().find(|variant| variant.name == picked) {
-                onchange.call(variant.default_value());
-            }
+    let pick = move |picked: String| {
+        if let Some((_, value)) = defaults.iter().find(|(name, _)| name == &picked) {
+            onchange.call(value.clone());
         }
     };
 

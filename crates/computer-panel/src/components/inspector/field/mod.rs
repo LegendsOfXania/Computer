@@ -10,7 +10,6 @@ mod composite;
 mod control;
 mod frame;
 mod input;
-mod ops;
 
 #[component]
 pub fn Field(def: FieldDefinition, value: Value, onchange: EventHandler<Value>) -> Element {

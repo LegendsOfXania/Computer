@@ -1,4 +1,4 @@
-use computer_model::value::Value;
+use computer_model::{id::Identifier, value::Value};
 use dioxus::prelude::*;
 use dioxus_i18n::tid;
 
@@ -44,7 +44,7 @@ pub fn ReferenceField(value: Value) -> Element {
             }
         },
         None => {
-            let id = id.as_str().to_string();
+            let id = id.into_string();
 
             rsx! {
                 div { class: "field-ref missing",

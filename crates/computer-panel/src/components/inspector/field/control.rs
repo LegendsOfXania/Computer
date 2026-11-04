@@ -8,7 +8,6 @@ use indexmap::IndexMap;
 use crate::components::inspector::field::{
     composite::{ListEditor, MapEditor, StructEditor, VariantEditor},
     input::{EnumField, FloatField, IntField, ReferenceField, TextField, ToggleField},
-    ops::ValueExt,
 };
 
 pub fn control(

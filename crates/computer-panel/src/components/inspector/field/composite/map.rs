@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use computer_model::{
     field::{FieldDefinition, FieldKind},
     value::Value,
@@ -10,7 +8,6 @@ use dioxus_i18n::tid;
 use crate::components::inspector::field::{
     Field,
     frame::{Card, Collapse},
-    ops,
 };
 
 #[component]
@@ -24,7 +21,7 @@ pub fn MapEditor(
     let key_def = FieldDefinition::new(tid!("inspector-key").to_string(), key_kind);
     let value_def = FieldDefinition::new(tid!("inspector-value").to_string(), value_kind);
     let template = (key_def.default_value(), value_def.default_value());
-    let pairs = Rc::new(pairs);
+    let for_add = pairs.clone();
 
     let rows = pairs
         .iter()
@@ -38,20 +35,30 @@ pub fn MapEditor(
                     key: "{index}",
                     title: format!("{title} #{}", index + 1),
                     removable: true,
-                    onremove: move |_| onchange.call(ops::remove(&for_remove, index)),
+
+                    onremove: move |_| {
+                        let mut next = for_remove.clone();
+                        next.remove(index);
+                        onchange.call(next);
+                    },
 
                     Field {
                         def: key_def.clone(),
                         value: pair_key,
                         onchange: move |new_key: Value| {
-                            onchange.call(ops::update(&for_key, index, |pair| pair.0 = new_key));
+                            let mut next = for_key.clone();
+                            next[index].0 = new_key;
+                            onchange.call(next);
                         },
                     }
+
                     Field {
                         def: value_def.clone(),
                         value: pair_value,
                         onchange: move |new_value: Value| {
-                            onchange.call(ops::update(&for_value, index, |pair| pair.1 = new_value));
+                            let mut next = for_value.clone();
+                            next[index].1 = new_value;
+                            onchange.call(next);
                         },
                     }
                 }
@@ -59,10 +66,10 @@ pub fn MapEditor(
         });
 
     let count = pairs.len();
-    let add = {
-        let pairs = pairs.clone();
-
-        move |_| onchange.call(ops::push(&pairs, template.clone()))
+    let add = move |_| {
+        let mut next = for_add.clone();
+        next.push(template.clone());
+        onchange.call(next);
     };
 
     rsx! {

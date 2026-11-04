@@ -59,8 +59,8 @@ pub fn FloatField(
                         if number.is_finite() {
                             onchange.call(
                                 number
-                                    .max(min.unwrap_or(f64::NEG_INFINITY))
-                                    .min(max.unwrap_or(f64::INFINITY)),
+                                    .max(min.unwrap_or(f64::MIN))
+                                    .min(max.unwrap_or(f64::MAX)),
                             );
                         }
                     }

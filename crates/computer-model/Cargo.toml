@@ -6,9 +6,9 @@ license.workspace = true
 authors.workspace = true
 
 [dependencies]
-getrandom.workspace = true
-uuid.workspace = true
 indexmap.workspace = true
 serde.workspace = true
 postcard.workspace = true
 flate2.workspace = true
+uuid.workspace = true
+getrandom.workspace = true

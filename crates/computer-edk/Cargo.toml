@@ -6,6 +6,6 @@ license.workspace = true
 authors.workspace = true
 
 [dependencies]
-computer-edk-macro.workspace = true
 computer-model.workspace = true
+computer-edk-macro.workspace = true
 indexmap.workspace = true

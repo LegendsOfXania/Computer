@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use dioxus_i18n::tid;
 
-use crate::components::utils::icon::Icon;
+use crate::components::{inspector::field::frame::Card, utils::icon::Icon};
 
 #[component]
 pub fn Collapse(
@@ -41,6 +41,19 @@ pub fn Collapse(
 
             if open() {
                 div { class: "group-body", {children} }
+            }
+        }
+    }
+}
+
+#[component]
+pub fn Section(title: String, children: Element) -> Element {
+    if title.is_empty() {
+        children
+    } else {
+        rsx! {
+            Collapse { title,
+                Card { {children} }
             }
         }
     }

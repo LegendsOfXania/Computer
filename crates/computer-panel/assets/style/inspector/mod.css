@@ -201,11 +201,11 @@ textarea.field-input.multiline {
     text-transform: capitalize;
 }
 
-.field-text-wrap {
+.field-icon-wrap {
     position: relative;
 }
 
-.field-text-wrap > .icon {
+.field-icon-wrap > .icon {
     --icon: 14px;
 
     position: absolute;
@@ -215,26 +215,7 @@ textarea.field-input.multiline {
     pointer-events: none;
 }
 
-.field-text-wrap > .field-input {
-    padding-left: 32px;
-}
-
-.field-select-wrap {
-    position: relative;
-}
-
-.field-select-wrap > .icon {
-    --icon: 14px;
-
-    position: absolute;
-    top: 50%;
-    left: 10px;
-    color: var(--dim);
-    pointer-events: none;
-    transform: translateY(-50%);
-}
-
-.field-select-wrap > .field-input {
+.field-icon-wrap > .field-input {
     padding-left: 32px;
 }
 
@@ -320,6 +301,11 @@ textarea.field-input.multiline {
     text-overflow: ellipsis;
     text-transform: capitalize;
     white-space: nowrap;
+}
+
+.group-count {
+    color: var(--dim);
+    font-size: 11px;
 }
 
 .group-add {

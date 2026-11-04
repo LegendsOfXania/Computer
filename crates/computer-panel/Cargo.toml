@@ -7,18 +7,17 @@ authors.workspace = true
 
 [dependencies]
 computer-model.workspace = true
-indexmap.workspace = true
 dioxus.workspace = true
 dioxus-flow.workspace = true
 dioxus-i18n.workspace = true
+dioxus-primitives.workspace = true
 gloo-net.workspace = true
 gloo-timers.workspace = true
 futures-util.workspace = true
 futures-channel.workspace = true
+indexmap.workspace = true
 tracing.workspace = true
-serde_json.workspace = true
 js-sys.workspace = true
-dioxus-primitives.workspace = true
 
 [features]
 dev = []

@@ -9,9 +9,9 @@ authors.workspace = true
 crate-type = ["cdylib"]
 
 [dependencies]
+computer-model.workspace = true
 pumpkin-plugin-api.workspace = true
 tracing.workspace = true
-computer-model.workspace = true
 waki.workspace = true
 flate2.workspace = true
 tar.workspace = true

@@ -2,7 +2,10 @@ use computer_model::{Entry, EntryDefinition, value::Value};
 use dioxus::prelude::*;
 use dioxus_i18n::tid;
 
-use crate::components::{inspector::fields::Field, utils::btn::Btn};
+use crate::components::{
+    inspector::{display, field::Field},
+    utils::btn::Btn,
+};
 
 #[component]
 pub fn Body(
@@ -12,21 +15,28 @@ pub fn Body(
     edit: Callback<(String, Value)>,
     close: EventHandler<()>,
 ) -> Element {
-    let color = Some(definition.color.as_str())
-        .filter(|color| !color.is_empty())
-        .unwrap_or("var(--surface-2)")
-        .to_string();
-
+    let color = display::color(&definition).to_string();
+    let name = display::label(&entry).to_string();
     let id = entry.id.as_str().to_string();
 
-    let name = entry
-        .fields
-        .get("name")
-        .and_then(|value| match value {
-            Value::String(name) if !name.is_empty() => Some(name.as_str()),
-            _ => None,
-        })
-        .unwrap_or(&entry.kind);
+    let rows = definition.fields.into_iter().map(|def| {
+        let row_key = format!("{id}-{revision}-{}", def.name);
+        let field_name = def.name.clone();
+        let value = entry
+            .fields
+            .get(&def.name)
+            .cloned()
+            .unwrap_or_else(|| def.default_value());
+
+        rsx! {
+            Field {
+                key: "{row_key}",
+                def,
+                value,
+                onchange: move |value: Value| edit.call((field_name.clone(), value)),
+            }
+        }
+    });
 
     rsx! {
         div { class: "inspector-head",
@@ -45,18 +55,6 @@ pub fn Body(
             }
         }
 
-        div { class: "inspector-fields",
-            for field in definition.fields.iter() {
-                Field {
-                    key: "{id}-{revision}-{field.name}",
-                    def: field.clone(),
-                    value: entry.fields.get(&field.name).cloned().unwrap_or_else(|| field.default_value()),
-                    onchange: {
-                        let name = field.name.clone();
-                        move |value: Value| edit.call((name.clone(), value))
-                    },
-                }
-            }
-        }
+        div { class: "inspector-fields", {rows} }
     }
 }

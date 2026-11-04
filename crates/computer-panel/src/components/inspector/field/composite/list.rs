@@ -1,22 +1,30 @@
+use std::rc::Rc;
+
 use computer_model::{
     field::{FieldDefinition, FieldKind},
     value::Value,
 };
 use dioxus::prelude::*;
 
-use crate::components::inspector::fields::{Field, card::Card, collapse::Collapse};
+use crate::components::inspector::field::{
+    Field,
+    frame::{Card, Collapse},
+    ops,
+};
 
 #[component]
-pub fn ListField(
+pub fn ListEditor(
     title: String,
     inner: FieldKind,
     items: Vec<Value>,
     onchange: EventHandler<Vec<Value>>,
 ) -> Element {
     let def = FieldDefinition::new(String::new(), inner);
+    let template = def.default_value();
+    let items = Rc::new(items);
 
     let rows = items.iter().cloned().enumerate().map(|(index, item)| {
-        let (for_change, for_remove, for_duplicate) = (items.clone(), items.clone(), items.clone());
+        let (for_change, for_duplicate, for_remove) = (items.clone(), items.clone(), items.clone());
 
         rsx! {
             Card {
@@ -24,45 +32,31 @@ pub fn ListField(
                 title: format!("{title} #{}", index + 1),
                 duplicable: true,
                 removable: true,
-                onduplicate: move |_| {
-                    let mut next = for_duplicate.clone();
-                    next.insert(index + 1, for_duplicate[index].clone());
-                    onchange.call(next);
-                },
-                onremove: move |_| {
-                    let mut next = for_remove.clone();
-                    next.remove(index);
-                    onchange.call(next);
-                },
+                onduplicate: move |_| onchange.call(ops::duplicate(&for_duplicate, index)),
+                onremove: move |_| onchange.call(ops::remove(&for_remove, index)),
 
                 Field {
                     def: def.clone(),
                     value: item,
                     onchange: move |value: Value| {
-                        let mut next = for_change.clone();
-                        next[index] = value;
-                        onchange.call(next);
+                        onchange.call(ops::update(&for_change, index, |slot| *slot = value));
                     },
                 }
             }
         }
     });
 
+    let count = items.len();
     let add = {
         let items = items.clone();
-        let def = def.clone();
 
-        move |_| {
-            let mut next = items.clone();
-            next.push(def.default_value());
-            onchange.call(next);
-        }
+        move |_| onchange.call(ops::push(&items, template.clone()))
     };
 
     rsx! {
         Collapse {
             title: title.clone(),
-            count: Some(items.len()),
+            count: Some(count),
             addable: true,
             onadd: add,
             {rows}

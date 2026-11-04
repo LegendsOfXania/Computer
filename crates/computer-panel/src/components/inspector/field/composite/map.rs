@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use computer_model::{
     field::{FieldDefinition, FieldKind},
     value::Value,
@@ -5,7 +7,11 @@ use computer_model::{
 use dioxus::prelude::*;
 use dioxus_i18n::tid;
 
-use crate::components::inspector::fields::{Field, card::Card, collapse::Collapse};
+use crate::components::inspector::field::{
+    Field,
+    frame::{Card, Collapse},
+    ops,
+};
 
 #[component]
 pub fn MapEditor(
@@ -17,6 +23,8 @@ pub fn MapEditor(
 ) -> Element {
     let key_def = FieldDefinition::new(tid!("inspector-key").to_string(), key_kind);
     let value_def = FieldDefinition::new(tid!("inspector-value").to_string(), value_kind);
+    let template = (key_def.default_value(), value_def.default_value());
+    let pairs = Rc::new(pairs);
 
     let rows = pairs
         .iter()
@@ -30,50 +38,37 @@ pub fn MapEditor(
                     key: "{index}",
                     title: format!("{title} #{}", index + 1),
                     removable: true,
-                    onremove: move |_| {
-                        let mut next = for_remove.clone();
-                        next.remove(index);
-                        onchange.call(next);
-                    },
+                    onremove: move |_| onchange.call(ops::remove(&for_remove, index)),
 
                     Field {
                         def: key_def.clone(),
                         value: pair_key,
                         onchange: move |new_key: Value| {
-                            let mut next = for_key.clone();
-                            next[index].0 = new_key;
-                            onchange.call(next);
+                            onchange.call(ops::update(&for_key, index, |pair| pair.0 = new_key));
                         },
                     }
                     Field {
                         def: value_def.clone(),
                         value: pair_value,
                         onchange: move |new_value: Value| {
-                            let mut next = for_value.clone();
-                            next[index].1 = new_value;
-                            onchange.call(next);
+                            onchange.call(ops::update(&for_value, index, |pair| pair.1 = new_value));
                         },
                     }
                 }
             }
         });
 
+    let count = pairs.len();
     let add = {
         let pairs = pairs.clone();
-        let key_def = key_def.clone();
-        let value_def = value_def.clone();
 
-        move |_| {
-            let mut next = pairs.clone();
-            next.push((key_def.default_value(), value_def.default_value()));
-            onchange.call(next);
-        }
+        move |_| onchange.call(ops::push(&pairs, template.clone()))
     };
 
     rsx! {
         Collapse {
             title: title.clone(),
-            count: Some(pairs.len()),
+            count: Some(count),
             addable: true,
             onadd: add,
             {rows}

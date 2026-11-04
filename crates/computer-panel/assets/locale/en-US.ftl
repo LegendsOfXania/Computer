@@ -29,6 +29,7 @@ toast-edit-entry-failed = Failed to edit the entry
 ## Inspector
 inspector-close = Close
 inspector-add = Add
+inspector-duplicate = Duplicate
 inspector-remove = Remove
 inspector-key = Key
 inspector-value = Value

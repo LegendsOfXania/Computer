@@ -5,10 +5,10 @@ use crate::components::utils::icon::Icon;
 #[component]
 pub fn TextField(value: String, multiline: bool, onchange: EventHandler<String>) -> Element {
     rsx! {
-        div { class: "field-text-wrap",
+        div { class: "field-icon-wrap",
             Icon { name: "pen-square" }
 
-            textarea { class: if multiline { "field-input field-text multiline" } else { "field-input field-text" },
+            textarea { class: if multiline { "field-input multiline" } else { "field-input" },
                 rows: 1,
                 spellcheck: false,
                 value: "{value}",

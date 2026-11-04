@@ -14,13 +14,12 @@ use tree::{Row, flatten};
 
 #[component]
 pub fn Library() -> Element {
-    let (app, ui) = (use_context::<AppState>(), use_context::<UiState>());
+    let (app, mut ui) = (use_context::<AppState>(), use_context::<UiState>());
     let mut collapsed = use_signal(HashSet::<String>::new);
-    let mut opened_page = ui.opened_page;
 
     let (rows, opened, closed) = (
         flatten(app.pages.read().values()),
-        opened_page(),
+        ui.get_opened_page(),
         collapsed.read().clone(),
     );
 
@@ -67,6 +66,7 @@ pub fn Library() -> Element {
                         match row {
                             Row::Chapter { name, path, depth } => {
                                 let key = path.clone();
+
                                 rsx! {
                                     p {
                                         key: "c{path}",
@@ -94,12 +94,11 @@ pub fn Library() -> Element {
                                     .unwrap_or("bulletlist");
 
                                 let selected = opened.as_ref() == Some(&id);
-                                let key = id.clone().into_string();
-                                let target = id.clone();
+                                let target = id.clone().into_string();
 
                                 rsx! {
                                     p {
-                                        key: "p{key}",
+                                        key: "p{target}",
                                         class: if selected {
                                             "library-page library-opened"
                                         } else {
@@ -107,8 +106,8 @@ pub fn Library() -> Element {
                                         },
                                         style: "--depth: {depth}",
                                         onclick: move |_| {
-                                            if opened_page().as_ref() != Some(&target) {
-                                                opened_page.set(Some(target.clone()));
+                                            if ui.get_opened_page().as_ref() != Some(&id) {
+                                                ui.set_opened_page(Some(id.clone()));
                                             }
                                         },
                                         Icon { name: icon }

@@ -7,14 +7,13 @@ use std::collections::HashMap;
 
 use crate::{
     components::{inspector::Inspector, utils::icon::Icon},
-    state::ui::UiState,
+    state::{app::AppState, ui::UiState},
 };
 use graph::{NodeData, build, layout};
 
 #[component]
 pub fn Editor() -> Element {
-    let mut ui = use_context::<UiState>();
-    let mut opened_entry = ui.opened_entry;
+    let (app, mut ui) = (use_context::<AppState>(), use_context::<UiState>());
 
     let mut nodes = use_signal(Vec::<Node<NodeData>>::new);
     let mut edges = use_signal(Vec::<Edge>::new);
@@ -26,8 +25,8 @@ pub fn Editor() -> Element {
 
     use_effect(move || {
         let graph = graph.read();
-        let page_id = ui.opened_page.read().clone();
-        let selected = opened_entry.read().clone();
+        let page_id = ui.get_opened_page();
+        let selected = ui.get_opened_entry();
 
         let next: Vec<_> = {
             let old = nodes.peek();
@@ -59,7 +58,7 @@ pub fn Editor() -> Element {
             needs_fit.set(true);
 
             if selected.is_some() && !next.iter().any(|node| node.selected) {
-                opened_entry.set(None);
+                ui.set_opened_entry(&app, None);
             }
         }
 
@@ -126,23 +125,21 @@ pub fn Editor() -> Element {
                 handle,
 
                 on_node_click: move |id: String| {
-                    let Some((key, origin)) = nodes
+                    let Some(key) = nodes
                         .read()
                         .iter()
                         .find(|node| node.id == id)
-                        .map(|node| (node.data.key.clone(), node.data.foreign.clone()))
+                        .map(|node| node.data.key.clone())
                     else {
                         return;
                     };
 
-                    if let Some(page_id) = origin {
-                        ui.opened_page.set(Some(page_id));
-                    }
-
-                    opened_entry.set(Some(key));
+                    ui.set_opened_entry(&app, Some(key));
                 },
 
-                on_pane_click: move |_| opened_entry.set(None),
+                on_pane_click: move |_| {
+                    ui.set_opened_entry(&app, None);
+                },
 
                 node_view: move |ctx: NodeViewCtx<NodeData>| {
                     rsx! {

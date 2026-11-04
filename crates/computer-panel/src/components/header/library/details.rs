@@ -12,14 +12,12 @@ const NONE: &str = "—";
 
 #[component]
 pub fn Details() -> Element {
-    let (app, client, ui, toast) = (
+    let (app, client, mut ui, toast) = (
         use_context::<AppState>(),
         use_context::<Client>(),
         use_context::<UiState>(),
         use_toast(),
     );
-
-    let mut opened_page = ui.opened_page;
 
     let fail = use_callback(move |(title, error): (String, String)| {
         toast.error(title, ToastOptions::new().description(error).duration(ERR));
@@ -29,7 +27,7 @@ pub fn Details() -> Element {
         let (app, client) = (app.clone(), client.clone());
 
         move |f: Box<dyn FnOnce(&mut Page)>| {
-            let Some(id) = opened_page() else {
+            let Some(id) = ui.get_opened_page() else {
                 return;
             };
 
@@ -43,9 +41,12 @@ pub fn Details() -> Element {
         }
     });
 
-    let (name, id, kind, priority, chapter) = opened_page()
+    let opened_page = ui.get_opened_page();
+
+    let (name, id, kind, priority, chapter) = opened_page
+        .as_ref()
         .and_then(|id| {
-            app.with_page(&id, |page| {
+            app.with_page(id, |page| {
                 (
                     page.name.clone(),
                     page.id.clone().into_string(),
@@ -65,7 +66,7 @@ pub fn Details() -> Element {
             )
         });
 
-    let none = opened_page().is_none();
+    let none = opened_page.is_none();
     let placeholder = if none { NONE } else { "" };
 
     let create = {
@@ -86,7 +87,7 @@ pub fn Details() -> Element {
         let app = app.clone();
 
         move |_| {
-            let Some(id) = opened_page() else {
+            let Some(id) = ui.get_opened_page() else {
                 return;
             };
 
@@ -115,8 +116,8 @@ pub fn Details() -> Element {
 
             spawn(async move {
                 match client.delete_page(id.clone()).await {
-                    Ok(()) if opened_page().as_ref() == Some(&id) => {
-                        opened_page.set(next);
+                    Ok(()) if ui.get_opened_page().as_ref() == Some(&id) => {
+                        ui.set_opened_page(next);
                     }
                     Ok(()) => {}
                     Err(error) => {

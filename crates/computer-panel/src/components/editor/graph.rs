@@ -27,7 +27,11 @@ pub fn build() -> Graph {
     let entries = app.entries.read();
     let registry = app.registry.read();
 
-    let Some(page) = ui.opened_page.read().as_ref().and_then(|id| pages.get(id)) else {
+    let Some(page_id) = ui.get_opened_page() else {
+        return Graph::default();
+    };
+
+    let Some(page) = pages.get(&page_id) else {
         return Graph::default();
     };
 

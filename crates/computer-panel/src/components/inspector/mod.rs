@@ -1,5 +1,6 @@
 mod body;
-mod fields;
+mod display;
+mod field;
 
 use computer_model::{Entry, value::Value};
 use dioxus::prelude::*;
@@ -14,14 +15,12 @@ use crate::{
 
 #[component]
 pub fn Inspector() -> Element {
-    let (app, ui, client, toast) = (
+    let (app, mut ui, client, toast) = (
         use_context::<AppState>(),
         use_context::<UiState>(),
         use_context::<Client>(),
         use_toast(),
     );
-
-    let mut opened_entry = ui.opened_entry;
 
     let mut revision = use_signal(|| 0u32);
 
@@ -35,7 +34,7 @@ pub fn Inspector() -> Element {
     });
 
     let edit = use_callback(move |(name, value): (String, Value)| {
-        let Some(id) = opened_entry() else {
+        let Some(id) = ui.get_opened_entry() else {
             return;
         };
 
@@ -52,7 +51,11 @@ pub fn Inspector() -> Element {
         });
     });
 
-    let entry = use_memo(move || opened_entry().and_then(|id| app.with_entry(&id, Clone::clone)));
+    let entry = use_memo(move || {
+        ui.get_opened_entry()
+            .and_then(|id| app.with_entry(&id, Clone::clone))
+    });
+
     let definition =
         use_memo(move || entry().and_then(|entry| app.registry.read().get(&entry.kind).cloned()));
 
@@ -69,7 +72,7 @@ pub fn Inspector() -> Element {
                         definition,
                         revision: revision(),
                         edit,
-                        close: move |_| opened_entry.set(None),
+                        close: move |_| ui.set_opened_entry(&app, None),
                     }
                 },
                 (Some(_), None) => rsx! {

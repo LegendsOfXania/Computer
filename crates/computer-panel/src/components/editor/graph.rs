@@ -162,18 +162,32 @@ pub fn layout(nodes: &[Node<NodeData>], edges: &[Edge]) -> Option<Vec<(usize, Po
             })
         })
         .collect::<Option<Vec<_>>>()
-        .filter(|layout_nodes| !layout_nodes.is_empty())?;
+        .filter(|nodes| !nodes.is_empty())?;
 
     let layout_edges: Vec<_> = edges
         .iter()
         .map(|edge| (edge.source.clone(), edge.target.clone()))
         .collect();
 
-    let positions = compute_layout(
+    let mut positions = compute_layout(
         &layout_nodes,
         &layout_edges,
         &LayoutOptions::default().direction(LayoutDirection::LeftToRight),
     );
+
+    let min_x = positions
+        .values()
+        .map(|p| p.x)
+        .fold(f64::INFINITY, f64::min);
+    let min_y = positions
+        .values()
+        .map(|p| p.y)
+        .fold(f64::INFINITY, f64::min);
+
+    for position in positions.values_mut() {
+        position.x -= min_x;
+        position.y -= min_y;
+    }
 
     Some(
         nodes

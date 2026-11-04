@@ -1,6 +1,5 @@
 mod graph;
 
-use computer_model::id::PageId;
 use dioxus::prelude::*;
 use dioxus_flow::prelude::*;
 use std::collections::HashMap;
@@ -17,49 +16,44 @@ pub fn Editor() -> Element {
 
     let mut nodes = use_signal(Vec::<Node<NodeData>>::new);
     let mut edges = use_signal(Vec::<Edge>::new);
-    let mut shown = use_signal(|| None::<PageId>);
-    let mut needs_fit = use_signal(|| false);
     let handle = use_flow_handle::<NodeData>();
 
     let graph = use_memo(build);
 
     use_effect(move || {
+        let _ = ui.get_opened_page();
+        handle.set_viewport(Viewport::new(50.0, 60.0, 1.0), 0);
+    });
+
+    use_effect(move || {
         let graph = graph.read();
-        let page_id = ui.get_opened_page();
         let selected = ui.get_opened_entry();
 
-        let next: Vec<_> = {
-            let old = nodes.peek();
-            let previous: HashMap<&str, _> = old
-                .iter()
-                .map(|node| (node.id.as_str(), (node.position, node.measured)))
-                .collect();
+        let previous: HashMap<String, _> = nodes
+            .peek()
+            .iter()
+            .map(|node| (node.id.clone(), (node.position, node.measured)))
+            .collect();
 
-            graph
-                .nodes
-                .iter()
-                .cloned()
-                .map(|mut node| {
-                    if let Some(&(position, measured)) = previous.get(node.id.as_str()) {
-                        node.position = position;
-                        node.measured = measured;
-                    }
+        let next: Vec<_> = graph
+            .nodes
+            .iter()
+            .cloned()
+            .map(|mut node| {
+                if let Some(&(position, measured)) = previous.get(node.id.as_str()) {
+                    node.position = position;
+                    node.measured = measured;
+                }
 
-                    node.selected =
-                        node.data.foreign.is_none() && selected.as_ref() == Some(&node.data.key);
+                node.selected =
+                    node.data.foreign.is_none() && selected.as_ref() == Some(&node.data.key);
 
-                    node
-                })
-                .collect()
-        };
+                node
+            })
+            .collect();
 
-        if shown.peek().as_ref() != page_id.as_ref() {
-            shown.set(page_id);
-            needs_fit.set(true);
-
-            if selected.is_some() && !next.iter().any(|node| node.selected) {
-                ui.set_opened_entry(&app, None);
-            }
+        if selected.is_some() && !next.iter().any(|node| node.selected) {
+            ui.set_opened_entry(&app, None);
         }
 
         if *nodes.peek() != next {
@@ -92,11 +86,10 @@ pub fn Editor() -> Element {
             return;
         }
 
-        let fit = *needs_fit.read();
+        let current_nodes = nodes.read().clone();
+        let current_edges = edges.read().clone();
 
-        let moved = layout(&nodes.peek(), &edges.peek());
-
-        if let Some(moved) = moved {
+        if let Some(moved) = layout(&current_nodes, &current_edges) {
             if !moved.is_empty() {
                 nodes.with_mut(|nodes| {
                     for (index, position) in moved {
@@ -104,11 +97,6 @@ pub fn Editor() -> Element {
                     }
                 });
             }
-        }
-
-        if fit {
-            needs_fit.set(false);
-            handle.fit_view(250);
         }
     });
 
@@ -118,11 +106,13 @@ pub fn Editor() -> Element {
         document::Stylesheet { href: asset!("/assets/style/editor/edge.css") }
 
         div { class: "editor",
-
             Flow {
                 nodes,
                 edges,
                 handle,
+                fit_view: false,
+                min_zoom: 0.5,
+                max_zoom: 1.5,
 
                 on_node_click: move |id: String| {
                     let Some(key) = nodes
@@ -151,7 +141,6 @@ pub fn Editor() -> Element {
                             },
 
                             Icon { name: ctx.node.data.icon.clone() }
-
                             span { class: "df-node-label", "{ctx.node.label}" }
                         }
                     }

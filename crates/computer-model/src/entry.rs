@@ -20,3 +20,12 @@ pub struct Entry {
     pub fields: IndexMap<String, Value>,
     pub version: u32,
 }
+
+impl Entry {
+    pub fn label(&self) -> &str {
+        match self.fields.get("name") {
+            Some(Value::String(name)) if !name.is_empty() => name,
+            _ => &self.kind,
+        }
+    }
+}

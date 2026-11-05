@@ -1,5 +1,4 @@
 mod body;
-mod display;
 mod field;
 
 use computer_model::{Entry, value::Value};

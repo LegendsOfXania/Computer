@@ -91,15 +91,11 @@ pub fn build() -> Graph {
             let entry = entries.get(key)?;
             let definition = registry.get(&entry.kind);
 
-            let label = match entry.fields.get("name") {
-                Some(Value::String(name)) if !name.is_empty() => name.clone(),
-                _ => entry.kind.clone(),
-            };
+            let label = entry.label();
 
             let color = definition
-                .map(|definition| definition.color.as_str())
-                .filter(|color| !color.is_empty())
-                .unwrap_or("var(--surface-2)");
+                .map(|definition| definition.color.clone())
+                .unwrap_or_default();
 
             let icon = definition
                 .map(|definition| definition.icon.clone())

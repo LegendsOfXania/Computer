@@ -2,10 +2,7 @@ use computer_model::{id::Identifier, value::Value};
 use dioxus::prelude::*;
 use dioxus_i18n::tid;
 
-use crate::{
-    components::{inspector::display, utils::icon::Icon},
-    state::app::AppState,
-};
+use crate::{components::utils::icon::Icon, state::app::AppState};
 
 #[component]
 pub fn ReferenceField(value: Value) -> Element {
@@ -22,11 +19,11 @@ pub fn ReferenceField(value: Value) -> Element {
         let definition = registry.get(&entry.kind);
 
         (
-            display::label(entry).to_string(),
+            entry.label().to_string(),
             entry.kind.clone(),
             definition
-                .map_or("var(--surface-2)", display::color)
-                .to_string(),
+                .map(|definition| definition.color.clone())
+                .unwrap_or_default(),
             definition
                 .map(|definition| definition.icon.clone())
                 .unwrap_or_default(),

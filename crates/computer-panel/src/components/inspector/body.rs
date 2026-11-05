@@ -2,10 +2,7 @@ use computer_model::{Entry, EntryDefinition, value::Value};
 use dioxus::prelude::*;
 use dioxus_i18n::tid;
 
-use crate::components::{
-    inspector::{display, field::Field},
-    utils::btn::Btn,
-};
+use crate::components::{inspector::field::Field, utils::btn::Btn};
 
 #[component]
 pub fn Body(
@@ -15,9 +12,9 @@ pub fn Body(
     edit: Callback<(String, Value)>,
     close: EventHandler<()>,
 ) -> Element {
-    let color = display::color(&definition).to_string();
-    let name = display::label(&entry).to_string();
+    let name = &entry.label().to_string();
     let id = entry.id.as_str().to_string();
+    let color = definition.color;
 
     let rows = definition.fields.into_iter().map(|def| {
         let row_key = format!("{id}-{revision}-{}", def.name);

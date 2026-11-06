@@ -7,6 +7,7 @@ use crate::{
 };
 
 pub mod components;
+pub mod search;
 pub mod state;
 pub mod ws;
 

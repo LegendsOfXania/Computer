@@ -18,6 +18,7 @@ futures-channel.workspace = true
 indexmap.workspace = true
 tracing.workspace = true
 js-sys.workspace = true
+frizbee.workspace = true
 
 [features]
 dev = []

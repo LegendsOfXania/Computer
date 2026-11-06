@@ -62,6 +62,8 @@ syn = { version = "2", features = ["full"] }
 futures-util = "0.3"
 futures-channel = "0.3"
 
+frizbee = { version = "0.13.0", default-features = false }
+
 [profile.release]
 opt-level = "z"
 lto = true

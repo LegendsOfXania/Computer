@@ -7,6 +7,7 @@ use crate::state::app::AppState;
 pub struct UiState {
     opened_page: Signal<Option<PageId>>,
     opened_entry: Signal<Option<EntryId>>,
+    search: Signal<Option<(u8, Callback<EntryId>)>>,
 }
 
 impl UiState {
@@ -14,6 +15,7 @@ impl UiState {
         Self {
             opened_page: Signal::new(None),
             opened_entry: Signal::new(None),
+            search: Signal::new(None),
         }
     }
 
@@ -50,5 +52,13 @@ impl UiState {
         }
 
         self.opened_entry.set(Some(entry));
+    }
+
+    pub fn get_search(&self) -> Option<(u8, Callback<EntryId>)> {
+        self.search.read().clone()
+    }
+
+    pub fn set_search(&mut self, search: Option<(u8, Callback<EntryId>)>) {
+        self.search.set(search);
     }
 }

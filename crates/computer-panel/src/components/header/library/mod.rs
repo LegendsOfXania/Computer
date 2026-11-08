@@ -5,7 +5,7 @@ use crate::{
     components::utils::icon::Icon,
     state::{app::AppState, ui::UiState},
 };
-use computer_model::{id::Identifier, page::PageKind};
+use computer_model::id::Identifier;
 use details::Details;
 use dioxus::{prelude::*, signals::ReadableExt};
 use dioxus_i18n::tid;
@@ -87,10 +87,7 @@ pub fn Library() -> Element {
 
                             Row::Page { id, name, depth } => {
                                 let icon = app
-                                    .with_page(&id, |page| match page.kind {
-                                        PageKind::Sequence => "article",
-                                        PageKind::Static => "bulletlist",
-                                    })
+                                    .with_page(&id, |page| page.kind.icon())
                                     .unwrap_or("bulletlist");
 
                                 let selected = opened.as_ref() == Some(&id);

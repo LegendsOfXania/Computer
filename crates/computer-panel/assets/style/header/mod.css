@@ -30,8 +30,7 @@ header::after {
     border-left: 1px solid var(--line);
 }
 
-button,
-.search {
+button {
     display: flex;
     align-items: center;
     justify-content: center;

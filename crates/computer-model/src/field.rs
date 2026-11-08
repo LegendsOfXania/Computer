@@ -91,6 +91,7 @@ pub struct Variant {
     pub name: String,
     pub fields: Vec<FieldDefinition>,
 }
+
 impl Variant {
     pub fn default_value(&self) -> Value {
         Value::Variant {

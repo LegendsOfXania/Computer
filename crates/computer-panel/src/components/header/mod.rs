@@ -8,20 +8,28 @@ use crate::{
             toast::{ERR, OK},
         },
     },
+    search::{ENTRY, PAGE},
+    state::{app::AppState, ui::UiState},
     ws::Client,
 };
+use computer_model::id::EntryId;
 use dioxus::prelude::*;
 use dioxus_i18n::tid;
 use dioxus_primitives::toast::{ToastOptions, use_toast};
 
 #[component]
 pub fn Header() -> Element {
-    let (toast, client) = (use_toast(), use_context::<Client>());
-    let mut query = use_signal(String::new);
+    let (app, mut ui, toast, client) = (
+        use_context::<AppState>(),
+        use_context::<UiState>(),
+        use_toast(),
+        use_context::<Client>(),
+    );
+
+    let open = use_callback(move |id: EntryId| ui.set_opened_entry(&app, Some(id)));
 
     rsx! {
         document::Stylesheet { href: asset!("/assets/style/header/mod.css") }
-        document::Stylesheet { href: asset!("/assets/style/header/search.css") }
         document::Stylesheet { href: asset!("/assets/style/header/push.css") }
 
         header {
@@ -30,22 +38,9 @@ pub fn Header() -> Element {
             nav { class: "nav",
                 Library {}
 
-                label { class: "search",
-                    span { class: "search-icon", Icon { name: "search" } }
-                    span { class: "search-field",
-                        span { class: "search-label", {tid!("header-search-name")} }
-                        input {
-                            class: "search-input",
-                            r#type: "text",
-                            required: true,
-                            placeholder: tid!("header-search-placeholder"),
-                            aria_label: tid!("header-search-name"),
-                            autocomplete: "off",
-                            spellcheck: "false",
-                            value: query,
-                            oninput: move |e| query.set(e.value()),
-                        }
-                    }
+                button { onclick: move |_| ui.set_search(Some((PAGE | ENTRY, open))),
+                    Icon { name: "search" }
+                    span { {tid!("header-search-name")} }
                 }
             }
 

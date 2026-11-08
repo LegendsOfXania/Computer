@@ -1,16 +1,26 @@
-use computer_model::{id::Identifier, value::Value};
+use computer_model::{
+    id::{EntryId, Identifier},
+    value::Value,
+};
 use dioxus::prelude::*;
 use dioxus_i18n::tid;
 
-use crate::{components::utils::icon::Icon, state::app::AppState};
+use crate::{
+    components::utils::icon::Icon,
+    search::{ENTRY, NEW_ENTRY},
+    state::{app::AppState, ui::UiState},
+};
 
 #[component]
-pub fn ReferenceField(value: Value) -> Element {
-    let app = use_context::<AppState>();
+pub fn ReferenceField(value: Value, onchange: EventHandler<Value>) -> Element {
+    let (app, mut ui) = (use_context::<AppState>(), use_context::<UiState>());
+
+    let pick = use_callback(move |id: EntryId| onchange.call(Value::Reference(id)));
+    let open = move |_| ui.set_search(Some((ENTRY | NEW_ENTRY, pick)));
 
     let Value::Reference(id) = value else {
         return rsx! {
-            div { class: "field-ref empty", {tid!("inspector-reference-none")} }
+            div { class: "field-ref empty", onclick: open, {tid!("inspector-reference-none")} }
         };
     };
 
@@ -32,7 +42,7 @@ pub fn ReferenceField(value: Value) -> Element {
 
     match found {
         Some((name, kind, color, icon)) => rsx! {
-            div { class: "field-ref", style: "background: {color};",
+            div { class: "field-ref", style: "background: {color};", onclick: open,
                 Icon { name: icon }
                 div { class: "field-ref-text",
                     span { "{name}" }
@@ -44,7 +54,7 @@ pub fn ReferenceField(value: Value) -> Element {
             let id = id.into_string();
 
             rsx! {
-                div { class: "field-ref missing",
+                div { class: "field-ref missing", onclick: open,
                     div { class: "field-ref-text",
                         span { "{id}" }
                         small { {tid!("inspector-reference-missing")} }

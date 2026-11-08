@@ -3,7 +3,10 @@ use crate::{
     state::{app::AppState, ui::UiState},
     ws::Client,
 };
-use computer_model::{id::Identifier, page::Page};
+use computer_model::{
+    id::Identifier,
+    page::{Page, PageKind},
+};
 use dioxus::prelude::*;
 use dioxus_i18n::tid;
 use dioxus_primitives::toast::{ToastOptions, use_toast};
@@ -76,7 +79,10 @@ pub fn Details() -> Element {
             let client = client.clone();
 
             spawn(async move {
-                if let Err(error) = client.create_page(tid!("library-new-page-name")).await {
+                if let Err(error) = client
+                    .create_page(tid!("library-new-page-name"), PageKind::Sequence)
+                    .await
+                {
                     fail.call((tid!("toast-create-page-failed"), error));
                 }
             });

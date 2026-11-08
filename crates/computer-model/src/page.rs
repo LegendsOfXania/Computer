@@ -19,10 +19,19 @@ pub enum PageKind {
 }
 
 impl PageKind {
+    pub const ALL: [Self; 2] = [Self::Sequence, Self::Static];
+
     pub const fn as_str(&self) -> &'static str {
         match self {
-            Self::Sequence => "Sequence",
-            Self::Static => "Static",
+            Self::Sequence => "sequence",
+            Self::Static => "static",
+        }
+    }
+
+    pub const fn icon(&self) -> &'static str {
+        match self {
+            Self::Sequence => "article",
+            Self::Static => "bulletlist",
         }
     }
 }

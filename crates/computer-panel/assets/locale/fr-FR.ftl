@@ -18,11 +18,17 @@ header-search-placeholder = Rechercher une entrée...
 library-empty = Votre bibliothèque semble plutôt vide
 library-new-page-name = Nouvelle page
 
+## Search
+search-empty = Aucun résultat
+search-new-entry = Nouvelle entrée
+search-pick-page = Choisir une page pour { $kind }
+
 ## Toasts
 toast-push-succes = Modifications publiées
 toast-push-failed = Échec de la publication
 toast-edit-page-failed = Échec de la modification de la page
 toast-create-page-failed = Échec de la création de la page
+toast-create-entry-failed = Échec de la création de l'entrée
 toast-delete-page-failed = Échec de la suppression de la page
 toast-edit-entry-failed = Échec de la modification de l'entrée
 

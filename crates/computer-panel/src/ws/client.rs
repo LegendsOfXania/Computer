@@ -6,7 +6,7 @@ use std::{
 };
 
 use computer_model::{
-    Entry,
+    Entry, EntryDefinition,
     id::{EntryId, Identifier, PageId},
     page::{Page, PageKind},
     protocol::{message::ClientMessage, request::Request},
@@ -65,17 +65,41 @@ impl Client {
         self.request(Request::Push).await
     }
 
-    pub async fn create_page(&self, name: String) -> Result<(), String> {
+    pub async fn create_page(&self, name: String, kind: PageKind) -> Result<PageId, String> {
         let page = Page {
             id: PageId::new(),
             name,
-            kind: PageKind::Sequence,
+            kind,
             priority: 0,
             chapter: None,
             entries: Vec::new(),
         };
+        let id = page.id.clone();
 
-        self.request(Request::CreatePage { page }).await
+        self.request(Request::CreatePage { page }).await?;
+        Ok(id)
+    }
+
+    pub async fn create_entry(
+        &self,
+        definition: &EntryDefinition,
+        page_id: PageId,
+    ) -> Result<EntryId, String> {
+        let entry = Entry {
+            id: EntryId::new(),
+            kind: definition.kind.clone(),
+            fields: definition
+                .fields
+                .iter()
+                .map(|field| (field.name.clone(), field.default_value()))
+                .collect(),
+            version: definition.version,
+        };
+        let id = entry.id.clone();
+
+        self.request(Request::CreateEntry { entry, page_id })
+            .await?;
+        Ok(id)
     }
 
     pub async fn delete_page(&self, page_id: PageId) -> Result<(), String> {

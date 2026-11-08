@@ -1,15 +1,21 @@
 mod editor;
 mod header;
 mod inspector;
+mod search;
 mod utils;
 
 use dioxus::prelude::*;
 use dioxus_i18n::{prelude::*, unic_langid::langid};
 
-use crate::components::{editor::Editor, header::Header, utils::toast::ToastProvider};
+use crate::{
+    components::{editor::Editor, header::Header, search::Search, utils::toast::ToastProvider},
+    state::ui::UiState,
+};
 
 #[component]
 pub fn Panel() -> Element {
+    let ui = use_context::<UiState>();
+
     use_init_i18n(|| {
         let lang = js_sys::Reflect::get(&js_sys::global(), &"navigator".into())
             .and_then(|n| js_sys::Reflect::get(&n, &"language".into()))
@@ -43,6 +49,10 @@ pub fn Panel() -> Element {
         ToastProvider {
             Header {}
             Editor {}
+
+            if let Some((scope, pick)) = ui.get_search() {
+                Search { scope, pick }
+            }
         }
     }
 }

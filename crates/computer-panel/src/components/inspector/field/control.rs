@@ -66,7 +66,7 @@ pub fn control(
         }
 
         FieldKind::Reference => rsx! {
-            ReferenceField { value }
+            ReferenceField { value, onchange }
         },
 
         FieldKind::Struct(fields) => rsx! {

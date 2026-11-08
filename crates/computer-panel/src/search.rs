@@ -1,8 +1,8 @@
 use frizbee::{Config, Matcher, Pattern};
 
-const PAGE: u8 = 1;
-const ENTRY: u8 = 2;
-const NEW_ENTRY: u8 = 4;
+pub const PAGE: u8 = 1;
+pub const ENTRY: u8 = 2;
+pub const NEW_ENTRY: u8 = 4;
 
 const ANY: usize = 0;
 const NAME: usize = 1;
@@ -22,8 +22,8 @@ impl<T> SearchIndex<T> {
         Self(Vec::new())
     }
 
-    pub fn add_page(&mut self, target: T, name: &str, kind: &str, id: &str) {
-        self.add(PAGE, target, name, kind, id, "");
+    pub fn add_page(&mut self, target: T, name: &str, kind: &str, id: &str, chapter: Option<&str>) {
+        self.add(PAGE, target, name, kind, id, chapter.unwrap_or(""));
     }
 
     pub fn add_entry(
@@ -51,11 +51,8 @@ impl<T> SearchIndex<T> {
         });
     }
 
-    pub fn search(&self, query: &str) -> Vec<&T> {
-        let query = Query::parse(query);
-        if query.fuzzy.is_empty() && query.kind.is_none() {
-            return Vec::new();
-        }
+    pub fn search(&self, query: &str, default: u8) -> Vec<&T> {
+        let query = Query::parse(query, default);
 
         let documents: Vec<&Document<T>> = self
             .0
@@ -75,9 +72,6 @@ impl<T> SearchIndex<T> {
                 p.max_typos(Some(typos))
             })
             .collect();
-        if patterns.is_empty() {
-            return Vec::new();
-        }
 
         let haystacks: Vec<&str> = documents
             .iter()
@@ -91,6 +85,10 @@ impl<T> SearchIndex<T> {
     }
 }
 
+pub fn scope(query: &str, default: u8) -> u8 {
+    Query::parse(query, default).scope
+}
+
 struct Query {
     scope: u8,
     field: usize,
@@ -99,7 +97,7 @@ struct Query {
 }
 
 impl Query {
-    fn parse(input: &str) -> Self {
+    fn parse(input: &str, default: u8) -> Self {
         let mut scope = !0;
         let mut field = ANY;
         let mut kind = None;
@@ -114,15 +112,15 @@ impl Query {
                 ("page", "") => scope &= PAGE,
                 ("entry", "") => scope &= ENTRY,
                 ("id", "") => field = ID,
-                ("type", "") => {
+                ("kind" | "k", "") => {
                     scope &= ENTRY;
                     field = KIND;
                 }
-                ("page" | "entry", "name" | "type" | "id") => {
+                ("page" | "entry", "name" | "kind" | "id") => {
                     scope &= if op == "page" { PAGE } else { ENTRY };
                     field = match arg {
                         "name" => NAME,
-                        "type" => KIND,
+                        "kind" => KIND,
                         _ => ID,
                     };
                 }
@@ -137,7 +135,7 @@ impl Query {
         }
 
         if scope == !0 {
-            scope = PAGE | ENTRY;
+            scope = default;
         }
         Self {
             scope,

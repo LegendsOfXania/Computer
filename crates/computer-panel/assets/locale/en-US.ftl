@@ -18,11 +18,17 @@ header-search-placeholder = Search for an entry...
 library-empty = Your library seems to be empty
 library-new-page-name = New page
 
+## Search
+search-empty = No results
+search-new-entry = New entry
+search-pick-page = Choose a page for { $kind }
+
 ## Toasts
 toast-push-succes = Changes pushed
 toast-push-failed = Failed to push changes
 toast-edit-page-failed = Failed to edit the page
 toast-create-page-failed = Failed to create the page
+toast-create-entry-failed = Failed to create the entry
 toast-delete-page-failed = Failed to delete the page
 toast-edit-entry-failed = Failed to edit the entry
 

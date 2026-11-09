@@ -48,7 +48,7 @@ pub fn Header() -> Element {
                 button {
                     class: "push",
                     onclick: move |_| {
-                        let (client, toast) = (client.clone(), toast.clone());
+                        let (client, toast) = (client.clone(), toast);
                         async move {
                             match client.push().await {
                                 Ok(()) => toast.success(tid!("toast-push-succes"), ToastOptions::new().duration(OK)),

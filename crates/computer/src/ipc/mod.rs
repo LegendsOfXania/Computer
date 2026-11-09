@@ -39,7 +39,7 @@ pub fn ask(extension: &str, message: ComputerMessage) -> Result<()> {
 
     if response.is_empty() {
         return if expects_response {
-            Err(format!("{extension} returned an empty IPC response").into())
+            Err(format!("{extension} returned an empty IPC response"))
         } else {
             Ok(())
         };

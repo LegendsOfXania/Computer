@@ -29,7 +29,7 @@ pub enum Connection {
         age: u32,
     },
 
-    WebSocket(Socket),
+    WebSocket(Box<Socket>),
 
     Writing(Writing),
 }

@@ -52,10 +52,10 @@ fn init_conf() -> ComputerConfig {
         Err(_) => ComputerConfig::default(),
     };
 
-    if !path.exists() {
-        if let Ok(content) = toml::to_string_pretty(&config) {
-            let _ = fs::write(&path, content);
-        }
+    if !path.exists()
+        && let Ok(content) = toml::to_string_pretty(&config)
+    {
+        let _ = fs::write(&path, content);
     }
 
     config

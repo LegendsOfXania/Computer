@@ -27,14 +27,14 @@ pub fn Details() -> Element {
     });
 
     let edit = use_callback({
-        let (app, client) = (app.clone(), client.clone());
+        let (app, client) = (app, client.clone());
 
         move |f: Box<dyn FnOnce(&mut Page)>| {
             let Some(id) = ui.get_opened_page() else {
                 return;
             };
 
-            let (app, client) = (app.clone(), client.clone());
+            let (app, client) = (app, client.clone());
 
             spawn(async move {
                 if let Err(error) = client.edit_page(&app, id, f).await {
@@ -90,7 +90,7 @@ pub fn Details() -> Element {
     };
 
     let delete = {
-        let app = app.clone();
+        let app = app;
 
         move |_| {
             let Some(id) = ui.get_opened_page() else {

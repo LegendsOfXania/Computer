@@ -74,7 +74,7 @@ pub fn upgrade(mut stream: TcpStream, buffer: Vec<u8>, key: String) -> Option<Co
 
     tracing::debug!("WebSocket handshake completed");
 
-    Some(Connection::WebSocket(Socket::new(ws, peer)))
+    Some(Connection::WebSocket(Box::new(Socket::new(ws, peer))))
 }
 
 fn find_header_end(buffer: &[u8]) -> Option<usize> {

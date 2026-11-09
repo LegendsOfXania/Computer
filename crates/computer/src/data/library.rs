@@ -354,11 +354,11 @@ pub fn push() -> Result<(), String> {
         return Err(error);
     }
 
-    if live.exists() {
-        if let Err(error) = fs::rename(&live, &old) {
-            let _ = remove_directory(&new);
-            return Err(err(error));
-        }
+    if live.exists()
+        && let Err(error) = fs::rename(&live, &old)
+    {
+        let _ = remove_directory(&new);
+        return Err(err(error));
     }
 
     if let Err(error) = fs::rename(&new, &live) {

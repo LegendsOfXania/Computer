@@ -22,6 +22,12 @@ library-new-page-name = New page
 search-empty = No results
 search-new-entry = New entry
 search-pick-page = Choose a page for { $kind }
+search-entries = Entries
+search-new-entries = New entries
+search-pages = Pages
+search-kind = Kind
+search-extension = Extension
+search-chapter = Chapter
 
 ## Toasts
 toast-push-succes = Changes pushed

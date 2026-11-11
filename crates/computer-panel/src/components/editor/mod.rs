@@ -89,14 +89,14 @@ pub fn Editor() -> Element {
         let current_nodes = nodes.read().clone();
         let current_edges = edges.read().clone();
 
-        if let Some(moved) = layout(&current_nodes, &current_edges) {
-            if !moved.is_empty() {
-                nodes.with_mut(|nodes| {
-                    for (index, position) in moved {
-                        nodes[index].position = position;
-                    }
-                });
-            }
+        if let Some(moved) = layout(&current_nodes, &current_edges)
+            && !moved.is_empty()
+        {
+            nodes.with_mut(|nodes| {
+                for (index, position) in moved {
+                    nodes[index].position = position;
+                }
+            });
         }
     });
 

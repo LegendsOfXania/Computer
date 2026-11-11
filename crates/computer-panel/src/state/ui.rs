@@ -10,6 +10,12 @@ pub struct UiState {
     search: Signal<Option<(u8, Callback<EntryId>)>>,
 }
 
+impl Default for UiState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl UiState {
     pub fn new() -> Self {
         Self {
@@ -45,17 +51,17 @@ impl UiState {
             .find(|(_, page)| page.entries.contains(&entry))
             .map(|(id, _)| id.clone());
 
-        if let Some(page) = page {
-            if self.get_opened_page().as_ref() != Some(&page) {
-                self.opened_page.set(Some(page));
-            }
+        if let Some(page) = page
+            && self.get_opened_page().as_ref() != Some(&page)
+        {
+            self.opened_page.set(Some(page));
         }
 
         self.opened_entry.set(Some(entry));
     }
 
     pub fn get_search(&self) -> Option<(u8, Callback<EntryId>)> {
-        self.search.read().clone()
+        *self.search.read()
     }
 
     pub fn set_search(&mut self, search: Option<(u8, Callback<EntryId>)>) {

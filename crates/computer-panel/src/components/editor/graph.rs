@@ -6,6 +6,7 @@ use computer_model::{
 };
 use dioxus::prelude::*;
 use dioxus_flow::{LayoutNode, compute_layout, prelude::*};
+use indexmap::{IndexMap, IndexSet};
 use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, PartialEq)]
@@ -58,7 +59,7 @@ pub fn build() -> Graph {
 
     if page.kind != PageKind::Static {
         for &source in &local {
-            let mut targets = HashSet::new();
+            let mut targets = IndexSet::new();
 
             for value in entries[source].fields.values() {
                 collect_refs(value, &mut targets);
@@ -77,7 +78,7 @@ pub fn build() -> Graph {
         }
     }
 
-    let foreign: HashMap<&EntryId, &PageId> = links
+    let foreign: IndexMap<&EntryId, &PageId> = links
         .iter()
         .filter(|(_, target)| !in_page.contains(target))
         .map(|(_, target)| (target, owners[target].0))
@@ -197,7 +198,7 @@ pub fn layout(nodes: &[Node<NodeData>], edges: &[Edge]) -> Option<Vec<(usize, Po
     )
 }
 
-fn collect_refs(value: &Value, out: &mut HashSet<EntryId>) {
+fn collect_refs(value: &Value, out: &mut IndexSet<EntryId>) {
     match value {
         Value::Reference(id) => {
             out.insert(id.clone());

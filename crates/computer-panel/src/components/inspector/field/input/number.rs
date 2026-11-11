@@ -55,15 +55,14 @@ pub fn FloatField(
                 max: max.map(|max| max.to_string()),
                 value: "{value}",
                 onchange: move |event: FormEvent| {
-                    if let Ok(number) = event.value().trim().parse::<f64>() {
-                        if number.is_finite() {
+                    if let Ok(number) = event.value().trim().parse::<f64>()
+                        && number.is_finite() {
                             onchange.call(
                                 number
                                     .max(min.unwrap_or(f64::MIN))
                                     .min(max.unwrap_or(f64::MAX)),
                             );
                         }
-                    }
                 },
             }
         }

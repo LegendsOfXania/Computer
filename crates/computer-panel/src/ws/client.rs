@@ -23,8 +23,10 @@ use crate::state::{ConnectionStatus, app::AppState};
 
 const TIMEOUT_MS: u32 = 10_000;
 
+type Waiters = HashMap<u64, Sender<Result<(), String>>>;
+
 #[derive(Clone, Default)]
-pub(crate) struct Pending(Rc<RefCell<HashMap<u64, Sender<Result<(), String>>>>>);
+pub(crate) struct Pending(Rc<RefCell<Waiters>>);
 
 impl Pending {
     pub(crate) fn resolve(&self, id: u64, answer: Result<(), String>) {

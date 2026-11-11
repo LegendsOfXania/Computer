@@ -90,8 +90,6 @@ pub fn Details() -> Element {
     };
 
     let delete = {
-        let app = app;
-
         move |_| {
             let Some(id) = ui.get_opened_page() else {
                 return;

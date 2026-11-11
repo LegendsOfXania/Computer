@@ -1,8 +1,8 @@
 mod index;
-pub mod query;
+mod query;
 
-pub use index::{SearchIndex, SearchMatch, extension_for_kind};
-pub use query::{complete_operator, is_operator, scope};
+pub use index::{Fields, SearchIndex, extension};
+pub use query::{complete, highlight, scope};
 
 pub const PAGE: u8 = 1;
 pub const ENTRY: u8 = 2;

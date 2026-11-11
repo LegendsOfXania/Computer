@@ -16,6 +16,12 @@ pub struct AppState {
     pub registry: Signal<HashMap<String, EntryDefinition>>,
 }
 
+impl Default for AppState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AppState {
     pub fn new() -> Self {
         Self {
@@ -93,10 +99,10 @@ impl AppState {
 
                 self.entries.write().insert(id.clone(), entry);
 
-                if let Some(page) = pages.get_mut(&page_id) {
-                    if !page.entries.contains(&id) {
-                        page.entries.push(id);
-                    }
+                if let Some(page) = pages.get_mut(&page_id)
+                    && !page.entries.contains(&id)
+                {
+                    page.entries.push(id);
                 }
             }
 

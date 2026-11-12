@@ -8,11 +8,21 @@ on:
       - crates/computer-model/**
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
 
 jobs:
-  release:
+  publish:
     runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
 
     steps:
       - uses: actions/checkout@v4
@@ -21,43 +31,40 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
 
-      - name: Cache Rust
-        uses: actions/cache@v4
+      - uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: panel-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            panel-${{ runner.os }}-
+          prefix-key: panel
+
+      - uses: actions/configure-pages@v5
 
       - name: Install Dioxus CLI
         run: |
           curl -fsSL https://dioxus.dev/install.sh | bash
           echo "$HOME/.dx/bin" >> "$GITHUB_PATH"
 
-      - name: Build panel
-        run: dx bundle --web --release -p computer-panel
-
-      - name: Create archive
+      - name: Build and package panel
         run: |
-          tar -czf panel.tar.gz \
+          dx bundle --web --release -p computer-panel
+
+          mkdir -p _site/panel
+
+          tar -czf _site/panel/panel.tar.gz \
             -C target/dx/computer-panel/release/web/public .
 
-      - name: Publish release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          old=$(gh release list --limit 1 --json tagName --jq '.[0].tagName')
+          HASH=$(sha256sum _site/panel/panel.tar.gz | cut -d ' ' -f 1)
 
-          gh release create \
-            "panel-${{ github.sha }}" \
-            panel.tar.gz \
-            --title "Panel ${{ github.sha }}" \
-            --notes "Panel built from commit ${{ github.sha }}" \
-            --latest
+          cat > _site/panel/latest.json <<EOF
+          {
+            "version": "${GITHUB_SHA}",
+            "file": "panel.tar.gz",
+            "sha256": "${HASH}"
+          }
+          EOF
 
-          if [ -n "$old" ]; then
-            gh release delete "$old" --yes --cleanup-tag
-          fi
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+      - name: Deploy
+        id: deploy
+        uses: actions/deploy-pages@v4

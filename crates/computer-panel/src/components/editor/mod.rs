@@ -101,9 +101,9 @@ pub fn Editor() -> Element {
     });
 
     rsx! {
-        document::Stylesheet { href: asset!("/assets/style/editor/mod.css") }
-        document::Stylesheet { href: asset!("/assets/style/editor/node.css") }
-        document::Stylesheet { href: asset!("/assets/style/editor/edge.css") }
+        Stylesheet { href: asset!("/assets/style/editor/mod.css") }
+        Stylesheet { href: asset!("/assets/style/editor/node.css") }
+        Stylesheet { href: asset!("/assets/style/editor/edge.css") }
 
         div { class: "editor",
             Flow {

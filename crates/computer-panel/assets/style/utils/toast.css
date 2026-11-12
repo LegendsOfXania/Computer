@@ -166,7 +166,7 @@
 .dx-toast-close {
   display: grid;
   flex-shrink: 0;
-  align-self: flex-start;
+  align-self: center;
   place-items: center;
   padding: 0;
   border: none;

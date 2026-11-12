@@ -3,7 +3,7 @@ mod hit;
 
 use computer_model::{
     EntryDefinition,
-    id::{EntryId, PageId},
+    id::{EntryId, Identifier, PageId},
     page::{Page, PageKind},
 };
 use dioxus::prelude::*;
@@ -18,6 +18,7 @@ use crate::{
     state::{app::AppState, ui::UiState},
     ws::Client,
 };
+use crate::search::PAGE_PICK;
 
 const LIMIT: usize = 50;
 
@@ -71,13 +72,16 @@ enum Selection {
 }
 
 fn fits(kind: &PageKind, definition: &EntryDefinition) -> bool {
-    let tags = &definition.tags;
-    tags.iter()
-        .any(|tag| tag.eq_ignore_ascii_case(kind.as_str()))
+    definition.tags.iter().any(|tag| tag.eq_ignore_ascii_case(kind.as_str()))
 }
 
 fn build_index(app: &AppState) -> SearchIndex<SearchItem> {
-    let (pages, entries, registry) = (app.pages.read(), app.entries.read(), app.registry.read());
+    let (pages, entries, registry) = (
+        app.pages.read(),
+        app.entries.read(),
+        app.registry.read(),
+    );
+
     let new_entry = tid!("search-new-entry");
     let mut index = SearchIndex::new();
 
@@ -87,8 +91,17 @@ fn build_index(app: &AppState) -> SearchIndex<SearchItem> {
     for page in ordered {
         let chapter = page.chapter.as_deref().unwrap_or("");
         let kind = page.kind.as_str();
+
         let target = Target::Page(page.id.clone());
-        let item = SearchItem::new(target, page.kind.icon(), "", &page.name, kind, chapter);
+        let item = SearchItem::new(
+            target,
+            page.kind.icon(),
+            "",
+            &page.name,
+            kind,
+            chapter,
+        );
+
         let fields = Fields {
             name: &page.name,
             kind,
@@ -96,6 +109,7 @@ fn build_index(app: &AppState) -> SearchIndex<SearchItem> {
             chapter,
             ..Fields::default()
         };
+
         index.add(PAGE, item, fields);
 
         let place = if chapter.is_empty() {
@@ -108,12 +122,21 @@ fn build_index(app: &AppState) -> SearchIndex<SearchItem> {
             let Some(entry) = entries.get(id) else {
                 continue;
             };
+
             let definition = registry.get(&entry.kind);
             let (icon, color) =
                 definition.map_or(("", ""), |d| (d.icon.as_str(), d.color.as_str()));
 
             let target = Target::Entry(id.clone());
-            let item = SearchItem::new(target, icon, color, entry.label(), &entry.kind, &place);
+            let item = SearchItem::new(
+                target,
+                icon,
+                color,
+                entry.label(),
+                &entry.kind,
+                &place,
+            );
+
             let fields = Fields {
                 name: entry.label(),
                 kind: &entry.kind,
@@ -122,6 +145,7 @@ fn build_index(app: &AppState) -> SearchIndex<SearchItem> {
                 parent: &page.name,
                 tags: definition.map_or(&[], |d| d.tags.as_slice()),
             };
+
             index.add(ENTRY, item, fields);
         }
     }
@@ -133,14 +157,23 @@ fn build_index(app: &AppState) -> SearchIndex<SearchItem> {
         let kind = &definition.kind;
         let target = Target::NewEntry(kind.clone());
         let extension = search::extension(kind);
-        let (icon, color) = (&definition.icon, &definition.color);
-        let item = SearchItem::new(target, icon, color, kind, &new_entry, extension);
+
+        let item = SearchItem::new(
+            target,
+            &definition.icon,
+            &definition.color,
+            kind,
+            &new_entry,
+            extension,
+        );
+
         let fields = Fields {
             name: kind,
             kind,
             tags: &definition.tags,
             ..Fields::default()
         };
+
         index.add(NEW_ENTRY, item, fields);
     }
 
@@ -149,7 +182,15 @@ fn build_index(app: &AppState) -> SearchIndex<SearchItem> {
 
 fn new_page_item() -> SearchItem {
     let label = tid!("header-library-tooltip-create-page");
-    SearchItem::new(Target::NewPage, "plus", "", &label, "", "")
+
+    SearchItem::new(
+        Target::NewPage,
+        "plus",
+        "",
+        &label,
+        "",
+        "",
+    )
 }
 
 fn build_sections(
@@ -157,16 +198,17 @@ fn build_sections(
     index: &SearchIndex<SearchItem>,
     query: &str,
     scope: u8,
-    pending: Option<&EntryDefinition>,
+    definition: Option<&EntryDefinition>,
 ) -> Sections {
-    let default = if pending.is_some() { PAGE } else { scope };
+    let default = if definition.is_some() { PAGE } else { scope };
     let mut sections = Sections::default();
 
     for item in index.search(query, default) {
-        if let Some(definition) = pending {
+        if let Some(definition) = definition {
             let Target::Page(id) = &item.target else {
                 continue;
             };
+
             if app.with_page(id, |page| fits(&page.kind, definition)) != Some(true) {
                 continue;
             }
@@ -174,13 +216,15 @@ fn build_sections(
 
         let (total, items) = &mut sections[item.target.section()];
         *total += 1;
+
         if items.len() < LIMIT {
             items.push(item.clone());
         }
     }
 
-    let can_create_page =
-        pending.is_none_or(|definition| PageKind::ALL.iter().any(|kind| fits(kind, definition)));
+    let can_create_page = definition.is_none_or(|definition| {
+        PageKind::ALL.iter().any(|kind| fits(kind, definition))
+    });
 
     if can_create_page && search::scope(query, default) & PAGE != 0 {
         sections[2].1.push(new_page_item());
@@ -198,19 +242,37 @@ pub fn Search(scope: u8, pick: Callback<EntryId>) -> Element {
         use_toast(),
     );
 
+    let page_pick = scope & PAGE_PICK != 0;
+    let scope = scope & !PAGE_PICK;
+
+    let page_definition = if page_pick {
+        ui.get_opened_entry().and_then(|id| {
+            app.with_entry(&id, |entry| {
+                app.registry.read().get(&entry.kind).cloned()
+            })
+                .flatten()
+        })
+    } else {
+        None
+    };
+
     let index = use_memo(move || build_index(&app));
     let mut query = use_signal(String::new);
     let mut pending = use_signal(|| None::<EntryDefinition>);
     let mut collapsed = use_signal(|| [false; 3]);
     let mut active = use_signal(|| None::<Selection>);
 
+    let filter = page_definition.clone();
+
     let sections = use_memo(move || {
+        let definition = pending.read().clone().or_else(|| filter.clone());
+
         build_sections(
             &app,
             &index.read(),
             &query.read(),
             scope,
-            pending.read().as_ref(),
+            definition.as_ref(),
         )
     });
 
@@ -221,6 +283,7 @@ pub fn Search(scope: u8, pick: Callback<EntryId>) -> Element {
 
     use_effect(move || {
         let _ = active();
+
         document::eval(
             "document.querySelector('.search-row.active, .search-category-head.active')?.scrollIntoView({ block: 'nearest' })",
         );
@@ -228,6 +291,7 @@ pub fn Search(scope: u8, pick: Callback<EntryId>) -> Element {
 
     let activate = use_callback(move |target: Target| {
         let client = client.clone();
+        let page_definition = page_definition.clone();
 
         spawn(async move {
             let mut definition = pending();
@@ -237,11 +301,19 @@ pub fn Search(scope: u8, pick: Callback<EntryId>) -> Element {
                     pick.call(id);
                     return ui.set_search(None);
                 }
+
                 Target::Page(id) if definition.is_none() => {
-                    ui.set_opened_page(Some(id));
+                    if page_pick {
+                        pick.call(EntryId::from_string(id.into_string()));
+                    } else {
+                        ui.set_opened_page(Some(id));
+                    }
+
                     return ui.set_search(None);
                 }
+
                 Target::Page(id) => id,
+
                 Target::NewEntry(kind) => {
                     let Some(wanted) = app.registry.read().get(&kind).cloned() else {
                         return;
@@ -259,11 +331,22 @@ pub fn Search(scope: u8, pick: Callback<EntryId>) -> Element {
                     definition = Some(wanted);
                     id
                 }
+
                 Target::NewPage => {
                     let kind = match &definition {
-                        Some(wanted) => PageKind::ALL.into_iter().find(|kind| fits(kind, wanted)),
+                        Some(wanted) => {
+                            PageKind::ALL.into_iter().find(|kind| fits(kind, wanted))
+                        }
+
+                        None if page_pick => {
+                            page_definition.as_ref().and_then(|wanted| {
+                                PageKind::ALL.into_iter().find(|kind| fits(kind, wanted))
+                            })
+                        }
+
                         None => Some(PageKind::Sequence),
                     };
+
                     let Some(kind) = kind else {
                         return;
                     };
@@ -273,13 +356,26 @@ pub fn Search(scope: u8, pick: Callback<EntryId>) -> Element {
                         .await
                     {
                         Ok(id) if definition.is_some() => id,
+
+                        Ok(id) if page_pick => {
+                            pick.call(EntryId::from_string(id.into_string()));
+                            return ui.set_search(None);
+                        }
+
                         Ok(id) => {
                             ui.set_opened_page(Some(id));
                             return ui.set_search(None);
                         }
+
                         Err(error) => {
-                            let options = ToastOptions::new().description(error).duration(ERR);
-                            return toast.error(tid!("toast-create-page-failed"), options);
+                            let options = ToastOptions::new()
+                                .description(error)
+                                .duration(ERR);
+
+                            return toast.error(
+                                tid!("toast-create-page-failed"),
+                                options,
+                            );
                         }
                     }
                 }
@@ -294,25 +390,37 @@ pub fn Search(scope: u8, pick: Callback<EntryId>) -> Element {
                     pick.call(id);
                     ui.set_search(None);
                 }
+
                 Err(error) => {
-                    let options = ToastOptions::new().description(error).duration(ERR);
-                    toast.error(tid!("toast-create-entry-failed"), options);
+                    let options = ToastOptions::new()
+                        .description(error)
+                        .duration(ERR);
+
+                    toast.error(
+                        tid!("toast-create-entry-failed"),
+                        options,
+                    );
                 }
             }
         });
     });
 
     let fold = use_callback(move |(category, folded): (usize, Option<bool>)| {
-        collapsed.with_mut(|values| values[category] = folded.unwrap_or(!values[category]));
+        collapsed.with_mut(|values| {
+            values[category] = folded.unwrap_or(!values[category]);
+        });
+
         active.set(Some(Selection::Category(category)));
     });
 
     let select = use_callback(move |(category, item): (usize, usize)| {
         active.set(Some(Selection::Result(category, item)));
+
         let target = sections.read()[category]
             .1
             .get(item)
             .map(|item| item.target.clone());
+
         if let Some(target) = target {
             activate.call(target);
         }
@@ -323,13 +431,17 @@ pub fn Search(scope: u8, pick: Callback<EntryId>) -> Element {
         tid!("search-new-entries"),
         tid!("search-pages"),
     ];
+
     let (kind_title, extension_title, chapter_title) = (
         tid!("search-kind"),
         tid!("search-extension"),
         tid!("search-chapter"),
     );
+
     let placeholder = match pending.read().as_ref() {
-        Some(definition) => tid!("search-pick-page", kind: definition.kind.clone()),
+        Some(definition) => {
+            tid!("search-pick-page", kind: definition.kind.clone())
+        }
         None => tid!("header-search-placeholder"),
     };
 
@@ -338,30 +450,49 @@ pub fn Search(scope: u8, pick: Callback<EntryId>) -> Element {
     let sections = sections();
     let collapsed = collapsed();
     let active = active();
-    let no_results = sections.iter().all(|(_, items)| items.is_empty()) && !text.trim().is_empty();
+
+    let no_results =
+        sections.iter().all(|(_, items)| items.is_empty())
+            && !text.trim().is_empty();
 
     rsx! {
         Stylesheet { href: asset!("/assets/style/search/mod.css") }
 
-        div { class: "search-overlay", onclick: move |_| ui.set_search(None),
-            div { class: "search-box", onclick: move |event| event.stop_propagation(),
+        div {
+            class: "search-overlay",
+            onclick: move |_| ui.set_search(None),
+
+            div {
+                class: "search-box",
+                onclick: move |event| event.stop_propagation(),
+
                 div { class: "search-head",
                     label { class: "search-bar",
                         Icon { name: "search" }
+
                         div { class: "search-input-scroll",
                             div { class: "search-input-track",
                                 span { class: "search-query-render",
                                     if text.is_empty() {
-                                        span { class: "search-placeholder", "{placeholder}" }
+                                        span {
+                                            class: "search-placeholder",
+                                            "{placeholder}"
+                                        }
                                     }
+
                                     for (index, (part, operator)) in parts.into_iter().enumerate() {
                                         span {
                                             key: "{index}",
-                                            class: if operator { "search-query-operator" } else { "" },
+                                            class: if operator {
+                                                "search-query-operator"
+                                            } else {
+                                                ""
+                                            },
                                             "{part}"
                                         }
                                     }
                                 }
+
                                 input {
                                     r#type: "text",
                                     class: "search-input",
@@ -369,16 +500,18 @@ pub fn Search(scope: u8, pick: Callback<EntryId>) -> Element {
                                     autocomplete: "off",
                                     spellcheck: "false",
                                     value: "{text}",
+
                                     onmounted: move |event| async move {
                                         let _ = event.set_focus(true).await;
                                     },
+
                                     oninput: move |event| query.set(event.value()),
                                 }
                             }
                         }
                     }
 
-                    if pending.read().is_none() {
+                    if pending.read().is_none() && !page_pick {
                         div { class: "search-help",
                             span { b { "!entry" } " {titles[0]}" }
                             span { b { "!ne" } " {titles[1]}" }
@@ -393,7 +526,10 @@ pub fn Search(scope: u8, pick: Callback<EntryId>) -> Element {
 
                 div { class: "search-list",
                     if no_results {
-                        div { class: "search-empty", {tid!("search-empty")} }
+                        div {
+                            class: "search-empty",
+                            {tid!("search-empty")}
+                        }
                     }
 
                     for (category, (_, items)) in sections.into_iter().enumerate() {
@@ -405,11 +541,17 @@ pub fn Search(scope: u8, pick: Callback<EntryId>) -> Element {
                                 items,
                                 collapsed: collapsed[category],
                                 active: active == Some(Selection::Category(category)),
+
                                 selected: match active {
-                                    Some(Selection::Result(selected, item)) if selected == category => Some(item),
+                                    Some(Selection::Result(selected, item))
+                                        if selected == category => Some(item),
                                     _ => None,
                                 },
-                                ontoggle: move |category| fold.call((category, None)),
+
+                                ontoggle: move |category| {
+                                    fold.call((category, None))
+                                },
+
                                 onselect: select,
                             }
                         }

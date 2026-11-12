@@ -41,10 +41,10 @@ pub fn Panel() -> Element {
     });
 
     rsx! {
-        document::Stylesheet { href: asset!("/assets/style/mod.css") }
-        document::Stylesheet { href: asset!("/assets/style/utils/icon.css") }
-        document::Stylesheet { href: asset!("/assets/style/utils/btn.css") }
-        document::Stylesheet { href: asset!("/assets/style/utils/toast.css") }
+        Stylesheet { href: asset!("/assets/style/mod.css") }
+        Stylesheet { href: asset!("/assets/style/utils/icon.css") }
+        Stylesheet { href: asset!("/assets/style/utils/btn.css") }
+        Stylesheet { href: asset!("/assets/style/utils/toast.css") }
 
         ToastProvider {
             Header {}

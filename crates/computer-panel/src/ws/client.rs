@@ -1,3 +1,4 @@
+
 use std::{
     cell::{Cell, RefCell},
     collections::HashMap,
@@ -10,6 +11,7 @@ use computer_model::{
     id::{EntryId, Identifier, PageId},
     page::{Page, PageKind},
     protocol::{message::ClientMessage, request::Request},
+    value::Value,
 };
 use dioxus::{
     hooks::Coroutine,
@@ -31,6 +33,7 @@ pub(crate) struct Pending(Rc<RefCell<Waiters>>);
 impl Pending {
     pub(crate) fn resolve(&self, id: u64, answer: Result<(), String>) {
         let sender = self.0.borrow_mut().remove(&id);
+
         if let Some(sender) = sender {
             let _ = sender.send(answer);
         }
@@ -67,7 +70,11 @@ impl Client {
         self.request(Request::Push).await
     }
 
-    pub async fn create_page(&self, name: String, kind: PageKind) -> Result<PageId, String> {
+    pub async fn create_page(
+        &self,
+        name: String,
+        kind: PageKind,
+    ) -> Result<PageId, String> {
         let page = Page {
             id: PageId::new(),
             name,
@@ -76,9 +83,11 @@ impl Client {
             chapter: None,
             entries: Vec::new(),
         };
+
         let id = page.id.clone();
 
         self.request(Request::CreatePage { page }).await?;
+
         Ok(id)
     }
 
@@ -93,19 +102,33 @@ impl Client {
             fields: definition
                 .fields
                 .iter()
-                .map(|field| (field.name.clone(), field.default_value()))
+                .map(|field| (field.name.clone(), Value::Null))
                 .collect(),
             version: definition.version,
         };
+
         let id = entry.id.clone();
 
         self.request(Request::CreateEntry { entry, page_id })
             .await?;
+
         Ok(id)
     }
 
     pub async fn delete_page(&self, page_id: PageId) -> Result<(), String> {
         self.request(Request::DeletePage { page_id }).await
+    }
+
+    pub async fn delete_entry(&self, entry_id: EntryId) -> Result<(), String> {
+        self.request(Request::DeleteEntry { entry_id }).await
+    }
+
+    pub async fn move_entry(
+        &self,
+        entry_id: EntryId,
+        page_id: PageId,
+    ) -> Result<(), String> {
+        self.request(Request::MoveEntry { entry_id, page_id }).await
     }
 
     pub async fn edit_page(
@@ -119,6 +142,7 @@ impl Client {
         };
 
         change(&mut page);
+
         self.request(Request::UpdatePage { page }).await
     }
 
@@ -133,6 +157,7 @@ impl Client {
         };
 
         change(&mut entry);
+
         self.request(Request::UpdateEntry { entry }).await
     }
 
@@ -143,7 +168,9 @@ impl Client {
 
         let id = self.next_id.replace(self.next_id.get().wrapping_add(1));
         let (sender, receiver) = oneshot::channel();
+
         self.pending.0.borrow_mut().insert(id, sender);
+
         let _guard = Guard {
             pending: &self.pending,
             id,
@@ -152,7 +179,9 @@ impl Client {
         self.coroutine.send(ClientMessage::Request { id, request });
 
         match select(pin!(receiver), pin!(TimeoutFuture::new(TIMEOUT_MS))).await {
-            Either::Left((answer, _)) => answer.unwrap_or_else(|_| Err("Connection closed".into())),
+            Either::Left((answer, _)) => {
+                answer.unwrap_or_else(|_| Err("Connection closed".into()))
+            }
             Either::Right(_) => Err("The server did not answer in time".into()),
         }
     }

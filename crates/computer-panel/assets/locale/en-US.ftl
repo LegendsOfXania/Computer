@@ -37,14 +37,18 @@ toast-create-page-failed = Failed to create the page
 toast-create-entry-failed = Failed to create the entry
 toast-delete-page-failed = Failed to delete the page
 toast-edit-entry-failed = Failed to edit the entry
+toast-delete-entry-failed = Failed to delete the entry
 
 ## Inspector
 inspector-close = Close
 inspector-add = Add
 inspector-duplicate = Duplicate
+inspector-duplicate-link = Duplicate & Link
 inspector-remove = Remove
 inspector-key = Key
 inspector-value = Value
 inspector-unknown-kind = Unknown entry type
 inspector-reference-none = None
 inspector-reference-missing = Entry not found
+inspector-delete = Delete
+inspector-move = Move to another page

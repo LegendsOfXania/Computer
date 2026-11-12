@@ -1,5 +1,6 @@
 mod body;
 mod field;
+mod operations;
 
 use computer_model::{Entry, value::Value};
 use dioxus::prelude::*;
@@ -61,7 +62,8 @@ pub fn Inspector() -> Element {
     let is_open = entry.read().is_some();
 
     rsx! {
-        document::Stylesheet { href: asset!("/assets/style/inspector/mod.css") }
+        Stylesheet { href: asset!("/assets/style/inspector/mod.css") }
+        Stylesheet { href: asset!("/assets/style/inspector/operations.css") }
 
         aside { class: if is_open { "inspector open" } else { "inspector" },
             match (entry(), definition()) {

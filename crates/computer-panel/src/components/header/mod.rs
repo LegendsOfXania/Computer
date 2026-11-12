@@ -8,7 +8,7 @@ use crate::{
             toast::{ERR, OK},
         },
     },
-    search::{ENTRY, PAGE},
+    search::{ENTRY, NEW_ENTRY, PAGE},
     state::{app::AppState, ui::UiState},
     ws::Client,
 };
@@ -29,8 +29,9 @@ pub fn Header() -> Element {
     let open = use_callback(move |id: EntryId| ui.set_opened_entry(&app, Some(id)));
 
     rsx! {
-        document::Stylesheet { href: asset!("/assets/style/header/mod.css") }
-        document::Stylesheet { href: asset!("/assets/style/header/push.css") }
+        Stylesheet { href: asset!("/assets/style/header/mod.css") }
+        Stylesheet { href: asset!("/assets/style/header/push.css") }
+        Stylesheet { href: asset!("/assets/style/search/mod.css") }
 
         header {
             button { class: "logo-icon", Icon { name: "computer" } }
@@ -38,7 +39,7 @@ pub fn Header() -> Element {
             nav { class: "nav",
                 Library {}
 
-                button { onclick: move |_| ui.set_search(Some((PAGE | ENTRY, open))),
+                button { onclick: move |_| ui.set_search(Some((PAGE | ENTRY | NEW_ENTRY, open))),
                     Icon { name: "search" }
                     span { {tid!("header-search-name")} }
                 }

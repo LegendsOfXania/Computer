@@ -1,0 +1,121 @@
+.inspector-menu {
+    flex-shrink: 0;
+    margin-left: 4px;
+}
+
+.inspector-menu-trigger {
+    anchor-name: --inspector-menu-trigger;
+}
+
+.inspector-menu-trigger .icon {
+    transition: transform 160ms ease;
+}
+
+.inspector-menu:has(.inspector-operations-popup:popover-open)
+.inspector-menu-trigger .icon {
+    transform: rotate(90deg);
+}
+
+.inspector-operations-popup {
+    position: fixed;
+    position-anchor: --inspector-menu-trigger;
+
+    inset: auto;
+    top: calc(anchor(bottom) + 8px);
+    right: anchor(right);
+    margin: 0;
+
+    box-sizing: border-box;
+    min-width: 190px;
+    max-width: min(240px, calc(100vw - 24px));
+    max-height: calc(100vh - 24px);
+    overflow-y: auto;
+
+    padding: 4px;
+    border: 1px solid var(--line);
+    border-radius: 2px;
+
+    background: var(--surface);
+    color: var(--fg);
+
+    opacity: 0;
+    transform: translateY(-5px) scale(0.98);
+
+    transition:
+            opacity 160ms ease,
+            transform 160ms ease,
+            display 160ms allow-discrete,
+            overlay 160ms allow-discrete;
+}
+
+.inspector-operations-popup:popover-open {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+@starting-style {
+    .inspector-operations-popup:popover-open {
+        opacity: 0;
+        transform: translateY(-5px) scale(0.98);
+    }
+}
+
+.inspector-operations {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.btn.inspector-operation {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+
+    box-sizing: border-box;
+    width: 100%;
+    height: auto;
+    min-height: 32px;
+    flex: none;
+
+    padding: 6px 8px;
+    margin: 0;
+
+    border: none;
+    border-radius: 2px;
+
+    background: transparent;
+    color: var(--dim);
+
+    font: inherit;
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+
+    transition:
+            color 120ms ease,
+            background 120ms ease;
+}
+
+.btn.inspector-operation:hover {
+    color: var(--fg);
+    background: var(--surface-2);
+}
+
+.btn.inspector-operation .icon {
+    flex: none;
+}
+
+.btn.inspector-operation .btn-label {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .inspector-menu-trigger .icon,
+    .inspector-operations-popup,
+    .btn.inspector-operation {
+        transition: none;
+    }
+}

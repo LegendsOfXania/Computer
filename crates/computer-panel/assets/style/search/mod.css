@@ -256,7 +256,6 @@
 .search-category-head:hover {
     color: var(--fg);
     background: var(--surface);
-    border-color: var(--surface-2);
 }
 
 .search-category-head > .icon {
@@ -324,6 +323,7 @@
 
 .search-row-icon {
     position: relative;
+    grid-column: 1;
     grid-row: 1 / span 2;
 
     display: grid;
@@ -376,6 +376,8 @@
 }
 
 .search-row-label {
+    grid-column: 2;
+    grid-row: 1;
     align-self: end;
     overflow: hidden;
 
@@ -391,6 +393,8 @@
 }
 
 .search-row-hint {
+    grid-column: 2;
+    grid-row: 2;
     align-self: start;
     overflow: hidden;
 

@@ -1,4 +1,3 @@
-
 use computer_model::{
     Entry, EntryDefinition,
     id::{EntryId, Identifier, PageId},
@@ -15,217 +14,122 @@ use crate::{
     ws::Client,
 };
 
-#[derive(Clone, Copy)]
-enum Operation {
-    Delete,
-    Duplicate,
-    DuplicateLink,
-}
-
-fn add_reference(
-    value: &mut Value,
-    source: &EntryId,
-    duplicate: &EntryId,
-) -> bool {
+fn add_reference(value: &mut Value, source: &EntryId, duplicate: &EntryId) -> bool {
     match value {
         Value::List(values) => {
-            let contains_source = values.iter().any(
-                |value| matches!(value, Value::Reference(id) if id == source),
+            let (has_src, has_dup) = (
+                values.iter().any(|v| matches!(v, Value::Reference(id) if id == source)),
+                values.iter().any(|v| matches!(v, Value::Reference(id) if id == duplicate)),
             );
-
-            let contains_duplicate = values.iter().any(
-                |value| matches!(value, Value::Reference(id) if id == duplicate),
-            );
-
             let mut changed = false;
-
-            if contains_source && !contains_duplicate {
+            if has_src && !has_dup {
                 values.push(Value::Reference(duplicate.clone()));
                 changed = true;
             }
-
-            for value in values {
-                changed |= add_reference(value, source, duplicate);
-            }
-
-            changed
+            values.iter_mut().fold(changed, |acc, v| add_reference(v, source, duplicate) || acc)
         }
-
         Value::Struct(fields) | Value::Variant { fields, .. } => {
-            fields.values_mut().fold(false, |changed, value| {
-                add_reference(value, source, duplicate) || changed
-            })
+            fields.values_mut().fold(false, |acc, v| add_reference(v, source, duplicate) || acc)
         }
-
         Value::Map(pairs) => {
-            pairs.iter_mut().fold(false, |changed, (key, value)| {
-                add_reference(key, source, duplicate)
-                    | add_reference(value, source, duplicate)
-                    | changed
+            pairs.iter_mut().fold(false, |acc, (k, v)| {
+                add_reference(k, source, duplicate) || add_reference(v, source, duplicate) || acc
             })
         }
-
         _ => false,
     }
 }
 
 #[component]
 pub fn Operations(entry: Entry, definition: EntryDefinition) -> Element {
-    let app = use_context::<AppState>();
-    let mut ui = use_context::<UiState>();
-    let client = use_context::<Client>();
-    let toast = use_toast();
+    let (app, mut ui, client, toast) = (
+        use_context::<AppState>(),
+        use_context::<UiState>(),
+        use_context::<Client>(),
+        use_toast(),
+    );
 
-    let move_client = client.clone();
-    let move_toast = toast.clone();
-    let move_entry_id = entry.id.clone();
+    let notify_err = move |key: &'static str, err: String| {
+        toast.error(tid!(key), ToastOptions::new().description(err).duration(ERR));
+    };
 
-    let pick_page = use_callback(move |id: EntryId| {
-        let client = move_client.clone();
-        let toast = move_toast.clone();
-        let entry_id = move_entry_id.clone();
-        let page_id = PageId::from_string(id.into_string());
-        let mut ui = ui;
-
-        spawn(async move {
-            match client.move_entry(entry_id.clone(), page_id).await {
-                Ok(()) => ui.set_opened_entry(&app, Some(entry_id)),
-                Err(error) => {
-                    toast.error(
-                        tid!("toast-edit-entry-failed"),
-                        ToastOptions::new()
-                            .description(error)
-                            .duration(ERR),
-                    );
+    let pick_page = {
+        let (client, notify_err, entry_id) = (client.clone(), notify_err, entry.id.clone());
+        use_callback(move |id: EntryId| {
+            let (client, notify_err, entry_id) = (client.clone(), notify_err, entry_id.clone());
+            let page_id = PageId::from_string(id.into_string());
+            spawn(async move {
+                if let Err(e) = client.move_entry(entry_id.clone(), page_id).await {
+                    notify_err("toast-edit-entry-failed", e);
+                } else {
+                    ui.set_opened_entry(&app, Some(entry_id));
                 }
-            }
-        });
-    });
+            });
+        })
+    };
 
-    let execute = use_callback(move |operation: Operation| {
-        let client = client.clone();
-        let toast = toast.clone();
-        let source = entry.clone();
-        let definition = definition.clone();
-        let mut ui = ui;
-
-        spawn(async move {
-            match operation {
-                Operation::Delete => {
-                    let mut eval = document::eval(
-                        "dioxus.send(window.confirm('Are you sure you want to delete this entry?'))",
-                    );
-
-                    if !matches!(eval.recv::<bool>().await, Ok(true)) {
-                        return;
-                    }
-
+    let on_delete = {
+        let (client, notify_err, source) = (client.clone(), notify_err, entry.clone());
+        move |_| {
+            let (client, notify_err, source) = (client.clone(), notify_err, source.clone());
+            spawn(async move {
+                let mut eval = document::eval("dioxus.send(window.confirm('Are you sure you want to delete this entry?'))");
+                if matches!(eval.recv::<bool>().await, Ok(true)) {
                     match client.delete_entry(source.id.clone()).await {
                         Ok(()) => {
                             if ui.get_opened_entry().as_ref() == Some(&source.id) {
                                 ui.set_opened_entry(&app, None);
                             }
                         }
-
-                        Err(error) => {
-                            toast.error(
-                                tid!("toast-delete-entry-failed"),
-                                ToastOptions::new()
-                                    .description(error)
-                                    .duration(ERR),
-                            );
-                        }
+                        Err(e) => notify_err("toast-delete-entry-failed", e),
                     }
                 }
+            });
+        }
+    };
 
-                Operation::Duplicate | Operation::DuplicateLink => {
-                    let linked = matches!(operation, Operation::DuplicateLink);
+    let duplicate_action = |linked: bool| {
+        let (client, notify_err, source, definition) = (client.clone(), notify_err, entry.clone(), definition.clone());
+        move |_| {
+            let (client, notify_err, source, definition) = (client.clone(), notify_err, source.clone(), definition.clone());
+            spawn(async move {
+                let page_id = match app.pages.read().iter().find(|(_, p)| p.entries.contains(&source.id)).map(|(id, _)| id.clone()) {
+                    Some(id) => id,
+                    None => return,
+                };
 
-                    let page_id = app.pages.read()
-                        .iter()
-                        .find(|(_, page)| page.entries.contains(&source.id))
-                        .map(|(id, _)| id.clone());
+                let new_id = match client.create_entry(&definition, page_id).await {
+                    Ok(id) => id,
+                    Err(e) => { notify_err("toast-create-entry-failed", e); return; }
+                };
 
-                    let Some(page_id) = page_id else {
-                        return;
-                    };
+                if let Err(e) = client.edit_entry(&app, new_id.clone(), move |d| d.fields = source.fields.clone()).await {
+                    notify_err("toast-edit-entry-failed", e);
+                    return;
+                }
 
-                    let id = match client.create_entry(&definition, page_id).await {
-                        Ok(id) => id,
-                        Err(error) => {
-                            toast.error(
-                                tid!("toast-create-entry-failed"),
-                                ToastOptions::new()
-                                    .description(error)
-                                    .duration(ERR),
-                            );
+                if linked {
+                    let updates: Vec<_> = app.entries.read().iter()
+                        .filter(|(pid, _)| *pid != &new_id)
+                        .filter_map(|(pid, p)| {
+                            let mut fields = p.fields.clone();
+                            let changed = fields.values_mut().fold(false, |acc, v| add_reference(v, &source.id, &new_id) || acc);
+                            changed.then_some((pid.clone(), fields))
+                        })
+                        .collect();
+
+                    for (pid, fields) in updates {
+                        if let Err(e) = client.edit_entry(&app, pid, move |p| p.fields = fields).await {
+                            notify_err("toast-edit-entry-failed", e);
                             return;
                         }
-                    };
-
-                    let fields = source.fields.clone();
-
-                    if let Err(error) = client.edit_entry(
-                        &app,
-                        id.clone(),
-                        move |duplicate| duplicate.fields = fields,
-                    ).await {
-                        toast.error(
-                            tid!("toast-edit-entry-failed"),
-                            ToastOptions::new()
-                                .description(error)
-                                .duration(ERR),
-                        );
-                        return;
                     }
-
-                    if linked {
-                        let updates = {
-                            let entries = app.entries.read();
-
-                            entries.iter()
-                                .filter_map(|(parent_id, parent)| {
-                                    if parent_id == &id {
-                                        return None;
-                                    }
-
-                                    let mut fields = parent.fields.clone();
-
-                                    let changed = fields.values_mut().fold(
-                                        false,
-                                        |changed, value| {
-                                            add_reference(value, &source.id, &id)
-                                                || changed
-                                        },
-                                    );
-
-                                    changed.then_some((parent_id.clone(), fields))
-                                })
-                                .collect::<Vec<_>>()
-                        };
-
-                        for (parent_id, fields) in updates {
-                            if let Err(error) = client.edit_entry(
-                                &app,
-                                parent_id,
-                                move |parent| parent.fields = fields,
-                            ).await {
-                                toast.error(
-                                    tid!("toast-edit-entry-failed"),
-                                    ToastOptions::new()
-                                        .description(error)
-                                        .duration(ERR),
-                                );
-                                return;
-                            }
-                        }
-                    }
-
-                    ui.set_opened_entry(&app, Some(id));
                 }
-            }
-        });
-    });
+
+                ui.set_opened_entry(&app, Some(new_id));
+            });
+        }
+    };
 
     rsx! {
         div { class: "inspector-operations",
@@ -233,38 +137,38 @@ pub fn Operations(entry: Entry, definition: EntryDefinition) -> Element {
                 icon: "trash",
                 label: tid!("inspector-delete"),
                 class: "inspector-operation",
-                popover_target: Some("inspector-operations".to_string()),
-                popover_action: Some("hide".to_string()),
-                onclick: move |_| execute.call(Operation::Delete),
+                popover_target: Some("inspector-operations".into()),
+                popover_action: Some("hide".into()),
+                onclick: on_delete
             }
 
             Btn {
                 icon: "section-plus",
                 label: tid!("inspector-duplicate"),
                 class: "inspector-operation",
-                popover_target: Some("inspector-operations".to_string()),
-                popover_action: Some("hide".to_string()),
-                onclick: move |_| execute.call(Operation::Duplicate),
+                popover_target: Some("inspector-operations".into()),
+                popover_action: Some("hide".into()),
+                onclick: duplicate_action(false)
             }
 
             Btn {
                 icon: "link",
                 label: tid!("inspector-duplicate-link"),
                 class: "inspector-operation",
-                popover_target: Some("inspector-operations".to_string()),
-                popover_action: Some("hide".to_string()),
-                onclick: move |_| execute.call(Operation::DuplicateLink),
+                popover_target: Some("inspector-operations".into()),
+                popover_action: Some("hide".into()),
+                onclick: duplicate_action(true)
             }
 
             Btn {
                 icon: "move",
                 label: tid!("inspector-move"),
                 class: "inspector-operation",
-                popover_target: Some("inspector-operations".to_string()),
-                popover_action: Some("hide".to_string()),
+                popover_target: Some("inspector-operations".into()),
+                popover_action: Some("hide".into()),
                 onclick: move |_| {
                     ui.set_search(Some((PAGE | PAGE_PICK, pick_page)));
-                },
+                }
             }
         }
     }

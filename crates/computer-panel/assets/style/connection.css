@@ -1,0 +1,209 @@
+.connection-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    overflow: hidden;
+    padding: clamp(32px, 7vh, 72px) 24px clamp(28px, 5vh, 42px);
+
+    color: var(--fg);
+    background:
+            radial-gradient(
+                    ellipse 420px 380px at 62% 23%,
+                    color-mix(in srgb, var(--main) 6%, transparent),
+                    transparent 75%
+            ),
+            var(--bg);
+}
+
+.connection-scene {
+    position: relative;
+    flex: 1 1 auto;
+
+    width: min(100%, 760px);
+    min-height: 260px;
+}
+
+.connection-orbit {
+    position: absolute;
+    top: 44%;
+    left: 50%;
+
+    border: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.connection-orbit--one {
+    width: min(48vw, 330px);
+    height: min(65vh, 520px);
+    rotate: -32deg;
+}
+
+.connection-orbit--two {
+    width: min(30vw, 210px);
+    height: min(72vh, 570px);
+    rotate: 35deg;
+
+    border-color: color-mix(in srgb, var(--line) 30%, transparent);
+}
+
+.connection-planet {
+    position: absolute;
+    border-radius: 50%;
+}
+
+.connection-planet--main {
+    top: 19%;
+    left: 56%;
+
+    width: 76px;
+    aspect-ratio: 1;
+
+    background: var(--main);
+    box-shadow: 0 0 90px color-mix(in srgb, var(--main) 13%, transparent);
+
+    animation: planet-float 6s ease-in-out infinite;
+}
+
+.connection-planet--purple {
+    top: 23%;
+    left: 25%;
+
+    width: 24px;
+    aspect-ratio: 1;
+
+    background: var(--main-soft);
+}
+
+.connection-planet--teal {
+    top: 64%;
+    left: 17%;
+
+    width: 10px;
+    aspect-ratio: 1;
+
+    background: var(--success);
+}
+
+.connection-planet--blue {
+    top: 75%;
+    right: 20%;
+
+    width: 25px;
+    aspect-ratio: 1;
+
+    background: var(--faint);
+}
+
+.connection-planet--small {
+    top: 74%;
+    left: 57%;
+
+    width: 7px;
+    aspect-ratio: 1;
+
+    background: var(--dim);
+}
+
+.connection-copy {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+
+    width: 100%;
+    padding-bottom: 1vh;
+
+    text-align: center;
+}
+
+.connection-copy h1 {
+    margin: 0;
+
+    color: var(--fg-2);
+
+    font-size: clamp(24px, 4.5vw, 42px);
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.055em;
+}
+
+.connection-copy > p {
+    margin: 0;
+
+    color: var(--dim);
+
+    font-size: 15px;
+    line-height: 1.5;
+}
+
+.connection-attempt {
+    margin-top: 8px;
+
+    color: var(--faint);
+    font-family: monospace;
+    font-size: 12px;
+}
+
+.connection-details {
+    width: min(100%, 560px);
+    margin-top: 16px;
+
+    text-align: left;
+}
+
+.connection-details summary {
+    color: var(--faint);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.connection-details summary:hover {
+    color: var(--fg);
+}
+
+.connection-details pre {
+    max-height: 160px;
+    overflow: auto;
+    margin-top: 12px;
+    padding: 12px;
+
+    color: var(--error);
+    background: var(--surface);
+    border: 1px solid var(--line);
+
+    font-size: 11px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.connection-screen--reconnecting .connection-planet--main {
+    background: var(--warn);
+    box-shadow: 0 0 90px color-mix(in srgb, var(--warn) 13%, transparent);
+}
+
+.connection-screen--failed .connection-planet--main {
+    background: var(--error);
+    box-shadow: 0 0 90px color-mix(in srgb, var(--error) 13%, transparent);
+}
+
+@keyframes planet-float {
+    0%, 100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-9px);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .connection-planet--main {
+        animation: none;
+    }
+}

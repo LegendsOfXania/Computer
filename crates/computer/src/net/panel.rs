@@ -1,10 +1,13 @@
+
 use std::{path::Path, time::Duration};
 
 use serde::Deserialize;
+use sha2::{Digest, Sha256};
 use waki::Client;
 
 use crate::data;
 
+const PANEL_URL: &str = "https://legendsofxania.github.io/Computer/panel";
 const PANEL_ARCHIVE: &str = "panel.tar.gz";
 const INSTALLED_VERSION: &str = ".installed-version";
 
@@ -29,35 +32,45 @@ fn update(panel: &Path) -> Result<Option<String>, String> {
         .ok()
         .map(|version| version.trim().to_owned());
 
-    let latest = latest_version()?;
+    let manifest = latest_manifest()?;
 
-    if installed.as_deref() == Some(&latest) && panel.join("index.html").is_file() {
+    if installed.as_deref() == Some(&manifest.version)
+        && panel.join("index.html").is_file()
+    {
         return Ok(None);
     }
 
     if !data::conf::get_conf().panel.auto_update {
-        return Err("The panel is outdated, but automatic updates are disabled in the configuration. Proceed at your own risk.".into());
+        return Err(
+            "The panel is outdated, but automatic updates are disabled in the configuration. Proceed at your own risk."
+                .into(),
+        );
     }
 
-    let archive = download(&format!(
-        "https://github.com/LegendsOfXania/Computer/releases/download/{latest}/{PANEL_ARCHIVE}"
-    ))?;
+    if manifest.file != PANEL_ARCHIVE {
+        return Err("invalid panel archive filename".into());
+    }
+
+    let archive = download(&format!("{PANEL_URL}/{PANEL_ARCHIVE}"))?;
+
+    let hash = hex::encode(Sha256::digest(&archive));
+
+    if hash != manifest.sha256 {
+        return Err("panel archive checksum mismatch".into());
+    }
 
     install(panel, &archive)?;
-    std::fs::write(panel.join(INSTALLED_VERSION), &latest)
+
+    std::fs::write(panel.join(INSTALLED_VERSION), &manifest.version)
         .map_err(|e| e.to_string())?;
 
-    Ok(Some(latest))
+    Ok(Some(manifest.version))
 }
 
-fn latest_version() -> Result<String, String> {
-    let body = download(
-        "https://api.github.com/repos/LegendsOfXania/Computer/releases/latest",
-    )?;
+fn latest_manifest() -> Result<PanelManifest, String> {
+    let body = download(&format!("{PANEL_URL}/latest.json"))?;
 
-    serde_json::from_slice::<Release>(&body)
-        .map(|release| release.tag_name)
-        .map_err(|e| e.to_string())
+    serde_json::from_slice(&body).map_err(|e| e.to_string())
 }
 
 const MAX_REDIRECTS: u8 = 5;
@@ -79,7 +92,7 @@ fn download_following(url: &str, redirects_left: u8) -> Result<Vec<u8>, String> 
 
     if matches!(response.status_code(), 301 | 302 | 303 | 307 | 308) {
         if redirects_left == 0 {
-            return Err("too many redirects".to_string());
+            return Err("too many redirects".into());
         }
 
         let location = response
@@ -131,7 +144,7 @@ fn install(panel: &Path, archive: &[u8]) -> Result<(), String> {
             &mut entry,
             &mut std::fs::File::create(path).map_err(|e| e.to_string())?,
         )
-        .map_err(|e| e.to_string())?;
+            .map_err(|e| e.to_string())?;
     }
 
     if panel.exists() {
@@ -142,6 +155,8 @@ fn install(panel: &Path, archive: &[u8]) -> Result<(), String> {
 }
 
 #[derive(Deserialize)]
-struct Release {
-    tag_name: String,
+struct PanelManifest {
+    version: String,
+    file: String,
+    sha256: String,
 }

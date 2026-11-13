@@ -22,7 +22,7 @@ use crate::search::PAGE_PICK;
 
 const LIMIT: usize = 50;
 
-type Sections = [(usize, Vec<SearchItem>); 3];
+type Sections = [Vec<SearchItem>; 3];
 
 #[derive(Clone, PartialEq)]
 enum Target {
@@ -63,12 +63,6 @@ impl SearchItem {
             meta: meta.into(),
         }
     }
-}
-
-#[derive(Clone, Copy, PartialEq)]
-enum Selection {
-    Category(usize),
-    Result(usize, usize),
 }
 
 fn fits(kind: &PageKind, definition: &EntryDefinition) -> bool {
@@ -201,6 +195,7 @@ fn build_sections(
     definition: Option<&EntryDefinition>,
 ) -> Sections {
     let default = if definition.is_some() { PAGE } else { scope };
+    let pages = app.pages.read();
     let mut sections = Sections::default();
 
     for item in index.search(query, default) {
@@ -209,16 +204,18 @@ fn build_sections(
                 continue;
             };
 
-            if app.with_page(id, |page| fits(&page.kind, definition)) != Some(true) {
+            if !pages.get(id).is_some_and(|page| fits(&page.kind, definition)) {
                 continue;
             }
         }
 
-        let (total, items) = &mut sections[item.target.section()];
-        *total += 1;
-
+        let items = &mut sections[item.target.section()];
         if items.len() < LIMIT {
             items.push(item.clone());
+
+            if sections.iter().all(|items| items.len() == LIMIT) {
+                break;
+            }
         }
     }
 
@@ -227,7 +224,7 @@ fn build_sections(
     });
 
     if can_create_page && search::scope(query, default) & PAGE != 0 {
-        sections[2].1.push(new_page_item());
+        sections[2].push(new_page_item());
     }
 
     sections
@@ -241,6 +238,10 @@ pub fn Search(scope: u8, pick: Callback<EntryId>) -> Element {
         use_context::<UiState>(),
         use_toast(),
     );
+
+    let fail = use_callback(move |(title, error): (String, String)| {
+        toast.error(title, ToastOptions::new().description(error).duration(ERR));
+    });
 
     let page_pick = scope & PAGE_PICK != 0;
     let scope = scope & !PAGE_PICK;
@@ -260,7 +261,6 @@ pub fn Search(scope: u8, pick: Callback<EntryId>) -> Element {
     let mut query = use_signal(String::new);
     let mut pending = use_signal(|| None::<EntryDefinition>);
     let mut collapsed = use_signal(|| [false; 3]);
-    let mut active = use_signal(|| None::<Selection>);
 
     let filter = page_definition.clone();
 
@@ -274,19 +274,6 @@ pub fn Search(scope: u8, pick: Callback<EntryId>) -> Element {
             scope,
             definition.as_ref(),
         )
-    });
-
-    use_effect(move || {
-        let _ = sections.read();
-        active.set(None);
-    });
-
-    use_effect(move || {
-        let _ = active();
-
-        document::eval(
-            "document.querySelector('.search-row.active, .search-category-head.active')?.scrollIntoView({ block: 'nearest' })",
-        );
     });
 
     let activate = use_callback(move |target: Target| {
@@ -368,14 +355,7 @@ pub fn Search(scope: u8, pick: Callback<EntryId>) -> Element {
                         }
 
                         Err(error) => {
-                            let options = ToastOptions::new()
-                                .description(error)
-                                .duration(ERR);
-
-                            return toast.error(
-                                tid!("toast-create-page-failed"),
-                                options,
-                            );
+                            return fail.call((tid!("toast-create-page-failed"), error));
                         }
                     }
                 }
@@ -391,33 +371,17 @@ pub fn Search(scope: u8, pick: Callback<EntryId>) -> Element {
                     ui.set_search(None);
                 }
 
-                Err(error) => {
-                    let options = ToastOptions::new()
-                        .description(error)
-                        .duration(ERR);
-
-                    toast.error(
-                        tid!("toast-create-entry-failed"),
-                        options,
-                    );
-                }
+                Err(error) => fail.call((tid!("toast-create-entry-failed"), error)),
             }
         });
     });
 
-    let fold = use_callback(move |(category, folded): (usize, Option<bool>)| {
-        collapsed.with_mut(|values| {
-            values[category] = folded.unwrap_or(!values[category]);
-        });
-
-        active.set(Some(Selection::Category(category)));
+    let fold = use_callback(move |category: usize| {
+        collapsed.with_mut(|values| values[category] = !values[category]);
     });
 
     let select = use_callback(move |(category, item): (usize, usize)| {
-        active.set(Some(Selection::Result(category, item)));
-
         let target = sections.read()[category]
-            .1
             .get(item)
             .map(|item| item.target.clone());
 
@@ -449,11 +413,8 @@ pub fn Search(scope: u8, pick: Callback<EntryId>) -> Element {
     let parts = search::highlight(&text);
     let sections = sections();
     let collapsed = collapsed();
-    let active = active();
 
-    let no_results =
-        sections.iter().all(|(_, items)| items.is_empty())
-            && !text.trim().is_empty();
+    let no_results = sections.iter().all(Vec::is_empty);
 
     rsx! {
         Stylesheet { href: asset!("/assets/style/search/mod.css") }
@@ -532,7 +493,7 @@ pub fn Search(scope: u8, pick: Callback<EntryId>) -> Element {
                         }
                     }
 
-                    for (category, (_, items)) in sections.into_iter().enumerate() {
+                    for (category, items) in sections.into_iter().enumerate() {
                         if !items.is_empty() {
                             Category {
                                 key: "{category}",
@@ -540,18 +501,7 @@ pub fn Search(scope: u8, pick: Callback<EntryId>) -> Element {
                                 title: titles[category].clone(),
                                 items,
                                 collapsed: collapsed[category],
-                                active: active == Some(Selection::Category(category)),
-
-                                selected: match active {
-                                    Some(Selection::Result(selected, item))
-                                        if selected == category => Some(item),
-                                    _ => None,
-                                },
-
-                                ontoggle: move |category| {
-                                    fold.call((category, None))
-                                },
-
+                                ontoggle: fold,
                                 onselect: select,
                             }
                         }

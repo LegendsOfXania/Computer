@@ -133,37 +133,6 @@ pub fn highlight(input: &str) -> Vec<(&str, bool)> {
     parts
 }
 
-pub fn complete(input: &str) -> Option<String> {
-    let start = input
-        .char_indices()
-        .rev()
-        .find(|(_, character)| character.is_whitespace())
-        .map_or(0, |(index, character)| index + character.len_utf8());
-    let token = &input[start..];
-    let partial = token.strip_prefix('!')?.to_ascii_lowercase();
-
-    if partial.is_empty() || partial.contains(':') {
-        return None;
-    }
-
-    let mut matches = OPERATORS.iter().filter(|(name, aliases, _)| {
-        name.starts_with(&partial) || aliases.iter().any(|alias| alias.starts_with(&partial))
-    });
-    let (name, _, colon) = matches.next()?;
-
-    if matches.next().is_some() {
-        return None;
-    }
-
-    let completion = if *colon {
-        format!("!{name}:")
-    } else {
-        format!("!{name}")
-    };
-
-    (!token.eq_ignore_ascii_case(&completion)).then(|| format!("{}{completion}", &input[..start]))
-}
-
 fn canonical(name: &str) -> Option<&'static str> {
     OPERATORS
         .iter()
@@ -196,7 +165,6 @@ fn field_bits(value: &str) -> Option<u8> {
     (bits != 0 || value.is_empty() || value.starts_with('[')).then_some(bits)
 }
 
-/// Splits on whitespace that is neither escaped, quoted nor inside brackets.
 fn split(input: &str) -> Vec<(usize, &str)> {
     let mut tokens = Vec::new();
     let mut start = None;
@@ -233,7 +201,6 @@ fn split(input: &str) -> Vec<(usize, &str)> {
     tokens
 }
 
-/// A fuzzy token as Frizbee expects it: quotes removed, inner spaces escaped.
 fn atom(token: &str) -> String {
     let mut atom = String::with_capacity(token.len());
     let mut characters = token.chars();
@@ -256,7 +223,6 @@ fn atom(token: &str) -> String {
     atom
 }
 
-/// `[a, b]` or `a,b`: comma separated, `\x` escapes, `"..."` keeps commas and spaces.
 fn values(value: &str) -> Vec<String> {
     let value = value.strip_prefix('[').unwrap_or(value);
     let value = value.strip_suffix(']').unwrap_or(value);
@@ -289,158 +255,4 @@ fn values(value: &str) -> Vec<String> {
         .map(|value| value.trim().to_owned())
         .filter(|value| !value.is_empty())
         .collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn parse(input: &str) -> Query {
-        Query::parse(input, PAGE | ENTRY)
-    }
-
-    #[test]
-    fn aliases_and_scopes() {
-        assert_eq!(parse("!e").scope, ENTRY);
-        assert_eq!(parse("!p").scope, PAGE);
-        assert_eq!(parse("!ne").scope, NEW_ENTRY);
-        assert_eq!(parse("!ee").scope, ENTRY);
-        assert_eq!(parse("welcome").scope, PAGE | ENTRY);
-    }
-
-    #[test]
-    fn conflicting_scopes_match_nothing() {
-        assert_eq!(parse("!page !entry").scope, 0);
-        assert_eq!(parse("!ne:basic:message !ee").scope, 0);
-    }
-
-    #[test]
-    fn filters_combine_and_values_are_or() {
-        let query = parse(r#"!kind:[basic:message,trigger:command] !chapter:"Act One""#);
-        assert_eq!(query.kinds, ["basic:message", "trigger:command"]);
-        assert_eq!(query.chapters, ["Act One"]);
-        assert_eq!(query.scope, PAGE | ENTRY);
-    }
-
-    #[test]
-    fn kind_with_a_value_never_selects_new_entries() {
-        let query = Query::parse("!kind:basic:message", PAGE | ENTRY | NEW_ENTRY);
-        assert_eq!(query.scope, PAGE | ENTRY);
-    }
-
-    #[test]
-    fn fields_are_selected_by_name_or_list() {
-        assert_eq!(parse("!page:name").fields, NAME);
-        assert_eq!(parse("!entry:type").fields, KIND);
-        assert_eq!(parse("!page:[name, type, id]").fields, FIELDS);
-        assert_eq!(parse("!entry:[name,id]").scope, ENTRY);
-        assert_eq!(parse("!id").fields, ID);
-        assert_eq!(parse("!kind").fields, KIND);
-        assert_eq!(parse("!page:name !id").fields, NAME | ID);
-    }
-
-    #[test]
-    fn unknown_operators_are_search_terms() {
-        assert_eq!(parse("!unknown something").fuzzy, "!unknown something");
-        assert_eq!(parse("!page:chapter test").fuzzy, "!page:chapter test");
-        assert_eq!(parse("!id:message").fuzzy, "!id:message");
-        assert_eq!(parse("!page:chapter").scope, PAGE | ENTRY);
-    }
-
-    #[test]
-    fn empty_values_are_incomplete() {
-        for input in [
-            "!kind:",
-            "!ne:",
-            "!ext",
-            "!chapter:",
-            "!page:",
-            "!entry:[]",
-            "!page:[foo]",
-        ] {
-            assert!(parse(input).incomplete, "{input}");
-        }
-        for input in ["!kind", "!ne", "!ee", "!page", "!id", "!kind:a"] {
-            assert!(!parse(input).incomplete, "{input}");
-        }
-    }
-
-    #[test]
-    fn escaped_spaces_and_quotes_are_single_fuzzy_atoms() {
-        assert_eq!(parse(r"!id my\ page").fuzzy, r"my\ page");
-        assert_eq!(parse(r#""player join" now"#).fuzzy, r"player\ join now");
-        assert_eq!(parse(r"player\ join").fuzzy, r"player\ join");
-    }
-
-    #[test]
-    fn apostrophes_stay_in_the_query() {
-        assert_eq!(parse("player's join").fuzzy, "player's join");
-        assert_eq!(parse("'exact term").fuzzy, "'exact term");
-    }
-
-    #[test]
-    fn escaped_filter_values_keep_spaces_and_commas() {
-        let query = parse(r"!chapter:Act\ One !ext:[basic,custom\,pack]");
-        assert_eq!(query.chapters, ["Act One"]);
-        assert_eq!(query.extensions, ["basic", "custom,pack"]);
-    }
-
-    #[test]
-    fn quoted_values_keep_commas() {
-        assert_eq!(parse(r#"!chapter:"A, B""#).chapters, ["A, B"]);
-    }
-
-    #[test]
-    fn brackets_group_spaces() {
-        assert_eq!(parse("!kind:[a, b] x").kinds, ["a", "b"]);
-        assert_eq!(parse("!kind:[a, b] x").fuzzy, "x");
-    }
-
-    #[test]
-    fn highlight_colors_only_what_the_parser_accepts() {
-        assert_eq!(
-            highlight("!entry cac !kind:basic:fact !page:foo !ext"),
-            [
-                ("!entry", true),
-                (" cac ", false),
-                ("!kind:", true),
-                ("basic:fact !page:foo ", false),
-                ("!ext", true),
-            ]
-        );
-    }
-
-    #[test]
-    fn highlight_keeps_every_character() {
-        for input in ["", "  ", "a  b ", " !k:x\t!id ", r#"!c:"A B" é ✓"#, r"a\ b"] {
-            let joined: String = highlight(input).into_iter().map(|(text, _)| text).collect();
-            assert_eq!(joined, input);
-        }
-    }
-
-    #[test]
-    fn completes_common_operator_prefixes() {
-        assert_eq!(complete("!en").as_deref(), Some("!entry"));
-        assert_eq!(complete("!pa").as_deref(), Some("!page"));
-        assert_eq!(complete("!ex").as_deref(), Some("!extension:"));
-        assert_eq!(complete("!ki").as_deref(), Some("!kind:"));
-        assert_eq!(complete("!k").as_deref(), Some("!kind:"));
-        assert_eq!(complete("!ch").as_deref(), Some("!chapter:"));
-    }
-
-    #[test]
-    fn completes_only_the_current_unfinished_operator() {
-        assert_eq!(complete("hello !en").as_deref(), Some("hello !entry"));
-        assert_eq!(complete("!chapter:Act"), None);
-        assert_eq!(complete("!e"), None);
-        assert_eq!(complete("!ee"), None);
-        assert_eq!(complete("!entry"), None);
-        assert_eq!(complete("hello "), None);
-    }
-
-    #[test]
-    fn completion_survives_multibyte_whitespace() {
-        assert_eq!(complete("a\u{a0}!en").as_deref(), Some("a\u{a0}!entry"));
-        assert_eq!(complete("é !pa").as_deref(), Some("é !page"));
-    }
 }

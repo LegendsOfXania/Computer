@@ -1,3 +1,4 @@
+mod connection;
 mod editor;
 mod header;
 mod inspector;
@@ -8,13 +9,22 @@ use dioxus::prelude::*;
 use dioxus_i18n::{prelude::*, unic_langid::langid};
 
 use crate::{
-    components::{editor::Editor, header::Header, search::Search, utils::toast::ToastProvider},
-    state::ui::UiState,
+    components::{
+        connection::Connection,
+        editor::Editor,
+        header::Header,
+        search::Search,
+        utils::toast::ToastProvider,
+    },
+    state::{ui::UiState, ConnectionStatus},
 };
 
 #[component]
 pub fn Panel() -> Element {
     let ui = use_context::<UiState>();
+    let connection = use_context::<Signal<ConnectionStatus>>();
+
+    let status = connection.read().clone();
 
     use_init_i18n(|| {
         let lang = js_sys::Reflect::get(&js_sys::global(), &"navigator".into())
@@ -45,13 +55,18 @@ pub fn Panel() -> Element {
         Stylesheet { href: asset!("/assets/style/utils/icon.css") }
         Stylesheet { href: asset!("/assets/style/utils/btn.css") }
         Stylesheet { href: asset!("/assets/style/utils/toast.css") }
+        Stylesheet { href: asset!("/assets/style/connection.css") }
 
         ToastProvider {
-            Header {}
-            Editor {}
+            if status == ConnectionStatus::Connected {
+                Header {}
+                Editor {}
 
-            if let Some((scope, pick)) = ui.get_search() {
-                Search { scope, pick }
+                if let Some((scope, pick)) = ui.get_search() {
+                    Search { scope, pick }
+                }
+            } else {
+                Connection { status }
             }
         }
     }

@@ -48,7 +48,7 @@ pub fn Library() -> Element {
         .collect();
 
     rsx! {
-        document::Stylesheet { href: asset!("/assets/style/header/library.css") }
+        Stylesheet { href: asset!("/assets/style/header/library.css") }
 
         div { class: "library",
             button { class: "library-trigger",

@@ -52,3 +52,12 @@ inspector-reference-none = Aucune
 inspector-reference-missing = Entrée introuvable
 inspector-delete = Supprimer
 inspector-move = Déplacer vers une autre page
+
+## Connection
+connection-connecting-title = Connexion au serveur
+connection-connecting-message = Établissement de la connexion.
+connection-reconnecting-title = Reconnexion
+connection-reconnecting-message = La connexion a été interrompue.
+connection-attempt = Tentative
+connection-failed-title = Échec de la connexion
+connection-failed-message = Impossible d'établir une connexion avec le serveur.

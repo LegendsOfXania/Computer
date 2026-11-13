@@ -10,15 +10,13 @@ pub(super) fn Category(
     title: String,
     items: Vec<SearchItem>,
     collapsed: bool,
-    active: bool,
-    selected: Option<usize>,
     ontoggle: EventHandler<usize>,
     onselect: EventHandler<(usize, usize)>,
 ) -> Element {
     rsx! {
         section { class: "search-category",
             button {
-                class: if active { "search-category-head active" } else { "search-category-head" },
+                class: "search-category-head",
                 r#type: "button",
                 onclick: move |_| ontoggle.call(index),
                 Icon { name: if collapsed { "chevron-right" } else { "chevron-down" } }

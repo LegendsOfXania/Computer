@@ -12,12 +12,12 @@ pub mod state;
 pub mod ws;
 
 fn main() {
-    dioxus::launch(App);
+    launch(App);
 }
 
 #[component]
 fn App() -> Element {
-    use_context_provider(|| Signal::new(ConnectionStatus::Connecting));
+    use_context_provider(|| Signal::new(ConnectionStatus::Connected));
 
     use_context_provider(|| {
         let mut state = AppState::new();

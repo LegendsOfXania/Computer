@@ -9,6 +9,16 @@ authors.workspace = true
 indexmap.workspace = true
 serde.workspace = true
 postcard.workspace = true
-flate2.workspace = true
-uuid.workspace = true
-getrandom.workspace = true
+flate2 = { workspace = true, optional = true }
+uuid = { workspace = true, optional = true }
+getrandom = { workspace = true, optional = true }
+
+[features]
+engine = ["dep:uuid"]
+panel = ["dep:flate2", "dep:getrandom"]
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

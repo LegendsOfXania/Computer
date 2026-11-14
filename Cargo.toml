@@ -19,7 +19,7 @@ authors = ["Legends of Xania"]
 computer = { path = "crates/computer" }
 computer-edk = { path = "crates/computer-edk" }
 computer-edk-macro = { path = "crates/computer-edk-macro" }
-computer-model = { path = "crates/computer-model" }
+computer-model = { path = "crates/computer-model", default-features = false }
 computer-panel = { path = "crates/computer-panel" }
 
 pumpkin-plugin-api = "0.2.1"
@@ -30,9 +30,7 @@ parking_lot = "0.13.0"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 tar = "0.4.46"
-hex = "0.4.3"
 sha2 = "0.11.1"
-base64 = "0.23.1"
 postcard = { version = "1.1.3", features = ["alloc"] }
 flate2 = { version = "1.1.11", default-features = false, features = [
     "rust_backend",
@@ -64,6 +62,16 @@ futures-util = "0.3.34"
 futures-channel = "0.3.34"
 
 frizbee = { version = "0.13.0", default-features = false }
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+unreachable = "deny"
+todo = "deny"
+unimplemented = "deny"
+indexing_slicing = "deny"
+must_use_candidate = "warn"
 
 [profile.release]
 opt-level = "z"

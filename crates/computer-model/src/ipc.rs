@@ -16,10 +16,7 @@ pub trait IpcMessage: Serialize + DeserializeOwned {
             postcard::take_from_bytes::<u32>(bytes).map_err(|err| err.to_string())?;
 
         if version != IPC_VERSION {
-            return Err(format!(
-                "IPC version mismatch: received v{version}, expected v{IPC_VERSION} \
-                 (Computer and the extension are built against different versions.)"
-            ));
+            return Err(format!("IPC version mismatch: received v{version}, expected v{IPC_VERSION}"));
         }
 
         postcard::from_bytes(payload).map_err(|err| err.to_string())

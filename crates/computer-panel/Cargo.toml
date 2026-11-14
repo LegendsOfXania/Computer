@@ -6,7 +6,7 @@ license.workspace = true
 authors.workspace = true
 
 [dependencies]
-computer-model.workspace = true
+computer-model = { workspace = true, features = ["panel"] }
 dioxus.workspace = true
 dioxus-flow.workspace = true
 dioxus-i18n.workspace = true

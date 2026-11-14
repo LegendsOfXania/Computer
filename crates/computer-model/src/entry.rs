@@ -22,10 +22,25 @@ pub struct Entry {
 }
 
 impl Entry {
+    #[must_use]
     pub fn label(&self) -> &str {
         match self.fields.get("name") {
             Some(Value::String(name)) if !name.is_empty() => name,
             _ => &self.kind,
         }
+    }
+}
+
+#[cfg(feature = "engine")]
+impl TryFrom<&EntryDefinition> for Entry {
+    type Error = String;
+
+    fn try_from(definition: &EntryDefinition) -> Result<Self, String> {
+        Ok(Self {
+            id: EntryId::generate()?,
+            kind: definition.kind.clone(),
+            fields: crate::field::defaults(&definition.fields),
+            version: definition.version,
+        })
     }
 }

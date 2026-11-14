@@ -1,6 +1,6 @@
 use std::{collections::HashMap, io::ErrorKind, net::TcpListener};
 
-use computer_model::id::{Identifier, Token};
+use computer_model::id::Token;
 use parking_lot::Mutex;
 use pumpkin_plugin_api::{Server, command::CommandSender, scheduler::SchedulerExt};
 
@@ -46,7 +46,7 @@ pub fn ensure_started(
     ip: &str,
     port: u16,
 ) -> Result<(StartOutcome, Token), String> {
-    let token = Token::new();
+    let token = Token::generate()?;
 
     if STATE.lock().is_some() {
         return Ok((StartOutcome::AlreadyRunning, token));

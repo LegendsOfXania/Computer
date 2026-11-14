@@ -1,6 +1,6 @@
 use std::{cell::Cell, pin::pin};
 
-use computer_model::id::{Identifier, Token};
+use computer_model::id::Token;
 use computer_model::protocol::{
     PROTOCOL_VERSION,
     message::{ClientMessage, ProtocolMessage, ServerMessage},
@@ -255,6 +255,6 @@ async fn get_token() -> Result<Token, String> {
     value
         .as_str()
         .filter(|token| !token.is_empty())
-        .map(|token| Token::from_string(token.to_owned()))
+        .map(|token| Token::from(token.to_owned()))
         .ok_or_else(|| "Token is missing in the page URL".to_string())
 }

@@ -8,7 +8,7 @@ use std::{
 
 use computer_model::{
     Entry, EntryDefinition,
-    id::{EntryId, Identifier, PageId},
+    id::{EntryId, PageId},
     page::{Page, PageKind},
     protocol::{message::ClientMessage, request::Request},
     value::Value,
@@ -76,7 +76,7 @@ impl Client {
         kind: PageKind,
     ) -> Result<PageId, String> {
         let page = Page {
-            id: PageId::new(),
+            id: PageId::generate()?,
             name,
             kind,
             priority: 0,
@@ -97,7 +97,7 @@ impl Client {
         page_id: PageId,
     ) -> Result<EntryId, String> {
         let entry = Entry {
-            id: EntryId::new(),
+            id: EntryId::generate()?,
             kind: definition.kind.clone(),
             fields: definition
                 .fields

@@ -1,32 +1,29 @@
-use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-
-use crate::{
-    id::{EntryId, PageId},
-    page::Page,
-};
 
 pub mod entry;
 pub mod field;
 pub mod id;
-pub mod interaction;
-pub mod ipc;
 pub mod page;
-pub mod protocol;
 pub mod value;
 
-pub use entry::{Entry, EntryDefinition};
+#[cfg(feature = "engine")]
+pub mod interaction;
+#[cfg(feature = "engine")]
+pub mod ipc;
+#[cfg(feature = "panel")]
+pub mod library;
+#[cfg(feature = "panel")]
+pub mod protocol;
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct Library {
-    pub pages: IndexMap<PageId, Page>,
-    pub entries: IndexMap<EntryId, Entry>,
-}
+pub use entry::{Entry, EntryDefinition};
+#[cfg(feature = "engine")]
+pub use library::Library;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Registry(pub Vec<EntryDefinition>);
 
 impl Registry {
+    #[must_use]
     pub fn new(entries: Vec<EntryDefinition>) -> Self {
         Self(entries)
     }

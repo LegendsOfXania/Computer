@@ -53,7 +53,10 @@ fn update(panel: &Path) -> Result<Option<String>, String> {
 
     let archive = download(&format!("{PANEL_URL}/{PANEL_ARCHIVE}"))?;
 
-    let hash = hex::encode(Sha256::digest(&archive));
+    let hash: String = Sha256::digest(&archive)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect();
 
     if hash != manifest.sha256 {
         return Err("panel archive checksum mismatch".into());

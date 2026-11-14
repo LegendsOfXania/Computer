@@ -101,7 +101,7 @@ impl Field for EntryId {
     }
 
     fn to_value(&self) -> Result<Value, String> {
-        Ok(Value::Reference(self.clone()))
+        Ok(Value::Reference(*self))
     }
 
     fn from_value(value: Value) -> Result<Self, String> {

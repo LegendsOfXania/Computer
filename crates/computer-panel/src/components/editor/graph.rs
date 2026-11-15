@@ -1,8 +1,7 @@
 use crate::state::{app::AppState, ui::UiState};
 use computer_model::{
-    id::{EntryId, Identifier, PageId},
+    id::{EntryId, PageId},
     page::PageKind,
-    value::Value,
 };
 use dioxus::prelude::*;
 use dioxus_flow::{LayoutNode, compute_layout, prelude::*};
@@ -24,53 +23,57 @@ pub struct Graph {
 
 pub fn build() -> Graph {
     let (app, ui) = (consume_context::<AppState>(), consume_context::<UiState>());
-    let pages = app.pages.read();
-    let entries = app.entries.read();
-    let registry = app.registry.read();
+    let library = app.library.read();
 
-    let Some(page_id) = ui.get_opened_page() else {
+    let Some(page) = ui
+        .get_opened_page()
+        .and_then(|id| library.pages.get(&id))
+    else {
         return Graph::default();
     };
 
-    let Some(page) = pages.get(&page_id) else {
-        return Graph::default();
-    };
-
-    let owners: HashMap<&EntryId, (&PageId, bool)> = pages
+    let owners: HashMap<EntryId, (PageId, bool)> = library
+        .pages
         .iter()
         .flat_map(|(id, origin)| {
             let is_static = origin.kind == PageKind::Static;
+
             origin
                 .entries
                 .iter()
-                .map(move |entry| (entry, (id, is_static)))
+                .map(move |entry| (*entry, (*id, is_static)))
         })
         .collect();
 
-    let local: Vec<&EntryId> = page
+    let local: Vec<EntryId> = page
         .entries
         .iter()
-        .filter(|id| entries.contains_key(*id))
+        .copied()
+        .filter(|id| library.entries.contains_key(id))
         .collect();
 
-    let in_page: HashSet<&EntryId> = local.iter().copied().collect();
+    let in_page: HashSet<EntryId> = local.iter().copied().collect();
 
-    let mut links: Vec<(&EntryId, EntryId)> = Vec::new();
+    let mut links: Vec<(EntryId, EntryId)> = Vec::new();
 
     if page.kind != PageKind::Static {
         for &source in &local {
-            let mut targets = IndexSet::new();
+            let Some(entry) = library.entries.get(&source) else {
+                continue;
+            };
 
-            for value in entries[source].fields.values() {
-                collect_refs(value, &mut targets);
-            }
+            let targets: IndexSet<EntryId> = entry
+                .fields
+                .values()
+                .flat_map(|value| value.references())
+                .collect();
 
             links.extend(
                 targets
                     .into_iter()
                     .filter(|target| {
-                        target != source
-                            && entries.contains_key(target)
+                        *target != source
+                            && library.entries.contains_key(target)
                             && owners.get(target).is_some_and(|&(_, is_static)| !is_static)
                     })
                     .map(|target| (source, target)),
@@ -78,38 +81,32 @@ pub fn build() -> Graph {
         }
     }
 
-    let foreign: IndexMap<&EntryId, &PageId> = links
+    let foreign: IndexMap<EntryId, PageId> = links
         .iter()
         .filter(|(_, target)| !in_page.contains(target))
-        .map(|(_, target)| (target, owners[target].0))
+        .filter_map(|(_, target)| Some((*target, owners.get(target)?.0)))
         .collect();
 
     let nodes = local
         .iter()
         .map(|&key| (key, None))
-        .chain(foreign.into_iter().map(|(key, origin)| (key, Some(origin))))
+        .chain(
+            foreign
+                .into_iter()
+                .map(|(key, origin)| (key, Some(origin))),
+        )
         .filter_map(|(key, origin)| {
-            let entry = entries.get(key)?;
-            let definition = registry.get(&entry.kind);
-
-            let label = entry.label();
-
-            let color = definition
-                .map(|definition| definition.color.clone())
-                .unwrap_or_default();
-
-            let icon = definition
-                .map(|definition| definition.icon.clone())
-                .unwrap_or_default();
+            let entry = library.entries.get(&key)?;
+            let (icon, color) = app.look_of(&entry.kind);
 
             Some(
                 Node::with_data(
-                    key.clone().into_string(),
-                    label,
+                    key.to_string(),
+                    entry.label(),
                     Point::ZERO,
                     NodeData {
-                        key: key.clone(),
-                        foreign: origin.cloned(),
+                        key,
+                        foreign: origin,
                         icon,
                     },
                 )
@@ -124,19 +121,17 @@ pub fn build() -> Graph {
     let edges = links
         .into_iter()
         .map(|(source, target)| {
-            let color = entries
-                .get(source)
-                .and_then(|entry| registry.get(&entry.kind))
-                .map(|definition| definition.color.as_str())
+            let color = library
+                .entries
+                .get(&source)
+                .map(|entry| app.look_of(&entry.kind).1)
                 .filter(|color| !color.is_empty())
-                .unwrap_or("var(--faint)");
+                .unwrap_or_else(|| "var(--faint)".to_string());
 
-            let cross_page = !in_page.contains(&target);
+            let mut edge =
+                Edge::new(source.to_string(), target.to_string()).kind(EdgeKind::SmoothStep);
 
-            let mut edge = Edge::new(source.clone().into_string(), target.into_string())
-                .kind(EdgeKind::SmoothStep);
-
-            if cross_page {
+            if !in_page.contains(&target) {
                 edge = edge.class("cross-page");
             }
 
@@ -196,25 +191,4 @@ pub fn layout(nodes: &[Node<NodeData>], edges: &[Edge]) -> Option<Vec<(usize, Po
             })
             .collect(),
     )
-}
-
-fn collect_refs(value: &Value, out: &mut IndexSet<EntryId>) {
-    match value {
-        Value::Reference(id) => {
-            out.insert(id.clone());
-        }
-        Value::Struct(fields) | Value::Variant { fields, .. } => {
-            fields.values().for_each(|value| collect_refs(value, out));
-        }
-        Value::List(items) => {
-            items.iter().for_each(|value| collect_refs(value, out));
-        }
-        Value::Map(pairs) => {
-            pairs.iter().for_each(|(key, value)| {
-                collect_refs(key, out);
-                collect_refs(value, out);
-            });
-        }
-        _ => {}
-    }
 }

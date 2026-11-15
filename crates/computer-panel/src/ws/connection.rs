@@ -1,4 +1,4 @@
-use std::{cell::Cell, pin::pin};
+use std::pin::pin;
 
 use computer_model::id::Token;
 use computer_model::protocol::{
@@ -7,14 +7,14 @@ use computer_model::protocol::{
 };
 use dioxus::hooks::{UnboundedReceiver, use_context, use_coroutine};
 use dioxus::prelude::use_hook;
-use dioxus::signals::{Signal, WritableExt};
+use dioxus::signals::WritableExt;
 use futures_util::{
     SinkExt, StreamExt,
     future::{Either, select},
 };
 use gloo_net::websocket::{Message, futures::WebSocket};
 use gloo_timers::future::TimeoutFuture;
-use tracing::{error, warn};
+use dioxus::logger::tracing::{error, warn};
 
 use crate::state::{ConnectionStatus, app::AppState};
 
@@ -40,33 +40,21 @@ enum End {
 
 pub fn ws_client() -> Client {
     let state = use_context::<AppState>();
-    let status = use_context::<Signal<ConnectionStatus>>();
+    let pending = use_hook(Pending::new);
 
-    let pending = use_hook(Pending::default);
-    let task_pending = pending.clone();
-
-    let coroutine = use_coroutine(move |mut rx: UnboundedReceiver<ClientMessage>| {
-        let pending = task_pending.clone();
-
-        async move {
-            run(&mut rx, state, status, pending).await;
-        }
+    let coroutine = use_coroutine(move |mut rx: UnboundedReceiver<ClientMessage>| async move {
+        run(&mut rx, state, pending).await;
     });
 
-    use_hook(move || Client::new(coroutine, status, pending))
+    use_hook(move || Client::new(coroutine, state.status, pending))
 }
 
-async fn run(
-    rx: &mut UnboundedReceiver<ClientMessage>,
-    state: AppState,
-    mut status: Signal<ConnectionStatus>,
-    pending: Pending,
-) {
+async fn run(rx: &mut UnboundedReceiver<ClientMessage>, mut state: AppState, pending: Pending) {
     let mut attempt = 0u32;
     let mut refusals = 0u32;
 
     loop {
-        let (end, connected) = session(rx, state, status, &pending).await;
+        let (end, connected) = session(rx, state, pending).await;
 
         pending.clear();
 
@@ -83,7 +71,7 @@ async fn run(
                 error!("Handshake refused ({refusals}/{MAX_REFUSALS}): {reason}");
 
                 if refusals >= MAX_REFUSALS {
-                    status.set(ConnectionStatus::Failed(reason));
+                    state.status.set(ConnectionStatus::Failed(reason));
                     return;
                 }
             }
@@ -97,7 +85,7 @@ async fn run(
 
         attempt += 1;
 
-        status.set(ConnectionStatus::Reconnecting(attempt));
+        state.status.set(ConnectionStatus::Reconnecting(attempt));
 
         TimeoutFuture::new(backoff_ms(attempt)).await;
     }
@@ -106,8 +94,7 @@ async fn run(
 async fn session(
     rx: &mut UnboundedReceiver<ClientMessage>,
     mut state: AppState,
-    mut status: Signal<ConnectionStatus>,
-    pending: &Pending,
+    pending: Pending,
 ) -> (End, bool) {
     let url = match ws_url().await {
         Ok(url) => url,
@@ -140,11 +127,11 @@ async fn session(
         return (End::Lost(error.to_string()), false);
     }
 
-    let connected = Cell::new(false);
+    let mut connected = false;
 
     let read_task = async {
         loop {
-            let frame = if connected.get() {
+            let frame = if connected {
                 read.next().await
             } else {
                 match select(
@@ -168,8 +155,8 @@ async fn session(
             match frame {
                 Ok(Message::Bytes(bytes)) => match ServerMessage::decode(&bytes) {
                     Ok(ServerMessage::Handshake(Ok(_))) => {
-                        connected.set(true);
-                        status.set(ConnectionStatus::Connected);
+                        connected = true;
+                        state.status.set(ConnectionStatus::Connected);
                     }
 
                     Ok(ServerMessage::Handshake(Err(reason))) => {
@@ -217,7 +204,7 @@ async fn session(
         Either::Right((end, _)) => end,
     };
 
-    (end, connected.get())
+    (end, connected)
 }
 
 async fn ws_url() -> Result<String, String> {

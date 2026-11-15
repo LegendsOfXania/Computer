@@ -1,144 +1,66 @@
-use indexmap::IndexMap;
 use std::collections::HashMap;
 
 use computer_model::{
-    entry::{Entry, EntryDefinition},
+    Entry, EntryDefinition, Library, Registry,
     id::{EntryId, PageId},
     page::Page,
-    protocol::{event::Event, message::ServerMessage},
+    protocol::message::ServerMessage,
 };
+use dioxus::logger::tracing::warn;
 use dioxus::signals::{ReadableExt, Signal, WritableExt};
 
-#[derive(Clone, Copy)]
-pub struct AppState {
-    pub pages: Signal<IndexMap<PageId, Page>>,
-    pub entries: Signal<IndexMap<EntryId, Entry>>,
-    pub registry: Signal<HashMap<String, EntryDefinition>>,
-}
+use crate::state::ConnectionStatus;
 
-impl Default for AppState {
-    fn default() -> Self {
-        Self::new()
-    }
+#[derive(Clone, Copy, Default)]
+pub struct AppState {
+    pub library: Signal<Library>,
+    pub registry: Signal<HashMap<String, EntryDefinition>>,
+    pub status: Signal<ConnectionStatus>,
 }
 
 impl AppState {
-    pub fn new() -> Self {
-        Self {
-            pages: Signal::new(IndexMap::new()),
-            entries: Signal::new(IndexMap::new()),
-            registry: Signal::new(HashMap::new()),
-        }
+    pub fn with_page<T>(&self, id: PageId, f: impl FnOnce(&Page) -> T) -> Option<T> {
+        self.library.read().pages.get(&id).map(f)
     }
 
-    pub fn with_page<P>(&self, id: &PageId, f: impl FnOnce(&Page) -> P) -> Option<P> {
-        self.pages.read().get(id).map(f)
+    pub fn with_entry<T>(&self, id: EntryId, f: impl FnOnce(&Entry) -> T) -> Option<T> {
+        self.library.read().entries.get(&id).map(f)
     }
 
-    pub fn with_entry<E>(&self, id: &EntryId, f: impl FnOnce(&Entry) -> E) -> Option<E> {
-        self.entries.read().get(id).map(f)
+    #[must_use]
+    pub fn definition(&self, kind: &str) -> Option<EntryDefinition> {
+        self.registry.read().get(kind).cloned()
     }
 
-    pub fn apply(&mut self, msg: ServerMessage) {
-        match msg {
-            ServerMessage::Library(lib) => {
-                self.pages.set(lib.pages);
-                self.entries.set(lib.entries);
-            }
+    #[must_use]
+    pub fn look_of(&self, kind: &str) -> (String, String) {
+        self.registry
+            .read()
+            .get(kind)
+            .map(|definition| (definition.icon.clone(), definition.color.clone()))
+            .unwrap_or_default()
+    }
 
-            ServerMessage::Registry(registry) => {
+    pub fn apply(&mut self, message: ServerMessage) {
+        match message {
+            ServerMessage::Library(library) => self.library.set(library),
+
+            ServerMessage::Registry(Registry(definitions)) => {
                 self.registry.set(
-                    registry
-                        .0
+                    definitions
                         .into_iter()
                         .map(|definition| (definition.kind.clone(), definition))
                         .collect(),
                 );
             }
 
-            ServerMessage::Event { event } => self.apply_event(event),
+            ServerMessage::Event { event } => {
+                if let Err(error) = self.library.write().apply(&event) {
+                    warn!("Ignored an event that does not match the library: {error}");
+                }
+            }
 
             _ => {}
-        }
-    }
-
-    pub fn apply_event(&mut self, event: Event) {
-        match event {
-            Event::PageCreated { page } => {
-                let id = page.id.clone();
-                self.pages.write().insert(id, page);
-            }
-
-            Event::PageUpdated { page } => {
-                let id = page.id.clone();
-
-                if let Some(existing) = self.pages.write().get_mut(&id) {
-                    *existing = page;
-                }
-            }
-
-            Event::PageDeleted { page_id } => {
-                let removed = self.pages.write().shift_remove(&page_id);
-
-                if let Some(page) = removed {
-                    let mut entries = self.entries.write();
-
-                    for id in &page.entries {
-                        entries.shift_remove(id);
-                    }
-                }
-            }
-
-            Event::EntryCreated { entry, page_id } => {
-                let id = entry.id.clone();
-                let mut pages = self.pages.write();
-
-                if !pages.contains_key(&page_id) {
-                    return;
-                }
-
-                self.entries.write().insert(id.clone(), entry);
-
-                if let Some(page) = pages.get_mut(&page_id)
-                    && !page.entries.contains(&id)
-                {
-                    page.entries.push(id);
-                }
-            }
-
-            Event::EntryUpdated { entry } => {
-                let id = entry.id.clone();
-
-                if let Some(existing) = self.entries.write().get_mut(&id) {
-                    *existing = entry;
-                }
-            }
-
-            Event::EntryDeleted { entry_id } => {
-                self.entries.write().shift_remove(&entry_id);
-
-                for page in self.pages.write().values_mut() {
-                    page.entries.retain(|id| id != &entry_id);
-                }
-            }
-
-            Event::EntryMoved { entry_id, page_id } => {
-                let mut pages = self.pages.write();
-
-                if !pages.contains_key(&page_id) {
-                    return;
-                }
-
-                for page in pages.values_mut() {
-                    page.entries.retain(|id| id != &entry_id);
-                }
-
-                if let Some(page) = pages.get_mut(&page_id) {
-                    page.entries.push(entry_id);
-                }
-            }
-
-            Event::Pushed => {}
         }
     }
 }

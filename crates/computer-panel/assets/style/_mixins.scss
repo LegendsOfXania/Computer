@@ -1,0 +1,15 @@
+@mixin row {
+    display: flex;
+    align-items: center;
+}
+
+@mixin column {
+    display: flex;
+    flex-direction: column;
+}
+
+@mixin ellipsis {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

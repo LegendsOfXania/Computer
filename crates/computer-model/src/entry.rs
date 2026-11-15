@@ -31,7 +31,7 @@ impl Entry {
     }
 }
 
-#[cfg(feature = "engine")]
+#[cfg(feature = "panel")]
 impl TryFrom<&EntryDefinition> for Entry {
     type Error = String;
 

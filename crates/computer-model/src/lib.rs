@@ -16,7 +16,7 @@ pub mod library;
 pub mod protocol;
 
 pub use entry::{Entry, EntryDefinition};
-#[cfg(feature = "engine")]
+#[cfg(feature = "panel")]
 pub use library::Library;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

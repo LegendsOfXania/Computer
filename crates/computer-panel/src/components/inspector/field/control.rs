@@ -7,7 +7,7 @@ use indexmap::IndexMap;
 
 use crate::components::inspector::field::{
     composite::{ListEditor, MapEditor, StructEditor, VariantEditor},
-    input::{EnumField, FloatField, IntField, ReferenceField, TextField, ToggleField},
+    input::{EnumField, NumberField, ReferenceField, TextField, ToggleField},
 };
 
 pub fn control(
@@ -19,15 +19,15 @@ pub fn control(
     match &def.kind {
         FieldKind::String => rsx! {
             TextField {
-                value: value.into_text(),
+                value: String::try_from(value).unwrap_or_default(),
                 multiline: def.has_flag("multiline"),
                 onchange: move |text: String| onchange.call(Value::String(text)),
             }
         },
 
         FieldKind::Int => rsx! {
-            IntField {
-                value: value.into_int(),
+            NumberField::<i64> {
+                value: i64::try_from(value).unwrap_or_default(),
                 min: def.bound("min"),
                 max: def.bound("max"),
                 onchange: move |number: i64| onchange.call(Value::Int(number)),
@@ -35,8 +35,8 @@ pub fn control(
         },
 
         FieldKind::Float => rsx! {
-            FloatField {
-                value: value.into_float(),
+            NumberField::<f64> {
+                value: f64::try_from(value).unwrap_or_default(),
                 min: def.bound("min"),
                 max: def.bound("max"),
                 onchange: move |number: f64| onchange.call(Value::Float(number)),
@@ -73,7 +73,7 @@ pub fn control(
             StructEditor {
                 title,
                 fields: fields.clone(),
-                values: value.into_fields(),
+                values: IndexMap::try_from(value).unwrap_or_default(),
                 onchange: move |values: IndexMap<String, Value>| onchange.call(Value::Struct(values)),
             }
         },
@@ -82,7 +82,7 @@ pub fn control(
             ListEditor {
                 title,
                 inner: (**inner).clone(),
-                items: value.into_list(),
+                items: Vec::<Value>::try_from(value).unwrap_or_default(),
                 onchange: move |items: Vec<Value>| onchange.call(Value::List(items)),
             }
         },
@@ -95,7 +95,7 @@ pub fn control(
                 title,
                 key_kind: (**map_key).clone(),
                 value_kind: (**map_value).clone(),
-                pairs: value.into_map(),
+                pairs: Vec::<(Value, Value)>::try_from(value).unwrap_or_default(),
                 onchange: move |pairs: Vec<(Value, Value)>| onchange.call(Value::Map(pairs)),
             }
         },

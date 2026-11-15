@@ -4,6 +4,7 @@ use computer_model::{
 };
 use dioxus::prelude::*;
 
+use super::edited;
 use crate::components::inspector::field::{
     Field,
     frame::{Card, Collapse},
@@ -16,60 +17,82 @@ pub fn ListEditor(
     items: Vec<Value>,
     onchange: EventHandler<Vec<Value>>,
 ) -> Element {
+    let items = use_memo(use_reactive!(|items| items));
+    let template = Value::from(&inner);
     let def = FieldDefinition::new(String::new(), inner);
-    let template = def.default_value();
-    let for_add = items.clone();
 
-    let rows = items.iter().cloned().enumerate().map(|(index, item)| {
-        let (for_change, for_duplicate, for_remove) = (items.clone(), items.clone(), items.clone());
+    let rows: Vec<_> = items
+        .read()
+        .iter()
+        .cloned()
+        .enumerate()
+        .map(|(index, item)| {
+            rsx! {
+                Card {
+                    key: "{index}",
+                    title: format!("{title} #{}", index + 1),
+                    duplicable: true,
+                    removable: true,
 
-        rsx! {
-            Card {
-                key: "{index}",
-                title: format!("{title} #{}", index + 1),
-                duplicable: true,
-                removable: true,
-
-                onduplicate: move |_| {
-                    let mut next = for_duplicate.clone();
-                    let item = next[index].clone();
-                    next.insert(index + 1, item);
-                    onchange.call(next);
-                },
-
-                onremove: move |_| {
-                    let mut next = for_remove.clone();
-                    next.remove(index);
-                    onchange.call(next);
-                },
-
-                Field {
-                    def: def.clone(),
-                    value: item,
-                    onchange: move |value: Value| {
-                        let mut next = for_change.clone();
-                        next[index] = value;
-                        onchange.call(next);
+                    onduplicate: move |_| {
+                        onchange
+                            .call(
+                                edited(
+                                    items,
+                                    |next| {
+                                        if let Some(item) = next.get(index).cloned() {
+                                            next.insert(index + 1, item);
+                                        }
+                                    },
+                                ),
+                            );
                     },
+
+                    onremove: move |_| {
+                        onchange
+                            .call(
+                                edited(
+                                    items,
+                                    |next| {
+                                        if index < next.len() {
+                                            next.remove(index);
+                                        }
+                                    },
+                                ),
+                            );
+                    },
+
+                    Field {
+                        def: def.clone(),
+                        value: item,
+                        onchange: move |value: Value| {
+                            onchange
+                                .call(
+                                    edited(
+                                        items,
+                                        |next| {
+                                            if let Some(slot) = next.get_mut(index) {
+                                                *slot = value;
+                                            }
+                                        },
+                                    ),
+                                );
+                        },
+                    }
                 }
             }
-        }
-    });
-
-    let count = items.len();
-    let add = move |_| {
-        let mut next = for_add.clone();
-        next.push(template.clone());
-        onchange.call(next);
-    };
+        })
+        .collect();
 
     rsx! {
         Collapse {
             title: title.clone(),
-            count: Some(count),
+            count: Some(items.read().len()),
             addable: true,
-            onadd: add,
-            {rows}
+            onadd: move |_| {
+                onchange.call(edited(items, |next| next.push(template.clone())));
+            },
+            {rows.into_iter()}
         }
     }
 }

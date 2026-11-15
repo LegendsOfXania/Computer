@@ -5,6 +5,7 @@ use computer_model::{
 use dioxus::prelude::*;
 use dioxus_i18n::tid;
 
+use super::edited;
 use crate::components::inspector::field::{
     Field,
     frame::{Card, Collapse},
@@ -18,18 +19,17 @@ pub fn MapEditor(
     pairs: Vec<(Value, Value)>,
     onchange: EventHandler<Vec<(Value, Value)>>,
 ) -> Element {
-    let key_def = FieldDefinition::new(tid!("inspector-key").to_string(), key_kind);
-    let value_def = FieldDefinition::new(tid!("inspector-value").to_string(), value_kind);
-    let template = (key_def.default_value(), value_def.default_value());
-    let for_add = pairs.clone();
+    let pairs = use_memo(use_reactive!(|pairs| pairs));
+    let template = (Value::from(&key_kind), Value::from(&value_kind));
+    let key_def = FieldDefinition::new(tid!("inspector-key"), key_kind);
+    let value_def = FieldDefinition::new(tid!("inspector-value"), value_kind);
 
-    let rows = pairs
+    let rows: Vec<_> = pairs
+        .read()
         .iter()
         .cloned()
         .enumerate()
         .map(|(index, (pair_key, pair_value))| {
-            let (for_key, for_value, for_remove) = (pairs.clone(), pairs.clone(), pairs.clone());
-
             rsx! {
                 Card {
                     key: "{index}",
@@ -37,48 +37,68 @@ pub fn MapEditor(
                     removable: true,
 
                     onremove: move |_| {
-                        let mut next = for_remove.clone();
-                        next.remove(index);
-                        onchange.call(next);
+                        onchange
+                            .call(
+                                edited(
+                                    pairs,
+                                    |next| {
+                                        if index < next.len() {
+                                            next.remove(index);
+                                        }
+                                    },
+                                ),
+                            );
                     },
 
                     Field {
                         def: key_def.clone(),
                         value: pair_key,
-                        onchange: move |new_key: Value| {
-                            let mut next = for_key.clone();
-                            next[index].0 = new_key;
-                            onchange.call(next);
+                        onchange: move |value: Value| {
+                            onchange
+                                .call(
+                                    edited(
+                                        pairs,
+                                        |next| {
+                                            if let Some(pair) = next.get_mut(index) {
+                                                pair.0 = value;
+                                            }
+                                        },
+                                    ),
+                                );
                         },
                     }
 
                     Field {
                         def: value_def.clone(),
                         value: pair_value,
-                        onchange: move |new_value: Value| {
-                            let mut next = for_value.clone();
-                            next[index].1 = new_value;
-                            onchange.call(next);
+                        onchange: move |value: Value| {
+                            onchange
+                                .call(
+                                    edited(
+                                        pairs,
+                                        |next| {
+                                            if let Some(pair) = next.get_mut(index) {
+                                                pair.1 = value;
+                                            }
+                                        },
+                                    ),
+                                );
                         },
                     }
                 }
             }
-        });
-
-    let count = pairs.len();
-    let add = move |_| {
-        let mut next = for_add.clone();
-        next.push(template.clone());
-        onchange.call(next);
-    };
+        })
+        .collect();
 
     rsx! {
         Collapse {
             title: title.clone(),
-            count: Some(count),
+            count: Some(pairs.read().len()),
             addable: true,
-            onadd: add,
-            {rows}
+            onadd: move |_| {
+                onchange.call(edited(pairs, |next| next.push(template.clone())));
+            },
+            {rows.into_iter()}
         }
     }
 }

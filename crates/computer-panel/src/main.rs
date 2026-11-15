@@ -2,10 +2,11 @@ use dioxus::prelude::*;
 
 use crate::{
     components::Panel,
-    state::{ConnectionStatus, app::AppState, ui::UiState},
+    state::{app::AppState, ui::UiState},
     ws::ws_client,
 };
 
+pub mod actions;
 pub mod components;
 pub mod search;
 pub mod state;
@@ -17,14 +18,8 @@ fn main() {
 
 #[component]
 fn App() -> Element {
-    use_context_provider(|| Signal::new(ConnectionStatus::Connected));
-
-    use_context_provider(|| {
-        let mut state = AppState::new();
-        state::mock::load(&mut state);
-        state
-    });
-    use_context_provider(UiState::new);
+    use_context_provider(AppState::default);
+    use_context_provider(UiState::default);
 
     let client = ws_client();
 

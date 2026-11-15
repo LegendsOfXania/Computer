@@ -52,6 +52,8 @@ inspector-reference-none = Aucune
 inspector-reference-missing = Entrée introuvable
 inspector-delete = Supprimer
 inspector-move = Déplacer vers une autre page
+inspector-operations = Opérations
+inspector-delete-confirm = Voulez-vous vraiment supprimer cette entrée ?
 
 ## Connection
 connection-connecting-title = Connexion au serveur

@@ -1,7 +1,8 @@
+@use "../mixins" as *;
+
 .btn {
     --icon: 20px;
-    display: flex;
-    align-items: center;
+    @include row;
     justify-content: center;
     width: 30px;
     height: 30px;
@@ -11,12 +12,10 @@
     padding: 0;
     color: var(--dim);
     background: var(--surface);
-    transition:
-        background 0.2s ease,
-        color 0.2s ease;
-}
+    transition: background 0.2s ease, color 0.2s ease;
 
-.btn:hover {
-    color: var(--bg);
-    background: var(--fg);
+    &:hover {
+        color: var(--bg);
+        background: var(--fg);
+    }
 }

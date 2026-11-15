@@ -109,10 +109,12 @@ impl Query {
     }
 }
 
+#[must_use]
 pub fn scope(input: &str, default: u8) -> u8 {
     Query::parse(input, default).scope
 }
 
+#[must_use]
 pub fn highlight(input: &str) -> Vec<(&str, bool)> {
     let mut parts = Vec::new();
     let mut plain = 0;

@@ -37,6 +37,7 @@ impl<T> Default for SearchIndex<T> {
 }
 
 impl<T> SearchIndex<T> {
+    #[must_use]
     pub fn new() -> Self {
         Self(Vec::new())
     }
@@ -66,6 +67,7 @@ impl<T> SearchIndex<T> {
         });
     }
 
+    #[must_use]
     pub fn search(&self, input: &str, default: u8) -> Vec<&T> {
         let query = Query::parse(input, default);
         if query.scope == 0 || query.incomplete {
@@ -149,11 +151,12 @@ impl<T> SearchIndex<T> {
         hits.sort_unstable();
 
         hits.into_iter()
-            .map(|(.., index)| &candidates[index].target)
+            .filter_map(|(.., index)| candidates.get(index).map(|document| &document.target))
             .collect()
     }
 }
 
+#[must_use]
 pub fn extension(kind: &str) -> &str {
     kind.split_once(':').map_or("", |(extension, _)| extension)
 }
@@ -188,15 +191,24 @@ fn fuzzy<'a, T>(
     tier: u8,
     field: impl Fn(&'a Document<T>) -> &'a str,
 ) {
-    let open: Vec<usize> = (0..ranks.len())
-        .filter(|&index| ranks[index].is_none())
-        .collect();
+    let (open, haystacks): (Vec<usize>, Vec<&str>) = ranks
+        .iter()
+        .zip(candidates)
+        .enumerate()
+        .filter(|(_, (rank, _))| rank.is_none())
+        .map(|(index, (_, document))| (index, field(document)))
+        .unzip();
+
     if open.is_empty() {
         return;
     }
 
-    let haystacks: Vec<&str> = open.iter().map(|&index| field(candidates[index])).collect();
     for matched in matcher.match_list(&haystacks) {
-        ranks[open[matched.index as usize]] = Some((tier, matched.score));
+        if let Some(rank) = open
+            .get(matched.index as usize)
+            .and_then(|&index| ranks.get_mut(index))
+        {
+            *rank = Some((tier, matched.score));
+        }
     }
 }

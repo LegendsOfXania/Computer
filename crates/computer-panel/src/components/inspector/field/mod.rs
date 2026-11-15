@@ -21,7 +21,7 @@ pub fn Field(def: FieldDefinition, value: Value, onchange: EventHandler<Value>) 
 
     let enabled = !optional || value != Value::Null;
 
-    let default = optional.then(|| def.default_value());
+    let default = optional.then(|| Value::from(&def.kind));
 
     let label = def.name.replace('_', " ");
     let (head, title) = if composite && !optional {

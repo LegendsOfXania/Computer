@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 
 use crate::components::utils::icon::Icon;
 
-use super::SearchItem;
+use crate::search::SearchItem;
 
 #[component]
 pub(super) fn Hit(item: SearchItem, onclick: EventHandler<()>) -> Element {

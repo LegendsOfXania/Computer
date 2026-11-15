@@ -1,17 +1,8 @@
 use dioxus::prelude::*;
-use dioxus_primitives::toast::{
-    self, Toast, ToastCloseButtonProps, ToastContentProps, ToastDescriptionProps, ToastProps,
-    ToastTitleProps,
-};
+use dioxus_primitives::toast::{self, Toast, ToastProps};
 use std::time::Duration;
 
 use crate::components::utils::icon::Icon;
-
-pub const OK: Duration = Duration::from_secs(5);
-pub const ERR: Duration = Duration::from_secs(9);
-
-#[css_module("/assets/style/utils/toast.css")]
-struct Styles;
 
 #[component]
 fn StyledToast(props: ToastProps) -> Element {
@@ -25,59 +16,15 @@ fn StyledToast(props: ToastProps) -> Element {
             on_close: props.on_close,
             permanent: props.permanent,
             duration: props.duration,
-            class: Styles::dx_toast,
+            class: "dx-toast",
             attributes: props.attributes,
-            ToastContent {
-                ToastTitle {}
-                ToastDescription {}
+            toast::ToastContent { class: "dx-toast-content",
+                toast::ToastTitle { class: "dx-toast-title" }
+                toast::ToastDescription { class: "dx-toast-description" }
             }
-            ToastCloseButton {
+            toast::ToastCloseButton { class: "dx-toast-close",
                 Icon { name: "close" }
             }
-        }
-    }
-}
-
-#[component]
-fn ToastContent(props: ToastContentProps) -> Element {
-    rsx! {
-        toast::ToastContent {
-            class: Styles::dx_toast_content,
-            attributes: props.attributes,
-            {props.children}
-        }
-    }
-}
-
-#[component]
-fn ToastTitle(props: ToastTitleProps) -> Element {
-    rsx! {
-        toast::ToastTitle {
-            class: Styles::dx_toast_title,
-            attributes: props.attributes,
-            children: props.children,
-        }
-    }
-}
-
-#[component]
-fn ToastDescription(props: ToastDescriptionProps) -> Element {
-    rsx! {
-        toast::ToastDescription {
-            class: Styles::dx_toast_description,
-            attributes: props.attributes,
-            children: props.children,
-        }
-    }
-}
-
-#[component]
-fn ToastCloseButton(props: ToastCloseButtonProps) -> Element {
-    rsx! {
-        toast::ToastCloseButton {
-            class: Styles::dx_toast_close,
-            attributes: props.attributes,
-            children: props.children,
         }
     }
 }
@@ -97,7 +44,7 @@ pub fn ToastProvider(
 
     rsx! {
         toast::ToastProvider {
-            class: Styles::dx_toast_container,
+            class: "dx-toast-container",
             default_duration,
             max_toasts,
             render_toast,

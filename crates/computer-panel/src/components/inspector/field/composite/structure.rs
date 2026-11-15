@@ -31,7 +31,7 @@ pub fn FieldGroup(
         let value = values
             .get(&name)
             .cloned()
-            .unwrap_or_else(|| def.default_value());
+            .unwrap_or_else(|| Value::from(&def.kind));
 
         rsx! {
             Field {

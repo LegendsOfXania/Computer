@@ -46,7 +46,7 @@ pub fn Editor() -> Element {
                 }
 
                 node.selected =
-                    node.data.foreign.is_none() && selected.as_ref() == Some(&node.data.key);
+                    node.data.foreign.is_none() && selected == Some(node.data.key);
 
                 node
             })
@@ -94,16 +94,15 @@ pub fn Editor() -> Element {
         {
             nodes.with_mut(|nodes| {
                 for (index, position) in moved {
-                    nodes[index].position = position;
+                    if let Some(node) = nodes.get_mut(index) {
+                        node.position = position;
+                    }
                 }
             });
         }
     });
 
     rsx! {
-        Stylesheet { href: asset!("/assets/style/editor/mod.css") }
-        Stylesheet { href: asset!("/assets/style/editor/node.css") }
-        Stylesheet { href: asset!("/assets/style/editor/edge.css") }
 
         div { class: "editor",
             Flow {
@@ -119,7 +118,7 @@ pub fn Editor() -> Element {
                         .read()
                         .iter()
                         .find(|node| node.id == id)
-                        .map(|node| node.data.key.clone())
+                        .map(|node| node.data.key)
                     else {
                         return;
                     };

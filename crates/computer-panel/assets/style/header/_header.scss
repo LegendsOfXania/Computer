@@ -1,3 +1,5 @@
+@use "../mixins" as *;
+
 header {
     flex: none;
     position: relative;
@@ -7,17 +9,17 @@ header {
     background: var(--bg);
     border-right: 1px solid var(--line);
     font-family: var(--sans);
-}
 
-header::after {
-    content: "";
-    position: absolute;
-    left: 50%;
-    bottom: -1px;
-    width: 100vw;
-    height: 1px;
-    transform: translateX(-50%);
-    background: var(--line);
+    &::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        bottom: -1px;
+        width: 100vw;
+        height: 1px;
+        transform: translateX(-50%);
+        background: var(--line);
+    }
 }
 
 .nav {
@@ -31,8 +33,7 @@ header::after {
 }
 
 header button {
-    display: flex;
-    align-items: center;
+    @include row;
     justify-content: center;
     gap: 8px;
     height: 100%;

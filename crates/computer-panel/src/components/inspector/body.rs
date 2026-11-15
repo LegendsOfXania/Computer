@@ -4,7 +4,7 @@ use dioxus::prelude::*;
 use dioxus_i18n::tid;
 
 use crate::components::{
-    inspector::{field::Field, operations::Operations},
+    inspector::{OPERATIONS, field::Field, operations::Operations},
     utils::btn::Btn,
 };
 
@@ -23,11 +23,7 @@ pub fn Body(
     let rows = definition.fields.iter().cloned().map(|def| {
         let row_key = format!("{id}-{revision}-{}", def.name);
         let field_name = def.name.clone();
-        let value = entry
-            .fields
-            .get(&def.name)
-            .cloned()
-            .unwrap_or(Value::Null);
+        let value = entry.fields.get(&def.name).cloned().unwrap_or_default();
 
         rsx! {
             Field {
@@ -69,13 +65,13 @@ pub fn Body(
             div { class: "inspector-menu",
                 Btn {
                     icon: "menu",
-                    tooltip: "Operations",
+                    tooltip: tid!("inspector-operations"),
                     class: "inspector-menu-trigger",
-                    popover_target: Some("inspector-operations".to_string()),
+                    popover_target: Some(OPERATIONS.to_string()),
                 }
 
                 div {
-                    id: "inspector-operations",
+                    id: OPERATIONS,
                     class: "inspector-operations-popup",
                     "popover": "auto",
 

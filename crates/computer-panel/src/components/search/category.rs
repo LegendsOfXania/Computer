@@ -2,7 +2,8 @@ use dioxus::prelude::*;
 
 use crate::components::utils::icon::Icon;
 
-use super::{SearchItem, hit::Hit};
+use super::hit::Hit;
+use crate::search::SearchItem;
 
 #[component]
 pub(super) fn Category(

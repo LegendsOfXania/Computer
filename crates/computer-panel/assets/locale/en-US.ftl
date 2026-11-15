@@ -52,6 +52,8 @@ inspector-reference-none = None
 inspector-reference-missing = Entry not found
 inspector-delete = Delete
 inspector-move = Move to another page
+inspector-operations = Operations
+inspector-delete-confirm = Are you sure you want to delete this entry?
 
 ## Connection
 connection-connecting-title = Connecting to server

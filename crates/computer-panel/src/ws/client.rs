@@ -1,54 +1,46 @@
+use std::{collections::HashMap, pin::pin};
 
-use std::{
-    cell::{Cell, RefCell},
-    collections::HashMap,
-    pin::pin,
-    rc::Rc,
-};
-
-use computer_model::{
-    Entry, EntryDefinition,
-    id::{EntryId, PageId},
-    page::{Page, PageKind},
-    protocol::{message::ClientMessage, request::Request},
-    value::Value,
-};
+use computer_model::protocol::{message::ClientMessage, request::Request};
 use dioxus::{
     hooks::Coroutine,
-    signals::{ReadableExt, Signal},
+    signals::{CopyValue, ReadableExt, Signal, WritableExt},
 };
 use futures_channel::oneshot::{self, Sender};
 use futures_util::future::{Either, select};
 use gloo_timers::future::TimeoutFuture;
 
-use crate::state::{ConnectionStatus, app::AppState};
+use crate::state::ConnectionStatus;
 
 const TIMEOUT_MS: u32 = 10_000;
 
-type Waiters = HashMap<u64, Sender<Result<(), String>>>;
+type Answer = Result<(), String>;
 
-#[derive(Clone, Default)]
-pub(crate) struct Pending(Rc<RefCell<Waiters>>);
+#[derive(Clone, Copy)]
+pub(crate) struct Pending(CopyValue<HashMap<u64, Sender<Answer>>>);
 
 impl Pending {
-    pub(crate) fn resolve(&self, id: u64, answer: Result<(), String>) {
-        let sender = self.0.borrow_mut().remove(&id);
+    pub(crate) fn new() -> Self {
+        Self(CopyValue::new(HashMap::new()))
+    }
+
+    pub(crate) fn resolve(mut self, id: u64, answer: Answer) {
+        let sender = self.0.write().remove(&id);
 
         if let Some(sender) = sender {
             let _ = sender.send(answer);
         }
     }
 
-    pub(crate) fn clear(&self) {
-        self.0.borrow_mut().clear();
+    pub(crate) fn clear(mut self) {
+        self.0.write().clear();
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct Client {
     coroutine: Coroutine<ClientMessage>,
     status: Signal<ConnectionStatus>,
-    next_id: Rc<Cell<u64>>,
+    next_id: CopyValue<u64>,
     pending: Pending,
 }
 
@@ -61,139 +53,34 @@ impl Client {
         Self {
             coroutine,
             status,
+            next_id: CopyValue::new(0),
             pending,
-            next_id: Rc::default(),
         }
     }
 
-    pub async fn push(&self) -> Result<(), String> {
-        self.request(Request::Push).await
-    }
-
-    pub async fn create_page(
-        &self,
-        name: String,
-        kind: PageKind,
-    ) -> Result<PageId, String> {
-        let page = Page {
-            id: PageId::generate()?,
-            name,
-            kind,
-            priority: 0,
-            chapter: None,
-            entries: Vec::new(),
-        };
-
-        let id = page.id.clone();
-
-        self.request(Request::CreatePage { page }).await?;
-
-        Ok(id)
-    }
-
-    pub async fn create_entry(
-        &self,
-        definition: &EntryDefinition,
-        page_id: PageId,
-    ) -> Result<EntryId, String> {
-        let entry = Entry {
-            id: EntryId::generate()?,
-            kind: definition.kind.clone(),
-            fields: definition
-                .fields
-                .iter()
-                .map(|field| (field.name.clone(), Value::Null))
-                .collect(),
-            version: definition.version,
-        };
-
-        let id = entry.id.clone();
-
-        self.request(Request::CreateEntry { entry, page_id })
-            .await?;
-
-        Ok(id)
-    }
-
-    pub async fn delete_page(&self, page_id: PageId) -> Result<(), String> {
-        self.request(Request::DeletePage { page_id }).await
-    }
-
-    pub async fn delete_entry(&self, entry_id: EntryId) -> Result<(), String> {
-        self.request(Request::DeleteEntry { entry_id }).await
-    }
-
-    pub async fn move_entry(
-        &self,
-        entry_id: EntryId,
-        page_id: PageId,
-    ) -> Result<(), String> {
-        self.request(Request::MoveEntry { entry_id, page_id }).await
-    }
-
-    pub async fn edit_page(
-        &self,
-        app: &AppState,
-        page_id: PageId,
-        change: impl FnOnce(&mut Page),
-    ) -> Result<(), String> {
-        let Some(mut page) = app.with_page(&page_id, Clone::clone) else {
-            return Ok(());
-        };
-
-        change(&mut page);
-
-        self.request(Request::UpdatePage { page }).await
-    }
-
-    pub async fn edit_entry(
-        &self,
-        app: &AppState,
-        id: EntryId,
-        change: impl FnOnce(&mut Entry),
-    ) -> Result<(), String> {
-        let Some(mut entry) = app.with_entry(&id, Clone::clone) else {
-            return Ok(());
-        };
-
-        change(&mut entry);
-
-        self.request(Request::UpdateEntry { entry }).await
-    }
-
-    async fn request(&self, request: Request) -> Result<(), String> {
-        if !matches!(*self.status.peek(), ConnectionStatus::Connected) {
+    pub async fn request(mut self, request: Request) -> Answer {
+        if *self.status.peek() != ConnectionStatus::Connected {
             return Err("Not connected".into());
         }
 
-        let id = self.next_id.replace(self.next_id.get().wrapping_add(1));
+        let id = self.next_id.with_mut(|next| {
+            let id = *next;
+            *next = id.wrapping_add(1);
+            id
+        });
+
         let (sender, receiver) = oneshot::channel();
 
-        self.pending.0.borrow_mut().insert(id, sender);
-
-        let _guard = Guard {
-            pending: &self.pending,
-            id,
-        };
-
+        self.pending.0.write().insert(id, sender);
         self.coroutine.send(ClientMessage::Request { id, request });
 
         match select(pin!(receiver), pin!(TimeoutFuture::new(TIMEOUT_MS))).await {
-            Either::Left((answer, _)) => {
-                answer.unwrap_or_else(|_| Err("Connection closed".into()))
+            Either::Left((answer, _)) => answer.unwrap_or_else(|_| Err("Connection closed".into())),
+            Either::Right(_) => {
+                self.pending.0.write().remove(&id);
+
+                Err("The server did not answer in time".into())
             }
-            Either::Right(_) => Err("The server did not answer in time".into()),
         }
-    }
-}
-
-struct Guard<'a> {
-    pending: &'a Pending,
-    id: u64,
-}
-
-impl Drop for Guard<'_> {
-    fn drop(&mut self) {
-        self.pending.0.borrow_mut().remove(&self.id);
     }
 }

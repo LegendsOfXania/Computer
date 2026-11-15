@@ -5,65 +5,51 @@ mod operations;
 use computer_model::{Entry, value::Value};
 use dioxus::prelude::*;
 use dioxus_i18n::tid;
-use dioxus_primitives::toast::{ToastOptions, use_toast};
 
 use crate::{
-    components::{inspector::body::Body, utils::toast::ERR},
+    actions::Actions,
+    components::inspector::body::Body,
     state::{app::AppState, ui::UiState},
-    ws::Client,
 };
+
+const OPERATIONS: &str = "inspector-operations";
 
 #[component]
 pub fn Inspector() -> Element {
-    let (app, mut ui, client, toast) = (
+    let (app, mut ui, actions) = (
         use_context::<AppState>(),
         use_context::<UiState>(),
-        use_context::<Client>(),
-        use_toast(),
+        use_context::<Actions>(),
     );
 
     let mut revision = use_signal(|| 0u32);
-
-    let fail = use_callback(move |error: String| {
-        revision.set(revision() + 1);
-
-        toast.error(
-            tid!("toast-edit-entry-failed"),
-            ToastOptions::new().description(error).duration(ERR),
-        );
-    });
 
     let edit = use_callback(move |(name, value): (String, Value)| {
         let Some(id) = ui.get_opened_entry() else {
             return;
         };
 
-        let client = client.clone();
-
         spawn(async move {
             let change = move |entry: &mut Entry| {
                 entry.fields.insert(name, value);
             };
 
-            if let Err(error) = client.edit_entry(&app, id, change).await {
-                fail.call(error);
+            if !actions.edit_entry(id, change).await {
+                revision.set(revision() + 1);
             }
         });
     });
 
     let entry = use_memo(move || {
         ui.get_opened_entry()
-            .and_then(|id| app.with_entry(&id, Clone::clone))
+            .and_then(|id| app.with_entry(id, Entry::clone))
     });
 
-    let definition =
-        use_memo(move || entry().and_then(|entry| app.registry.read().get(&entry.kind).cloned()));
+    let definition = use_memo(move || entry().and_then(|entry| app.definition(&entry.kind)));
 
     let is_open = entry.read().is_some();
 
     rsx! {
-        Stylesheet { href: asset!("/assets/style/inspector/mod.css") }
-        Stylesheet { href: asset!("/assets/style/inspector/operations.css") }
 
         aside { class: if is_open { "inspector open" } else { "inspector" },
             match (entry(), definition()) {

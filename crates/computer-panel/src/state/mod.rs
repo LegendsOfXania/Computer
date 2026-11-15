@@ -1,9 +1,9 @@
 pub mod app;
-pub mod mock;
 pub mod ui;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub enum ConnectionStatus {
+    #[default]
     Connecting,
     Connected,
     Reconnecting(u32),

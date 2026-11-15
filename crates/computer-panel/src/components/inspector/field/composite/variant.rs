@@ -24,7 +24,7 @@ pub fn VariantEditor(
 
     let values = match value {
         Value::Variant { name, fields } if name == active.name => fields,
-        _ => active.default_value().into_fields(),
+        _ => IndexMap::try_from(Value::from(active)).unwrap_or_default(),
     };
 
     let name = active.name.clone();
@@ -36,7 +36,7 @@ pub fn VariantEditor(
 
     let defaults: Vec<(String, Value)> = variants
         .iter()
-        .map(|variant| (variant.name.clone(), variant.default_value()))
+        .map(|variant| (variant.name.clone(), Value::from(variant)))
         .collect();
 
     let pick = move |picked: String| {

@@ -1,136 +1,54 @@
-use crate::{
-    components::utils::{btn::Btn, icon::Icon, toast::ERR},
-    state::{app::AppState, ui::UiState},
-    ws::Client,
-};
-use computer_model::{
-    id::Identifier,
-    page::{Page, PageKind},
-};
+use computer_model::page::{Page, PageKind};
 use dioxus::prelude::*;
 use dioxus_i18n::tid;
-use dioxus_primitives::toast::{ToastOptions, use_toast};
+
+use crate::{
+    actions::Actions,
+    components::utils::{btn::Btn, icon::Icon},
+    state::{app::AppState, ui::UiState},
+};
 
 const NONE: &str = "—";
 
 #[component]
 pub fn Details() -> Element {
-    let (app, client, mut ui, toast) = (
+    let (app, ui, actions) = (
         use_context::<AppState>(),
-        use_context::<Client>(),
         use_context::<UiState>(),
-        use_toast(),
+        use_context::<Actions>(),
     );
 
-    let fail = use_callback(move |(title, error): (String, String)| {
-        toast.error(title, ToastOptions::new().description(error).duration(ERR));
+    let page = use_memo(move || {
+        ui.get_opened_page()
+            .and_then(|id| app.with_page(id, Page::clone))
     });
 
-    let edit = use_callback({
-        let (app, client) = (app, client.clone());
-
-        move |f: Box<dyn FnOnce(&mut Page)>| {
-            let Some(id) = ui.get_opened_page() else {
-                return;
-            };
-
-            let (app, client) = (app, client.clone());
-
-            spawn(async move {
-                if let Err(error) = client.edit_page(&app, id, f).await {
-                    fail.call((tid!("toast-edit-page-failed"), error));
-                }
-            });
+    let edit = move |change: Box<dyn FnOnce(&mut Page)>| async move {
+        if let Some(id) = ui.get_opened_page() {
+            actions.edit_page(id, change).await;
         }
-    });
+    };
 
-    let opened_page = ui.get_opened_page();
+    let none = page.read().is_none();
 
-    let (name, id, kind, priority, chapter) = opened_page
-        .as_ref()
-        .and_then(|id| {
-            app.with_page(id, |page| {
-                (
-                    page.name.clone(),
-                    page.id.clone().into_string(),
-                    page.kind.as_str().to_string(),
-                    page.priority.to_string(),
-                    page.chapter.clone().unwrap_or_default(),
-                )
-            })
-        })
-        .unwrap_or_else(|| {
-            (
-                tid!("header-library-opened-page-none"),
-                NONE.to_string(),
-                NONE.to_string(),
-                String::new(),
-                String::new(),
-            )
-        });
+    let (name, id, kind, priority, chapter) = match page() {
+        Some(page) => (
+            page.name,
+            page.id.to_string(),
+            page.kind.as_str().to_string(),
+            page.priority.to_string(),
+            page.chapter.unwrap_or_default(),
+        ),
+        None => (
+            tid!("header-library-opened-page-none"),
+            NONE.to_string(),
+            NONE.to_string(),
+            String::new(),
+            String::new(),
+        ),
+    };
 
-    let none = opened_page.is_none();
     let placeholder = if none { NONE } else { "" };
-
-    let create = {
-        let client = client.clone();
-
-        move |_| {
-            let client = client.clone();
-
-            spawn(async move {
-                if let Err(error) = client
-                    .create_page(tid!("library-new-page-name"), PageKind::Sequence)
-                    .await
-                {
-                    fail.call((tid!("toast-create-page-failed"), error));
-                }
-            });
-        }
-    };
-
-    let delete = {
-        move |_| {
-            let Some(id) = ui.get_opened_page() else {
-                return;
-            };
-
-            let client = client.clone();
-
-            let mut pages: Vec<_> = app
-                .pages
-                .read()
-                .values()
-                .map(|page| (page.priority, page.id.clone()))
-                .collect();
-
-            pages.sort_by_key(|(priority, _)| *priority);
-
-            let next = pages
-                .iter()
-                .position(|(_, page_id)| page_id == &id)
-                .and_then(|index| {
-                    pages.get(index + 1).or_else(|| {
-                        index
-                            .checked_sub(1)
-                            .and_then(|previous| pages.get(previous))
-                    })
-                })
-                .map(|(_, page_id)| page_id.clone());
-
-            spawn(async move {
-                match client.delete_page(id.clone()).await {
-                    Ok(()) if ui.get_opened_page().as_ref() == Some(&id) => {
-                        ui.set_opened_page(next);
-                    }
-                    Ok(()) => {}
-                    Err(error) => {
-                        fail.call((tid!("toast-delete-page-failed"), error));
-                    }
-                }
-            });
-        }
-    };
 
     rsx! {
         section { class: "library-col library-details",
@@ -143,7 +61,7 @@ pub fn Details() -> Element {
                         disabled: none,
                         onchange: move |event| {
                             let value = event.value();
-                            edit.call(Box::new(move |page| page.name = value));
+                            edit(Box::new(move |page| page.name = value))
                         },
                     }
                 }
@@ -168,9 +86,9 @@ pub fn Details() -> Element {
                         value: "{priority}",
                         placeholder,
                         disabled: none,
-                        onchange: move |event| {
+                        onchange: move |event| async move {
                             if let Ok(value) = event.value().parse::<i32>() {
-                                edit.call(Box::new(move |page| page.priority = value));
+                                edit(Box::new(move |page| page.priority = value)).await;
                             }
                         },
                     }
@@ -186,9 +104,11 @@ pub fn Details() -> Element {
                         disabled: none,
                         onchange: move |event| {
                             let value = event.value();
-                            edit.call(Box::new(move |page| {
-                                page.chapter = (!value.trim().is_empty()).then_some(value);
-                            }));
+                            edit(
+                                Box::new(move |page| {
+                                    page.chapter = (!value.trim().is_empty()).then_some(value);
+                                }),
+                            )
                         },
                     }
                 }
@@ -198,12 +118,18 @@ pub fn Details() -> Element {
                 Btn {
                     icon: "plus",
                     tooltip: tid!("header-library-tooltip-create-page"),
-                    onclick: create,
+                    onclick: move |_| async move {
+                        actions.create_page(PageKind::default()).await;
+                    },
                 }
                 Btn {
                     icon: "trash",
                     tooltip: tid!("header-library-tooltip-delete-page"),
-                    onclick: delete,
+                    onclick: move |_| async move {
+                        if let Some(id) = ui.get_opened_page() {
+                            actions.delete_page(id).await;
+                        }
+                    },
                 }
             }
         }

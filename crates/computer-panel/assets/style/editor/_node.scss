@@ -1,7 +1,8 @@
+@use "../mixins" as *;
+
 .dioxus-flow .df-node-default {
     position: relative;
-    display: flex;
-    align-items: center;
+    @include row;
     min-width: 160px;
     min-height: 49px;
     border: 0;
@@ -21,17 +22,17 @@
 
 .dioxus-flow .df-node-default.foreign {
     opacity: 70%;
-}
 
-.dioxus-flow .df-node-default.foreign:hover {
-    opacity: 1;
+    &:hover {
+        opacity: 1;
+    }
 }
 
 .dioxus-flow .df-node:focus {
     outline: none;
-}
 
-.dioxus-flow .df-node:focus-visible .df-node-default {
-    outline: 4px solid var(--main);
-    outline-offset: 3px;
+    &-visible .df-node-default {
+        outline: 4px solid var(--main);
+        outline-offset: 3px;
+    }
 }

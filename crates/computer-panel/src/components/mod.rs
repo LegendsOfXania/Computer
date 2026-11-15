@@ -8,7 +8,10 @@ mod utils;
 use dioxus::prelude::*;
 use dioxus_i18n::{prelude::*, unic_langid::langid};
 
+use dioxus_primitives::toast::use_toast;
+
 use crate::{
+    actions::Actions,
     components::{
         connection::Connection,
         editor::Editor,
@@ -16,16 +19,12 @@ use crate::{
         search::Search,
         utils::toast::ToastProvider,
     },
-    state::{ui::UiState, ConnectionStatus},
+    state::{ConnectionStatus, app::AppState, ui::UiState},
+    ws::Client,
 };
 
 #[component]
 pub fn Panel() -> Element {
-    let ui = use_context::<UiState>();
-    let connection = use_context::<Signal<ConnectionStatus>>();
-
-    let status = connection.read().clone();
-
     use_init_i18n(|| {
         let lang = js_sys::Reflect::get(&js_sys::global(), &"navigator".into())
             .and_then(|n| js_sys::Reflect::get(&n, &"language".into()))
@@ -51,23 +50,35 @@ pub fn Panel() -> Element {
     });
 
     rsx! {
-        Stylesheet { href: asset!("/assets/style/mod.css") }
-        Stylesheet { href: asset!("/assets/style/utils/icon.css") }
-        Stylesheet { href: asset!("/assets/style/utils/btn.css") }
-        Stylesheet { href: asset!("/assets/style/utils/toast.css") }
-        Stylesheet { href: asset!("/assets/style/connection.css") }
+        Stylesheet { href: asset!("/assets/style/main.scss") }
 
-        ToastProvider {
-            if status == ConnectionStatus::Connected {
-                Header {}
-                Editor {}
+        ToastProvider { Shell {} }
+    }
+}
 
-                if let Some((scope, pick)) = ui.get_search() {
-                    Search { scope, pick }
-                }
-            } else {
-                Connection { status }
+#[component]
+fn Shell() -> Element {
+    let (app, ui, client, toast) = (
+        use_context::<AppState>(),
+        use_context::<UiState>(),
+        use_context::<Client>(),
+        use_toast(),
+    );
+
+    use_context_provider(|| Actions::new(app, ui, client, toast));
+
+    let status = app.status.read().clone();
+
+    rsx! {
+        if status == ConnectionStatus::Connected {
+            Header {}
+            Editor {}
+
+            if let Some(request) = ui.get_search() {
+                Search { request }
             }
+        } else {
+            Connection { status }
         }
     }
 }

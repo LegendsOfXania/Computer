@@ -1,8 +1,8 @@
 .dioxus-flow {
     --df-edge: var(--faint);
     --df-edge-selected: var(--faint);
-}
 
-.dioxus-flow .df-edge.cross-page .df-edge-path {
-    stroke-dasharray: 10 10;
+    .df-edge.cross-page .df-edge-path {
+        stroke-dasharray: 10 10;
+    }
 }

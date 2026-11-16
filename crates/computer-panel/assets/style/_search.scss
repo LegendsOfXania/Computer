@@ -1,4 +1,5 @@
-@use "../mixins" as *;
+@use "tokens" as *;
+@use "mixins" as *;
 
 .search-overlay {
     position: fixed;
@@ -12,7 +13,7 @@
     background: rgb(7 7 9 / 0.78);
     backdrop-filter: blur(8px) saturate(0.8);
     -webkit-backdrop-filter: blur(8px) saturate(0.8);
-    animation: search-overlay-in 200ms ease-out both;
+    animation: search-overlay-in $motion-standard ease-out both;
 }
 
 .search-box {
@@ -34,7 +35,7 @@
         0 0 0 1px rgb(255 255 255 / 0.025),
         inset 0 1px 0 rgb(255 255 255 / 0.035);
     transform-origin: top center;
-    animation: search-box-in 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: search-box-in 280ms $ease-out-expo both;
 }
 
 .search-head {
@@ -55,10 +56,10 @@
     border: 1px solid var(--surface-2);
     border-radius: 5px;
     transition:
-        border-color 180ms ease,
-        background 180ms ease,
-        box-shadow 180ms ease,
-        transform 180ms ease;
+        border-color $motion-responsive ease,
+        background $motion-responsive ease,
+        box-shadow $motion-responsive ease,
+        transform $motion-responsive ease;
 
     &:focus-within {
         background: var(--bg);
@@ -70,7 +71,7 @@
         flex: none;
         --icon: 20px;
         color: var(--dim);
-        transition: color 180ms ease, transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+        transition: color $motion-responsive ease, transform $motion-settle $ease-out-expo;
     }
 
     &:focus-within > .icon {
@@ -151,14 +152,14 @@
     font-size: 11px;
 
     span {
-        transition: color 140ms ease;
+        transition: color $motion-snappy ease;
     }
 
     b {
         color: var(--dim);
         font-family: inherit;
         font-weight: 650;
-        transition: color 140ms ease;
+        transition: color $motion-snappy ease;
     }
 
     span:hover {
@@ -179,7 +180,7 @@
     overscroll-behavior: contain;
     scrollbar-width: thin;
     scrollbar-color: var(--surface-2) transparent;
-    animation: search-list-in 220ms ease-out both;
+    animation: search-list-in $motion-settle ease-out both;
 
     &:empty {
         display: none;
@@ -202,7 +203,7 @@
         cursor: pointer;
         font: inherit;
         text-align: left;
-        transition: color 160ms ease, background 160ms ease, border-color 160ms ease;
+        transition: color $motion-quick ease, background $motion-quick ease, border-color $motion-quick ease;
 
         &:hover {
             color: var(--fg);
@@ -212,7 +213,7 @@
         > .icon {
             --icon: 13px;
             color: var(--dim);
-            transition: color 160ms ease, transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+            transition: color $motion-quick ease, transform $motion-settle $ease-out-expo;
         }
     }
 
@@ -227,7 +228,7 @@
     &-items {
         @include column;
         gap: 4px;
-        animation: search-category-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        animation: search-category-in $motion-standard $ease-out-expo both;
     }
 }
 
@@ -249,9 +250,9 @@
     font: inherit;
     text-align: left;
     transition:
-        background 160ms ease,
-        border-color 160ms ease,
-        transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
+        background $motion-quick ease,
+        border-color $motion-quick ease,
+        transform $motion-responsive $ease-out-expo;
 
     &:hover {
         background: var(--surface-2);
@@ -266,7 +267,7 @@
         place-items: center;
         color: var(--entry-color, var(--dim));
         background: color-mix( in srgb, var(--entry-color, var(--surface-2)) 14%, var(--surface) );
-        transition: background 180ms ease, color 180ms ease;
+        transition: background $motion-responsive ease, color $motion-responsive ease;
 
         &::after {
             content: "";
@@ -279,7 +280,7 @@
         .icon {
             --icon: 19px;
             color: var(--entry-color, var(--dim));
-            transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), filter 180ms ease;
+            transition: transform $motion-standard $ease-out-expo, filter $motion-responsive ease;
         }
     }
 
@@ -299,7 +300,7 @@
         color: var(--fg);
         font-size: 13px;
         font-weight: 600;
-        transition: color 140ms ease;
+        transition: color $motion-snappy ease;
     }
 
     &-hint {
@@ -319,7 +320,7 @@
         @include ellipsis;
         color: var(--faint);
         font-size: 11px;
-        transition: color 160ms ease, transform 160ms ease;
+        transition: color $motion-quick ease, transform $motion-quick ease;
 
         &:empty {
             display: none;
@@ -340,7 +341,7 @@
     color: var(--dim);
     font-size: 13px;
     text-align: center;
-    animation: search-category-in 220ms ease-out both;
+    animation: search-category-in $motion-settle ease-out both;
 }
 
 @keyframes search-overlay-in {

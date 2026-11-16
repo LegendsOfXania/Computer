@@ -70,15 +70,15 @@ fn Shell() -> Element {
     let status = app.status.read().clone();
 
     rsx! {
-        if status == ConnectionStatus::Connected {
+        //if status == ConnectionStatus::Connected {
             Header {}
             Editor {}
 
             if let Some(request) = ui.get_search() {
                 Search { request }
             }
-        } else {
-            Connection { status }
-        }
+        //} else {
+        //    Connection { status }
+        //}
     }
 }

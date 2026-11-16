@@ -1,4 +1,17 @@
-@use "../mixins" as *;
+@use "mixins" as *;
+
+.editor {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.dioxus-flow {
+    --df-grid: var(--surface-2);
+    --df-bg: var(--surface);
+    border-top: 1px solid var(--line);
+}
 
 .dioxus-flow .df-node-default {
     position: relative;
@@ -34,5 +47,14 @@
     &-visible .df-node-default {
         outline: 4px solid var(--main);
         outline-offset: 3px;
+    }
+}
+
+.dioxus-flow {
+    --df-edge: var(--faint);
+    --df-edge-selected: var(--faint);
+
+    .df-edge.cross-page .df-edge-path {
+        stroke-dasharray: 10 10;
     }
 }

@@ -1,4 +1,5 @@
-@use "../mixins" as *;
+@use "tokens" as *;
+@use "mixins" as *;
 
 header:has(.library) {
     position: relative;
@@ -13,7 +14,7 @@ header:has(.library) {
         gap: 8px;
         padding: 6px 10px;
         background: transparent;
-        transition: background 120ms ease;
+        transition: background $motion-instant ease;
     }
 
     &-panel {
@@ -34,9 +35,9 @@ header:has(.library) {
         pointer-events: none;
         clip-path: inset(0 0 100% 0);
         transition:
-            clip-path 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
-            opacity 160ms ease,
-            visibility 0s linear 240ms;
+            clip-path $motion-smooth $ease-out-soft,
+            opacity $motion-quick ease,
+            visibility 0s linear $motion-smooth;
     }
 }
 
@@ -46,8 +47,8 @@ header:has(.library) {
     pointer-events: auto;
     clip-path: inset(0);
     transition:
-        clip-path 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
-        opacity 160ms ease,
+        clip-path $motion-smooth $ease-out-soft,
+        opacity $motion-quick ease,
         visibility 0s;
 }
 
@@ -135,7 +136,7 @@ header:has(.library) {
         border-bottom: 1px solid transparent;
         border-radius: 0;
         outline: none;
-        transition: border-color 160ms ease;
+        transition: border-color $motion-quick ease;
 
         &:focus {
             border-bottom-color: var(--main);
@@ -171,7 +172,7 @@ header:has(.library) {
     letter-spacing: 0.08em;
     text-transform: uppercase;
     background: linear-gradient(currentColor, currentColor) left bottom / 0 1px no-repeat;
-    transition: background-size 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: background-size $motion-smooth $ease-out-soft;
 }
 
 .library-meta p:hover .library-label {
@@ -214,7 +215,7 @@ header:has(.library) {
     font-size: 14px;
     cursor: pointer;
     background: linear-gradient(currentColor, currentColor) left bottom / 0 1px no-repeat;
-    transition: background-size 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: background-size $motion-smooth $ease-out-soft;
 }
 
 .library-chapter:hover, .library-page:hover, .library-opened {

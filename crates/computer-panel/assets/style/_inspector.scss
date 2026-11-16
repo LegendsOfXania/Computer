@@ -1,4 +1,5 @@
-@use "../mixins" as *;
+@use "mixins" as *;
+@use "tokens" as *;
 
 .inspector {
     position: absolute;
@@ -15,12 +16,12 @@
     border-left: 1px solid var(--line);
     visibility: hidden;
     transform: translateX(100%);
-    transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s linear 240ms;
+    transition: transform $motion-smooth $ease-out-soft, visibility 0s linear $motion-smooth;
 
     &.open {
         visibility: visible;
         transform: none;
-        transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s;
+        transition: transform $motion-smooth $ease-out-soft, visibility 0s;
     }
 
     &-head {
@@ -108,7 +109,7 @@
     border-radius: 5px;
     outline: none;
     color-scheme: dark;
-    transition: border-color 160ms ease;
+    transition: border-color $motion-quick ease;
 
     &:focus {
         border-color: var(--main);
@@ -150,7 +151,7 @@ textarea.field-input {
     cursor: pointer;
     appearance: none;
     -webkit-appearance: none;
-    transition: background 160ms ease;
+    transition: background $motion-quick ease;
 
     &::before {
         content: "";
@@ -161,7 +162,7 @@ textarea.field-input {
         height: 14px;
         background: var(--dim);
         border-radius: 50%;
-        transition: transform 160ms ease, background 160ms ease;
+        transition: transform $motion-quick ease, background $motion-quick ease;
     }
 
     &:checked {
@@ -254,7 +255,7 @@ textarea.field-input {
     --icon: 14px;
     color: var(--dim);
     transform: rotate(90deg);
-    transition: transform 160ms ease;
+    transition: transform $motion-quick ease;
 }
 
 .group.open > .group-head > .icon, .card.open > .card-head > .icon {
@@ -327,5 +328,108 @@ textarea.field-input {
         .btn {
             margin: 4px 3px 4px 3px;
         }
+    }
+}
+
+.inspector-menu {
+    flex-shrink: 0;
+    margin-left: 4px;
+
+    &-trigger {
+        anchor-name: --inspector-menu-trigger;
+
+        .icon {
+            transition: transform $motion-quick ease;
+        }
+    }
+
+    &:has(.inspector-operations-popup:popover-open) .inspector-menu-trigger .icon {
+        transform: rotate(90deg);
+    }
+}
+
+.inspector-operations-popup {
+    position: fixed;
+    position-anchor: --inspector-menu-trigger;
+    inset: auto;
+    top: calc(anchor(bottom) + 8px);
+    right: anchor(right);
+    margin: 0;
+    box-sizing: border-box;
+    min-width: 190px;
+    max-width: min(240px, calc(100vw - 24px));
+    max-height: calc(100vh - 24px);
+    overflow-y: auto;
+    padding: 4px;
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    background: var(--surface);
+    color: var(--fg);
+    opacity: 0;
+    transform: translateY(-5px) scale(0.98);
+    transition:
+        opacity $motion-quick ease,
+        transform $motion-quick ease,
+        display $motion-quick allow-discrete,
+        overlay $motion-quick allow-discrete;
+
+    &:popover-open {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@starting-style  {
+    .inspector-operations-popup:popover-open {
+        opacity: 0;
+        transform: translateY(-5px) scale(0.98);
+    }
+}
+
+.inspector-operations {
+    @include column;
+    gap: 2px;
+}
+
+.btn.inspector-operation {
+    @include row;
+    justify-content: flex-start;
+    gap: 10px;
+    box-sizing: border-box;
+    width: 100%;
+    height: auto;
+    min-height: 32px;
+    flex: none;
+    padding: 6px 8px;
+    margin: 0;
+    border: none;
+    border-radius: 2px;
+    background: transparent;
+    color: var(--dim);
+    font: inherit;
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+    transition: color $motion-instant ease, background $motion-instant ease;
+
+    &:hover {
+        color: var(--fg);
+        background: var(--surface-2);
+    }
+
+    .icon {
+        flex: none;
+    }
+
+    .btn-label {
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .inspector-menu-trigger .icon, .inspector-operations-popup, .btn.inspector-operation {
+        transition: none;
     }
 }

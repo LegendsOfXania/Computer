@@ -1,4 +1,39 @@
-@use "../mixins" as *;
+@use "mixins" as *;
+@use "tokens" as *;
+
+.icon {
+    display: inline-block;
+    flex-shrink: 0;
+    width: var(--icon, 24px);
+    height: var(--icon, 24px);
+    background-color: currentColor;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+}
+
+.btn {
+    --icon: 20px;
+    @include row;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    padding: 0;
+    color: var(--dim);
+    background: var(--surface);
+    transition: background $motion-standard-seconds ease, color $motion-standard-seconds ease;
+
+    &:hover {
+        color: var(--bg);
+        background: var(--fg);
+    }
+}
 
 .dx-toast-container {
     position: fixed;
@@ -40,27 +75,18 @@
     filter: brightness(calc(0.5 + 0.5 * (1 - ((var(--toast-index) + 1) / 4))));
     opacity: calc(1 - var(--toast-hidden));
     transform: scale( calc(100% - var(--toast-index) * 5%), calc(100% - var(--toast-index) * 2%) );
-    transition: transform 0.2s ease, margin-top 0.2s ease, opacity 0.2s ease;
+    transition: transform $motion-standard-seconds ease, margin-top $motion-standard-seconds ease, opacity $motion-standard-seconds ease;
 
     &-container:not(:hover, :focus-within) .dx-toast[data-toast-even]:not([data-top]) {
-        animation: dx-slide-up-even 0.2s ease-out;
+        animation: dx-slide-up $motion-standard-seconds ease-out;
     }
 
     &-container:not(:hover, :focus-within) .dx-toast[data-toast-odd]:not([data-top]) {
-        animation: dx-slide-up-odd 0.2s ease-out;
+        animation: dx-slide-up $motion-standard-seconds ease-out;
     }
 }
 
-@keyframes dx-slide-up-even {
-    from {
-        transform: translateY(0.5rem) scale( calc(100% - var(--toast-index) * 5%), calc(100% - var(--toast-index) * 2%) );
-    }
-    to {
-        transform: translateY(0) scale( calc(100% - var(--toast-index) * 5%), calc(100% - var(--toast-index) * 2%) );
-    }
-}
-
-@keyframes dx-slide-up-odd {
+@keyframes dx-slide-up {
     from {
         transform: translateY(0.5rem) scale( calc(100% - var(--toast-index) * 5%), calc(100% - var(--toast-index) * 2%) );
     }
@@ -70,7 +96,7 @@
 }
 
 .dx-toast[data-top] {
-    animation: dx-toast-slide-in 0.2s ease-out;
+    animation: dx-toast-slide-in $motion-standard-seconds ease-out;
 }
 
 .dx-toast-container:hover .dx-toast[data-top], .dx-toast-container:focus-within .dx-toast[data-top] {
@@ -115,7 +141,7 @@
     flex: 1;
     min-width: 0;
     margin-right: 8px;
-    transition: filter 0.2s ease;
+    transition: filter $motion-standard-seconds ease;
 }
 
 .dx-toast-title {

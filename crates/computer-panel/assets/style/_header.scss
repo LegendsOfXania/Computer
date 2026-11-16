@@ -1,4 +1,56 @@
-@use "../mixins" as *;
+@use "mixins" as *;
+@use "tokens" as *;
+
+header {
+    flex: none;
+    position: relative;
+    z-index: 1000;
+    height: 49px;
+    display: flex;
+    background: var(--bg);
+    border-right: 1px solid var(--line);
+    font-family: var(--sans);
+
+    &::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        bottom: -1px;
+        width: 100vw;
+        height: 1px;
+        transform: translateX(-50%);
+        background: var(--line);
+    }
+}
+
+.nav {
+    display: flex;
+    flex: 1;
+}
+
+.status {
+    display: flex;
+    border-left: 1px solid var(--line);
+}
+
+header button {
+    @include row;
+    justify-content: center;
+    gap: 8px;
+    height: 100%;
+    padding: 0 16px;
+    background: var(--bg);
+    color: var(--fg);
+    border: 0;
+    border-right: 1px solid var(--line);
+    font-family: inherit;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.status button {
+    border-right: 0;
+}
 
 .status .push {
     overflow: hidden;
@@ -18,7 +70,7 @@
     z-index: 1;
     line-height: 1;
     will-change: transform;
-    animation: var(--text-anim) 500ms ease-out forwards;
+    animation: var(--text-anim) $motion-long ease-out forwards;
 }
 
 .push-icon {
@@ -31,7 +83,7 @@
     height: 16px;
     line-height: 1;
     will-change: transform, opacity;
-    animation: var(--icon-anim) 500ms ease-out forwards;
+    animation: var(--icon-anim) $motion-long ease-out forwards;
 }
 
 @keyframes text-forward {

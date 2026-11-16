@@ -1,3 +1,4 @@
+
 use dioxus::prelude::*;
 use dioxus_i18n::tid;
 
@@ -5,12 +6,13 @@ use crate::state::ConnectionStatus;
 
 #[component]
 pub fn Connection(status: ConnectionStatus) -> Element {
-    let (title, message, attempt, reason) = match status {
+    let (title, message, attempt, reason, state_class) = match status {
         ConnectionStatus::Connecting => (
             tid!("connection-connecting-title"),
             tid!("connection-connecting-message"),
             None,
             None,
+            "",
         ),
 
         ConnectionStatus::Reconnecting(attempt) => (
@@ -18,6 +20,7 @@ pub fn Connection(status: ConnectionStatus) -> Element {
             tid!("connection-reconnecting-message"),
             Some(attempt),
             None,
+            "connection-screen--reconnecting",
         ),
 
         ConnectionStatus::Failed(reason) => (
@@ -25,6 +28,7 @@ pub fn Connection(status: ConnectionStatus) -> Element {
             tid!("connection-failed-message"),
             None,
             Some(reason),
+            "connection-screen--failed",
         ),
 
         _ => return rsx! {},
@@ -34,7 +38,28 @@ pub fn Connection(status: ConnectionStatus) -> Element {
 
     rsx! {
         main {
-            class: "connection-screen",
+            class: "connection-screen {state_class}",
+
+            div {
+                class: "connection-scene",
+                aria_hidden: "true",
+
+                div { class: "connection-orbit connection-orbit--one" }
+                div { class: "connection-orbit connection-orbit--two" }
+                div { class: "connection-orbit connection-orbit--three" }
+
+                div { class: "connection-star connection-star--one" }
+                div { class: "connection-star connection-star--two" }
+                div { class: "connection-star connection-star--three" }
+                div { class: "connection-star connection-star--four" }
+                div { class: "connection-star connection-star--five" }
+
+                div { class: "connection-planet connection-planet--main" }
+                div { class: "connection-planet connection-planet--purple" }
+                div { class: "connection-planet connection-planet--teal" }
+                div { class: "connection-planet connection-planet--blue" }
+                div { class: "connection-planet connection-planet--small" }
+            }
 
             div {
                 class: "connection-status",

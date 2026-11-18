@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use computer_model::{
     Entry, EntryDefinition,
     id::{EntryId, PageId},
@@ -9,15 +7,12 @@ use computer_model::{
 };
 use dioxus::{document, signals::ReadableExt};
 use dioxus_i18n::tid;
-use dioxus_primitives::toast::{ToastOptions, Toasts};
 
 use crate::{
+    components::utils::toast::Toasts,
     state::{app::AppState, ui::UiState},
     ws::Client,
 };
-
-const OK: Duration = Duration::from_secs(5);
-const ERR: Duration = Duration::from_secs(9);
 
 #[derive(Clone, Copy)]
 pub struct Actions {
@@ -61,10 +56,7 @@ impl Actions {
     }
 
     fn fail(self, title: &'static str, error: String) {
-        self.toast.error(
-            tid!(title),
-            ToastOptions::new().description(error).duration(ERR),
-        );
+        self.toast.error(tid!(title), error);
     }
 
     async fn run(self, title: &'static str, request: Request) -> bool {
@@ -79,9 +71,7 @@ impl Actions {
 
     pub async fn push(self) {
         match self.client.request(Request::Push).await {
-            Ok(()) => self
-                .toast
-                .success(tid!("toast-push-succes"), ToastOptions::new().duration(OK)),
+            Ok(()) => self.toast.success(tid!("toast-push-succes")),
             Err(error) => self.fail("toast-push-failed", error),
         }
     }
@@ -170,8 +160,8 @@ impl Actions {
             "toast-create-entry-failed",
             Request::CreateEntry { entry, page_id },
         )
-        .await
-        .then_some(id)
+            .await
+            .then_some(id)
     }
 
     pub async fn edit_entry(self, id: EntryId, change: impl FnOnce(&mut Entry)) -> bool {

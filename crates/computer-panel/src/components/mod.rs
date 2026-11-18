@@ -3,12 +3,10 @@ mod editor;
 mod header;
 mod inspector;
 mod search;
-mod utils;
+pub mod utils;
 
 use dioxus::prelude::*;
 use dioxus_i18n::{prelude::*, unic_langid::langid};
-
-use dioxus_primitives::toast::use_toast;
 
 use crate::{
     actions::Actions,
@@ -17,7 +15,7 @@ use crate::{
         editor::Editor,
         header::Header,
         search::Search,
-        utils::toast::ToastProvider,
+        utils::toast::{ToastProvider, Toasts},
     },
     state::{ConnectionStatus, app::AppState, ui::UiState},
     ws::Client,
@@ -62,7 +60,7 @@ fn Shell() -> Element {
         use_context::<AppState>(),
         use_context::<UiState>(),
         use_context::<Client>(),
-        use_toast(),
+        use_context::<Toasts>(),
     );
 
     use_context_provider(|| Actions::new(app, ui, client, toast));
@@ -70,15 +68,15 @@ fn Shell() -> Element {
     let status = app.status.read().clone();
 
     rsx! {
-        if status == ConnectionStatus::Connected {
+        //if status == ConnectionStatus::Connected {
             Header {}
             Editor {}
 
             if let Some(request) = ui.get_search() {
                 Search { request }
             }
-        } else {
-            Connection { status }
-        }
+        //} else {
+        //    Connection { status }
+        //}
     }
 }

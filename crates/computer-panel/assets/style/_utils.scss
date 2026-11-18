@@ -35,140 +35,81 @@
     }
 }
 
-.dx-toast-container {
+.toasts {
+    @include column;
     position: fixed;
     z-index: 9999;
     right: 20px;
     bottom: 20px;
-    max-width: 350px;
-
-    ol {
-        display: flex;
-        flex-direction: column-reverse;
-        padding: 0;
-        margin: 0;
-        gap: 8px;
-        list-style: none;
-    }
-
-    li {
-        display: flex;
-    }
+    gap: 8px;
+    pointer-events: none;
 }
 
-.dx-toast {
-    --toast-hidden: calc(min(max(0, var(--toast-index) - 2), 1));
-    z-index: calc(var(--toast-count) - var(--toast-index));
+.toast {
     @include row;
-    overflow: hidden;
-    width: 18rem;
-    height: 4rem;
-    box-sizing: border-box;
-    justify-content: space-between;
+    width: 20rem;
+    gap: 10px;
     padding: 10px 12px;
     border: 1px solid var(--surface-2);
-    border-left: 3px solid var(--accent, var(--main));
-    border-radius: 2px;
-    margin-top: -4rem;
-    background-color: var(--surface);
-    color: var(--fg);
-    filter: brightness(calc(0.5 + 0.5 * (1 - ((var(--toast-index) + 1) / 4))));
-    opacity: calc(1 - var(--toast-hidden));
-    transform: scale( calc(100% - var(--toast-index) * 5%), calc(100% - var(--toast-index) * 2%) );
-    transition: transform $motion-standard-seconds ease, margin-top $motion-standard-seconds ease, opacity $motion-standard-seconds ease;
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    background: var(--surface);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    pointer-events: auto;
+    animation: toast-in $motion-standard-seconds $ease-out-soft;
 
-    &-container:not(:hover, :focus-within) .dx-toast[data-toast-even]:not([data-top]) {
-        animation: dx-slide-up $motion-standard-seconds ease-out;
+    &--success {
+        --accent: var(--success);
     }
 
-    &-container:not(:hover, :focus-within) .dx-toast[data-toast-odd]:not([data-top]) {
-        animation: dx-slide-up $motion-standard-seconds ease-out;
+    &--warn {
+        --accent: var(--warn);
     }
-}
 
-@keyframes dx-slide-up {
-    from {
-        transform: translateY(0.5rem) scale( calc(100% - var(--toast-index) * 5%), calc(100% - var(--toast-index) * 2%) );
-    }
-    to {
-        transform: translateY(0) scale( calc(100% - var(--toast-index) * 5%), calc(100% - var(--toast-index) * 2%) );
+    &--error {
+        --accent: var(--error);
     }
 }
 
-.dx-toast[data-top] {
-    animation: dx-toast-slide-in $motion-standard-seconds ease-out;
-}
-
-.dx-toast-container:hover .dx-toast[data-top], .dx-toast-container:focus-within .dx-toast[data-top] {
-    animation: dx-toast-slide-in 0 ease-out;
-}
-
-@keyframes dx-toast-slide-in {
-    from {
-        opacity: 0;
-        transform: translateY(100%) scale( calc(110% - var(--toast-index) * 5%), calc(110% - var(--toast-index) * 2%) );
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0) scale( calc(100% - var(--toast-index) * 5%), calc(100% - var(--toast-index) * 2%) );
-    }
-}
-
-.dx-toast-container:hover .dx-toast, .dx-toast-container:focus-within .dx-toast {
-    margin-top: var(--toast-padding, 0);
-    filter: brightness(1);
-    opacity: 1;
-    transform: scale(100%);
-}
-
-.dx-toast[data-type="info"] {
-    --accent: var(--main);
-}
-
-.dx-toast[data-type="success"] {
-    --accent: var(--success);
-}
-
-.dx-toast[data-type="warning"] {
-    --accent: var(--warn);
-}
-
-.dx-toast[data-type="error"] {
-    --accent: var(--error);
-}
-
-.dx-toast-content {
+.toast-body {
+    @include column;
     flex: 1;
     min-width: 0;
-    margin-right: 8px;
-    transition: filter $motion-standard-seconds ease;
+    gap: 2px;
 }
 
-.dx-toast-title {
-    margin-bottom: 2px;
+.toast-title {
     color: var(--fg);
     font-weight: 600;
 }
 
-.dx-toast-description {
-    @include ellipsis;
+.toast-description {
+    display: -webkit-box;
+    overflow: hidden;
     color: var(--dim);
-    font-size: 0.875rem;
+    word-break: break-word;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
 }
 
-.dx-toast-close {
-    display: grid;
+.toast-close {
+    @include row;
     flex-shrink: 0;
-    align-self: center;
-    place-items: center;
     padding: 0;
     border: none;
-    margin: 0;
     background: none;
     color: var(--faint);
     cursor: pointer;
+    transition: color $motion-standard-seconds ease;
 
     &:hover {
         color: var(--fg);
+    }
+}
+
+@keyframes toast-in {
+    from {
+        opacity: 0;
+        transform: translateY(0.75rem);
     }
 }

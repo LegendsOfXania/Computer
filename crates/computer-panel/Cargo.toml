@@ -10,7 +10,6 @@ computer-model = { workspace = true, features = ["panel"] }
 dioxus.workspace = true
 dioxus-flow.workspace = true
 dioxus-i18n.workspace = true
-dioxus-primitives.workspace = true
 gloo-net.workspace = true
 gloo-timers.workspace = true
 futures-util.workspace = true

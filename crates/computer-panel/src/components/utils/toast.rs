@@ -1,55 +1,103 @@
-use dioxus::prelude::*;
-use dioxus_primitives::toast::{self, Toast, ToastProps};
 use std::time::Duration;
+
+use dioxus::prelude::*;
+use gloo_timers::future::TimeoutFuture;
 
 use crate::components::utils::icon::Icon;
 
-#[component]
-fn StyledToast(props: ToastProps) -> Element {
-    rsx! {
-        Toast {
-            id: props.id,
-            index: props.index,
-            title: props.title,
-            description: props.description,
-            toast_type: props.toast_type,
-            on_close: props.on_close,
-            permanent: props.permanent,
-            duration: props.duration,
-            class: "dx-toast",
-            attributes: props.attributes,
-            toast::ToastContent { class: "dx-toast-content",
-                toast::ToastTitle { class: "dx-toast-title" }
-                toast::ToastDescription { class: "dx-toast-description" }
+const OK: Duration = Duration::from_secs(5);
+const WARN: Duration = Duration::from_secs(7);
+const ERR: Duration = Duration::from_secs(9);
+const MAX: usize = 5;
+
+#[derive(Clone, PartialEq)]
+struct Toast {
+    id: u64,
+    kind: &'static str,
+    title: String,
+    description: Option<String>,
+}
+
+#[derive(Clone, Copy)]
+pub struct Toasts {
+    list: Signal<Vec<Toast>>,
+    next: Signal<u64>,
+}
+
+impl Toasts {
+    pub fn success(self, title: String) {
+        self.push("success", title, None, OK);
+    }
+
+    pub fn warn(self, title: String) {
+        self.push("warn", title, None, WARN);
+    }
+
+    pub fn error(self, title: String, description: String) {
+        self.push("error", title, Some(description), ERR);
+    }
+
+    fn push(
+        mut self,
+        kind: &'static str,
+        title: String,
+        description: Option<String>,
+        duration: Duration,
+    ) {
+        let id = self.next.replace(self.next.cloned() + 1);
+
+        self.list.with_mut(|list| {
+            list.push(Toast {
+                id,
+                kind,
+                title,
+                description,
+            });
+
+            if list.len() > MAX {
+                list.remove(0);
             }
-            toast::ToastCloseButton { class: "dx-toast-close",
-                Icon { name: "close" }
-            }
-        }
+        });
+
+        dioxus::core::spawn_forever(async move {
+            TimeoutFuture::new(u32::try_from(duration.as_millis()).unwrap_or(u32::MAX)).await;
+            self.close(id);
+        });
+    }
+
+    fn close(mut self, id: u64) {
+        self.list.with_mut(|list| list.retain(|toast| toast.id != id));
     }
 }
 
 #[component]
-pub fn ToastProvider(
-    #[props(default = ReadSignal::new(Signal::new(Some(Duration::from_secs(5)))))]
-    default_duration: ReadSignal<Option<Duration>>,
-    #[props(default = ReadSignal::new(Signal::new(10)))] max_toasts: ReadSignal<usize>,
-    #[props(default)] render_toast: Option<Callback<toast::ToastPropsWithOwner, Element>>,
-    #[props(extends = GlobalAttributes)] attributes: Vec<Attribute>,
-    children: Element,
-) -> Element {
-    let render_toast = render_toast.unwrap_or_else(|| {
-        Callback::new(|p: toast::ToastPropsWithOwner| rsx! { StyledToast { ..p } })
+pub fn ToastProvider(children: Element) -> Element {
+    let toasts = use_context_provider(|| Toasts {
+        list: Signal::new(Vec::new()),
+        next: Signal::new(0),
     });
 
     rsx! {
-        toast::ToastProvider {
-            class: "dx-toast-container",
-            default_duration,
-            max_toasts,
-            render_toast,
-            attributes,
-            {children}
+        {children}
+
+        div { class: "toasts", aria_live: "polite",
+            for Toast { id, kind, title, description } in toasts.list.read().clone() {
+                div { key: "{id}", class: "toast toast--{kind}",
+                    div { class: "toast-body",
+                        span { class: "toast-title", "{title}" }
+
+                        if let Some(description) = description {
+                            span { class: "toast-description", "{description}" }
+                        }
+                    }
+
+                    button {
+                        class: "toast-close",
+                        onclick: move |_| toasts.close(id),
+                        Icon { name: "close" }
+                    }
+                }
+            }
         }
     }
 }

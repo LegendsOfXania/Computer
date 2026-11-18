@@ -18,10 +18,9 @@ struct Toast {
     description: Option<String>,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct Toasts {
     list: Signal<Vec<Toast>>,
-    next: Signal<u64>,
 }
 
 impl Toasts {
@@ -37,16 +36,11 @@ impl Toasts {
         self.push("error", title, Some(description), ERR);
     }
 
-    fn push(
-        mut self,
-        kind: &'static str,
-        title: String,
-        description: Option<String>,
-        duration: Duration,
-    ) {
-        let id = self.next.replace(self.next.cloned() + 1);
+    fn push(mut self, kind: &'static str, title: String, description: Option<String>, duration: Duration) {
+        let id = {
+            let mut list = self.list.write();
+            let id = list.last().map_or(0, |toast| toast.id + 1);
 
-        self.list.with_mut(|list| {
             list.push(Toast {
                 id,
                 kind,
@@ -57,43 +51,58 @@ impl Toasts {
             if list.len() > MAX {
                 list.remove(0);
             }
-        });
 
-        dioxus::core::spawn_forever(async move {
-            TimeoutFuture::new(u32::try_from(duration.as_millis()).unwrap_or(u32::MAX)).await;
+            id
+        };
+
+        spawn(async move {
+            TimeoutFuture::new(duration.as_millis().min(u32::MAX as u128) as u32).await;
             self.close(id);
         });
     }
 
     fn close(mut self, id: u64) {
-        self.list.with_mut(|list| list.retain(|toast| toast.id != id));
+        self.list.write().retain(|toast| toast.id != id);
     }
 }
 
 #[component]
 pub fn ToastProvider(children: Element) -> Element {
-    let toasts = use_context_provider(|| Toasts {
-        list: Signal::new(Vec::new()),
-        next: Signal::new(0),
-    });
+    let toasts = use_context::<Toasts>();
 
     rsx! {
         {children}
 
-        div { class: "toasts", aria_live: "polite",
-            for Toast { id, kind, title, description } in toasts.list.read().clone() {
-                div { key: "{id}", class: "toast toast--{kind}",
-                    div { class: "toast-body",
-                        span { class: "toast-title", "{title}" }
+        div {
+            class: "toasts",
+            aria_live: "polite",
 
-                        if let Some(description) = description {
-                            span { class: "toast-description", "{description}" }
+            for toast in toasts.list.read().iter() {
+                div {
+                    key: "{toast.id}",
+                    class: "toast toast--{toast.kind}",
+
+                    div {
+                        class: "toast-body",
+                        span {
+                            class: "toast-title",
+                            "{toast.title}"
+                        }
+
+                        if let Some(description) = &toast.description {
+                            span {
+                                class: "toast-description",
+                                "{description}"
+                            }
                         }
                     }
 
                     button {
                         class: "toast-close",
-                        onclick: move |_| toasts.close(id),
+                        onclick: {
+                            let id = toast.id;
+                            move |_| toasts.close(id)
+                        },
                         Icon { name: "close" }
                     }
                 }

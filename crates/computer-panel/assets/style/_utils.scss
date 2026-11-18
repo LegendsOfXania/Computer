@@ -38,7 +38,7 @@
 .toasts {
     @include column;
     position: fixed;
-    z-index: 9999;
+    z-index: 2;
     right: 20px;
     bottom: 20px;
     gap: 8px;

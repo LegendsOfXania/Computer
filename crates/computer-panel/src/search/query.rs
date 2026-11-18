@@ -124,7 +124,8 @@ pub fn highlight(input: &str) -> Vec<(&str, bool)> {
             continue;
         }
 
-        let end = start + token.find(':').map_or(token.len(), |colon| colon + 1);
+        let end = start + token.len();
+
         parts.push((&input[plain..start], false));
         parts.push((&input[start..end], true));
         plain = end;

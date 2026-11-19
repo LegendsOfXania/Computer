@@ -1,0 +1,19 @@
+interface entry {
+  use field.{fields, values};
+
+  record entry-definition {
+    kind: string,
+    tags: list<string>,
+    fields: fields,
+    icon: string,
+    color: string,
+    version: u32,
+  }
+
+  record entry {
+    id: string,
+    kind: string,
+    version: u32,
+    fields: values,
+  }
+}

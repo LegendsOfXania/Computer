@@ -14,6 +14,7 @@ pub mod ipc;
 pub mod library;
 #[cfg(feature = "panel")]
 pub mod protocol;
+pub mod wit;
 
 pub use entry::{Entry, EntryDefinition};
 #[cfg(feature = "panel")]

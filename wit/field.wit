@@ -1,0 +1,43 @@
+interface field {
+  record fields {
+    fields: list<field>,
+    kinds: list<field-kind>,
+  }
+
+  record field {
+    name: string,
+    kind: u32,
+    %flags: list<tuple<string, string>>,
+  }
+
+  variant field-kind {
+    %string,
+    int,
+    float,
+    %bool,
+    reference,
+    %enum(list<string>),
+    %struct(list<u32>),
+    %list(u32),
+    %map(tuple<u32, u32>),
+    %variant(list<tuple<string, list<u32>>>),
+  }
+
+  record values {
+    nodes: list<value>,
+  }
+
+  variant value {
+    null,
+    %string(string),
+    int(s64),
+    float(f64),
+    %bool(bool),
+    reference(string),
+    %enum(string),
+    %struct(list<tuple<string, u32>>),
+    %list(list<u32>),
+    %map(list<tuple<u32, u32>>),
+    %variant(tuple<string, list<tuple<string, u32>>>),
+  }
+}

@@ -61,6 +61,7 @@ futures-util = "0.3.34"
 futures-channel = "0.3.34"
 
 frizbee = { version = "0.13.0", default-features = false }
+wit-bindgen = "0.63.0"
 
 [workspace.lints.clippy]
 unwrap_used = "deny"

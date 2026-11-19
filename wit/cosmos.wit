@@ -1,0 +1,28 @@
+package legends:cosmos;
+
+world cosmos {
+  import engine;
+  export extension;
+}
+
+interface engine {
+  use field.{values};
+
+  fire: async func(kind: string, fields: values, player: string) -> result<_, string>;
+}
+
+interface extension {
+  use entry.{entry, entry-definition};
+  use field.{values};
+
+  record interaction {
+    player: string,
+    id: string,
+  }
+
+  definitions: func() -> list<entry-definition>;
+
+  set-active-kinds: func(kinds: list<string>);
+
+  trigger: async func(entry: entry, interaction: interaction) -> result<list<tuple<string, values>>, string>;
+}

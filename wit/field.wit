@@ -1,3 +1,5 @@
+package legends:cosmos;
+
 interface field {
   record fields {
     fields: list<field>,
@@ -17,10 +19,10 @@ interface field {
     %bool,
     reference,
     %enum(list<string>),
-    %struct(list<u32>),
+    %struct(map<string, u32>),
     %list(u32),
-    %map(tuple<u32, u32>),
-    %variant(list<tuple<string, list<u32>>>),
+    %map(map<u32, u32>),
+    %variant(map<string, map<string, u32>>),
   }
 
   record values {
@@ -35,9 +37,9 @@ interface field {
     %bool(bool),
     reference(string),
     %enum(string),
-    %struct(list<tuple<string, u32>>),
+    %struct(map<string, u32>),
     %list(list<u32>),
-    %map(list<tuple<u32, u32>>),
-    %variant(tuple<string, list<tuple<string, u32>>>),
+    %map(map<u32, u32>),
+    %variant(tuple<string, map<string, u32>>),
   }
 }

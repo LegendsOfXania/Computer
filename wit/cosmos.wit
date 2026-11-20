@@ -6,23 +6,23 @@ world cosmos {
 }
 
 interface engine {
-  use field.{values};
+  use field.{value};
 
-  fire: async func(kind: string, fields: values, player: string) -> result<_, string>;
+  fire: async func(player: string, kind: string, values: list<value>) -> result<_, string>;
 }
 
 interface extension {
   use entry.{entry, entry-definition};
-  use field.{values};
+  use field.{value};
 
   record interaction {
     player: string,
     id: string,
   }
 
-  definitions: func() -> list<entry-definition>;
+  register-entries: func() -> list<entry-definition>;
 
   set-active-kinds: func(kinds: list<string>);
 
-  trigger: async func(entry: entry, interaction: interaction) -> result<list<tuple<string, values>>, string>;
+  trigger: async func(entry: entry, interaction: interaction) -> result<map<string, list<value>>, string>;
 }

@@ -1,15 +1,10 @@
 package legends:cosmos;
 
 interface field {
-  record fields {
-    fields: list<field>,
-    kinds: list<field-kind>,
-  }
-
   record field {
     name: string,
     kind: u32,
-    %flags: list<tuple<string, string>>,
+    %flags: map<string, string>,
   }
 
   variant field-kind {
@@ -19,16 +14,12 @@ interface field {
     %bool,
     reference,
     %enum(list<string>),
-    %struct(map<string, u32>),
+    %struct(list<u32>),
     %list(u32),
     %map(map<u32, u32>),
     %variant(map<string, map<string, u32>>),
   }
-
-  record values {
-    nodes: list<value>,
-  }
-
+  
   variant value {
     null,
     %string(string),

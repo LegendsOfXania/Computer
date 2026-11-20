@@ -1,10 +1,13 @@
+package legends:cosmos;
+
 interface entry {
-  use field.{fields, values};
+  use field.{field, field-kind, value};
 
   record entry-definition {
     kind: string,
     tags: list<string>,
-    fields: fields,
+    fields: list<field>,
+    field-kinds: list<field-kind>,
     icon: string,
     color: string,
     version: u32,
@@ -14,6 +17,6 @@ interface entry {
     id: string,
     kind: string,
     version: u32,
-    fields: values,
+    values: list<value>,
   }
 }

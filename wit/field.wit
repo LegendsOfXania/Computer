@@ -3,8 +3,8 @@ package legends:cosmos;
 interface field {
   record field {
     name: string,
-    kind: u32,
     %flags: map<string, string>,
+    kind: field-kind,
   }
 
   variant field-kind {
@@ -14,12 +14,12 @@ interface field {
     %bool,
     reference,
     %enum(list<string>),
-    %struct(list<u32>),
-    %list(u32),
-    %map(map<u32, u32>),
-    %variant(map<string, map<string, u32>>),
+    %struct(u32),
+    %list,
+    %map,
+    %variant(list<tuple<string, u32>>),
   }
-  
+
   variant value {
     null,
     %string(string),
@@ -28,9 +28,9 @@ interface field {
     %bool(bool),
     reference(string),
     %enum(string),
-    %struct(map<string, u32>),
-    %list(list<u32>),
-    %map(map<u32, u32>),
-    %variant(tuple<string, map<string, u32>>),
+    %struct(list<string>),
+    %list(u32),
+    %map(u32),
+    %variant(tuple<string, list<string>>),
   }
 }

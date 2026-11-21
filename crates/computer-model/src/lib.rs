@@ -1,10 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-pub mod entry;
-pub mod field;
 pub mod id;
 pub mod page;
-pub mod value;
 
 #[cfg(feature = "engine")]
 pub mod interaction;
@@ -16,7 +13,7 @@ pub mod library;
 pub mod protocol;
 pub mod wit;
 
-pub use entry::{Entry, EntryDefinition};
+pub use wit::{Entry, EntryDefinition, Field, FieldKind, FieldNode, Node, Value};
 #[cfg(feature = "panel")]
 pub use library::Library;
 

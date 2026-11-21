@@ -1,13 +1,12 @@
 package legends:cosmos;
 
 interface entry {
-  use field.{field, field-kind, value};
+  use field.{field, value};
 
   record entry-definition {
     kind: string,
     tags: list<string>,
     fields: list<field>,
-    field-kinds: list<field-kind>,
     icon: string,
     color: string,
     version: u32,

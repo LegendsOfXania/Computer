@@ -1,8 +1,7 @@
-use indexmap::IndexMap;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use uuid::Uuid;
 
-use crate::{Registry, entry::Entry, id::TaskId, interaction::InteractionContext, value::Value};
+use crate::{Entry, Registry, Value, id::TaskId, interaction::InteractionContext};
 
 pub const IPC_VERSION: u32 = 1;
 
@@ -29,7 +28,7 @@ pub enum ExtensionMessage {
 
     Fire {
         kind: String,
-        fields: IndexMap<String, Value>,
+        values: Vec<Value>,
         player: Uuid,
     },
 

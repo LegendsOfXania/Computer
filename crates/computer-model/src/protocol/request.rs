@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    entry::Entry,
+    Entry,
     id::{EntryId, PageId},
     page::Page,
 };

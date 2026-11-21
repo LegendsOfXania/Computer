@@ -4,7 +4,7 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    entry::Entry,
+    Entry,
     id::{EntryId, PageId},
     page::Page,
     protocol::event::Event,
@@ -75,8 +75,10 @@ impl Library {
             }
 
             Event::EntryCreated { entry, page_id } => {
-                if self.entries.contains_key(&entry.id) {
-                    return Err(format!("Entry {} already exists", entry.id));
+                let id = entry.id();
+
+                if self.entries.contains_key(&id) {
+                    return Err(format!("Entry {id} already exists"));
                 }
 
                 let page = self
@@ -84,24 +86,26 @@ impl Library {
                     .get_mut(page_id)
                     .ok_or_else(|| missing("Page", page_id, "have been deleted"))?;
 
-                if !page.entries.contains(&entry.id) {
-                    page.entries.push(entry.id);
+                if !page.entries.contains(&id) {
+                    page.entries.push(id);
                 }
 
-                self.entries.insert(entry.id, entry.clone());
+                self.entries.insert(id, entry.clone());
 
                 Ok(vec![*page_id])
             }
 
             Event::EntryUpdated { entry } => {
+                let id = entry.id();
+
                 let existing = self
                     .entries
-                    .get_mut(&entry.id)
-                    .ok_or_else(|| missing("Entry", entry.id, "have been deleted"))?;
+                    .get_mut(&id)
+                    .ok_or_else(|| missing("Entry", id, "have been deleted"))?;
 
                 existing.clone_from(entry);
 
-                Ok(self.pages_of(entry.id).map(|page| page.id).collect())
+                Ok(self.pages_of(id).map(|page| page.id).collect())
             }
 
             Event::EntryDeleted { entry_id } => {

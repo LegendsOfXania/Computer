@@ -104,7 +104,7 @@ pub fn build_index(
             index.add(
                 ENTRY,
                 SearchItem::new(
-                    Target::Entry(entry.id),
+                    Target::Entry(entry.id()),
                     icon,
                     color,
                     entry.label(),

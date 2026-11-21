@@ -44,7 +44,7 @@ impl<T> Clone for Cursor<'_, T> {
 impl<T> Copy for Cursor<'_, T> {}
 
 impl<'a, T: Tree> Cursor<'a, T> {
-    pub(super) const fn new(items: &'a [T], pos: usize) -> Self {
+    pub const fn new(items: &'a [T], pos: usize) -> Self {
         Self { items, pos }
     }
 
@@ -52,7 +52,7 @@ impl<'a, T: Tree> Cursor<'a, T> {
         std::iter::successors(Some(Self::new(items, 0)), |tree| {
             Some(Self::new(tree.items, tree.end()))
         })
-            .take_while(|tree| tree.value().is_some())
+        .take_while(|tree| tree.value().is_some())
     }
 
     #[must_use]

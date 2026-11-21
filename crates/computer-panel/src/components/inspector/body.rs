@@ -1,5 +1,4 @@
-
-use computer_model::{Entry, EntryDefinition, value::Value};
+use computer_model::{Entry, EntryDefinition, Value};
 use dioxus::prelude::*;
 use dioxus_i18n::tid;
 
@@ -13,24 +12,31 @@ pub fn Body(
     entry: Entry,
     definition: EntryDefinition,
     revision: u32,
-    edit: Callback<(String, Value)>,
+    edit: Callback<(String, Vec<Value>)>,
     close: EventHandler<()>,
 ) -> Element {
     let name = entry.label().to_string();
-    let id = entry.id.as_str().to_string();
+    let id = entry.id().as_str().to_string();
     let color = definition.color.clone();
 
-    let rows = definition.fields.iter().cloned().map(|def| {
-        let row_key = format!("{id}-{revision}-{}", def.name);
-        let field_name = def.name.clone();
-        let value = entry.fields.get(&def.name).cloned().unwrap_or_default();
+    let rows = definition.members().map(|node| {
+        let field_name = node
+            .value()
+            .map(|field| field.name.clone())
+            .unwrap_or_default();
+        let row_key = format!("{id}-{revision}-{field_name}");
+        let def = node.subtree().to_vec();
+        let values = entry
+            .get(&field_name)
+            .map(|value| value.subtree().to_vec())
+            .unwrap_or_default();
 
         rsx! {
             Field {
                 key: "{row_key}",
                 def,
-                value,
-                onchange: move |value: Value| edit.call((field_name.clone(), value)),
+                values,
+                onchange: move |subtree: Vec<Value>| edit.call((field_name.clone(), subtree)),
             }
         }
     });

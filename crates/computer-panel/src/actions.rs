@@ -1,9 +1,8 @@
 use computer_model::{
-    Entry, EntryDefinition,
+    Entry, EntryDefinition, Value,
     id::{EntryId, PageId},
     page::{Page, PageKind},
     protocol::request::Request,
-    value::Value,
 };
 use dioxus::{document, signals::ReadableExt};
 use dioxus_i18n::tid;
@@ -28,20 +27,36 @@ async fn confirm(message: String) -> bool {
     eval.send(message).is_ok() && matches!(eval.recv::<bool>().await, Ok(true))
 }
 
-fn link_duplicate(value: &mut Value, source: EntryId, duplicate: EntryId) -> bool {
-    let Value::List(items) = value else {
-        return false;
-    };
+fn link_duplicate(entry: &Entry, source: EntryId, duplicate: EntryId) -> Option<Entry> {
+    let (source, duplicate) = (Value::from(source), Value::from(duplicate));
+    let mut lists = Vec::new();
+    let mut pending = vec![entry.root()];
 
-    let has = |id: EntryId| items.iter().any(|item| *item == Value::Reference(id));
+    while let Some(node) = pending.pop() {
+        if matches!(node.value(), Some(Value::List(_))) {
+            let has = |value: &Value| node.children().any(|item| item.value() == Some(value));
 
-    if has(source) && !has(duplicate) {
-        items.push(Value::Reference(duplicate));
+            if has(&source) && !has(&duplicate) {
+                lists.push(node.index());
+            }
+        }
 
-        return true;
+        pending.extend(node.children());
     }
 
-    false
+    if lists.is_empty() {
+        return None;
+    }
+
+    lists.sort_unstable_by(|a, b| b.cmp(a));
+
+    let mut entry = entry.clone();
+
+    for at in lists {
+        entry.insert(at, [duplicate.clone()]);
+    }
+
+    Some(entry)
 }
 
 impl Actions {
@@ -154,14 +169,14 @@ impl Actions {
             }
         };
 
-        let id = entry.id;
+        let id = entry.id();
 
         self.run(
             "toast-create-entry-failed",
             Request::CreateEntry { entry, page_id },
         )
-            .await
-            .then_some(id)
+        .await
+        .then_some(id)
     }
 
     pub async fn edit_entry(self, id: EntryId, change: impl FnOnce(&mut Entry)) -> bool {
@@ -214,7 +229,7 @@ impl Actions {
             .app
             .library
             .read()
-            .page_of(source.id)
+            .page_of(source.id())
             .map(|page| page.id)
         else {
             return;
@@ -225,9 +240,12 @@ impl Actions {
             Err(error) => return self.fail("toast-create-entry-failed", error),
         };
 
-        let source_id = source.id;
+        let source_id = source.id();
 
-        let entry = Entry { id, ..source };
+        let entry = Entry {
+            id: id.to_string(),
+            ..source
+        };
 
         if !self
             .run(
@@ -246,24 +264,14 @@ impl Actions {
                 .read()
                 .entries
                 .values()
-                .filter(|entry| entry.id != id)
-                .filter_map(|entry| {
-                    let mut fields = entry.fields.clone();
-                    let mut changed = false;
-
-                    for value in fields.values_mut() {
-                        value.walk_mut(&mut |node| {
-                            changed |= link_duplicate(node, source_id, id);
-                        });
-                    }
-
-                    changed.then_some((entry.id, fields))
-                })
+                .filter(|entry| entry.id() != id)
+                .filter_map(|entry| link_duplicate(entry, source_id, id))
+                .map(|entry| (entry.id(), entry.values))
                 .collect();
 
-            for (entry_id, fields) in updates {
+            for (entry_id, values) in updates {
                 if !self
-                    .edit_entry(entry_id, move |entry| entry.fields = fields)
+                    .edit_entry(entry_id, move |entry| entry.values = values)
                     .await
                 {
                     return;

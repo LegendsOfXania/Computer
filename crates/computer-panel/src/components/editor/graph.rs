@@ -5,7 +5,7 @@ use computer_model::{
 };
 use dioxus::prelude::*;
 use dioxus_flow::{LayoutNode, compute_layout, prelude::*};
-use indexmap::{IndexMap, IndexSet};
+use indexmap::IndexMap;
 use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, PartialEq)]
@@ -25,10 +25,7 @@ pub fn build() -> Graph {
     let (app, ui) = (consume_context::<AppState>(), consume_context::<UiState>());
     let library = app.library.read();
 
-    let Some(page) = ui
-        .get_opened_page()
-        .and_then(|id| library.pages.get(&id))
-    else {
+    let Some(page) = ui.get_opened_page().and_then(|id| library.pages.get(&id)) else {
         return Graph::default();
     };
 
@@ -62,11 +59,7 @@ pub fn build() -> Graph {
                 continue;
             };
 
-            let targets: IndexSet<EntryId> = entry
-                .fields
-                .values()
-                .flat_map(|value| value.references())
-                .collect();
+            let targets = entry.references();
 
             links.extend(
                 targets
@@ -90,11 +83,7 @@ pub fn build() -> Graph {
     let nodes = local
         .iter()
         .map(|&key| (key, None))
-        .chain(
-            foreign
-                .into_iter()
-                .map(|(key, origin)| (key, Some(origin))),
-        )
+        .chain(foreign.into_iter().map(|(key, origin)| (key, Some(origin))))
         .filter_map(|(key, origin)| {
             let entry = library.entries.get(&key)?;
             let (icon, color) = app.look_of(&entry.kind);

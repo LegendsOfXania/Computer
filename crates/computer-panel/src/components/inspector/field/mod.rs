@@ -1,29 +1,43 @@
-use computer_model::{
-    field::{FieldDefinition, FieldKind},
-    value::Value,
-};
+use computer_model::{Field as Definition, FieldKind, Value};
 use dioxus::prelude::*;
 
-use crate::components::inspector::field::{control::control, input::ToggleField};
+use crate::components::inspector::field::{
+    control::control, default::defaults, input::ToggleField,
+};
 
 mod composite;
 mod control;
+mod default;
 mod frame;
 mod input;
 
 #[component]
-pub fn Field(def: FieldDefinition, value: Value, onchange: EventHandler<Value>) -> Element {
-    let optional = def.has_flag("optional") && !matches!(def.kind, FieldKind::Reference);
+pub fn Field(
+    def: Vec<Definition>,
+    values: Vec<Value>,
+    onchange: EventHandler<Vec<Value>>,
+) -> Element {
+    let Some(field) = def.first() else {
+        return rsx! {};
+    };
+
+    let optional = field.has_flag("optional") && !matches!(field.kind, FieldKind::Reference);
     let composite = matches!(
-        def.kind,
-        FieldKind::Struct(_) | FieldKind::List(_) | FieldKind::Map { .. } | FieldKind::Variant(_)
+        field.kind,
+        FieldKind::Struct(_) | FieldKind::List | FieldKind::Map | FieldKind::Variant(_)
     );
 
-    let enabled = !optional || value != Value::Null;
+    let enabled = !optional || !matches!(values.first(), None | Some(Value::Null));
 
-    let default = optional.then(|| Value::from(&def.kind));
+    let default = optional.then(|| defaults(&def));
 
-    let label = def.name.replace('_', " ");
+    let values = if values.is_empty() {
+        defaults(&def)
+    } else {
+        values
+    };
+
+    let label = field.name.replace('_', " ");
     let (head, title) = if composite && !optional {
         (String::new(), label)
     } else {
@@ -41,7 +55,7 @@ pub fn Field(def: FieldDefinition, value: Value, onchange: EventHandler<Value>) 
                             onchange: move |on: bool| {
                                 onchange.call(match (&default, on) {
                                     (Some(default), true) => default.clone(),
-                                    _ => Value::Null,
+                                    _ => vec![Value::Null],
                                 });
                             },
                         }
@@ -49,7 +63,7 @@ pub fn Field(def: FieldDefinition, value: Value, onchange: EventHandler<Value>) 
                 }
             }
             if enabled {
-                {control(&def, value, onchange, title)}
+                {control(&def, values, onchange, title)}
             }
         }
     }

@@ -25,7 +25,7 @@ fn operation(icon: &'static str, label: String, onclick: EventHandler<MouseEvent
 #[component]
 pub fn Operations(entry: Entry, definition: EntryDefinition) -> Element {
     let (mut ui, actions) = (use_context::<UiState>(), use_context::<Actions>());
-    let id = entry.id;
+    let id = entry.id();
 
     let pick = use_callback(move |picked: Picked| {
         if let Picked::Page(page) = picked {

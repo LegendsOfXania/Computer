@@ -1,4 +1,4 @@
-use computer_model::value::Value;
+use computer_model::{Value, id::EntryId};
 use dioxus::prelude::*;
 use dioxus_i18n::tid;
 
@@ -17,7 +17,7 @@ pub fn ReferenceField(value: Value, onchange: EventHandler<Value>) -> Element {
 
     let pick = use_callback(move |picked: Picked| {
         if let Picked::Entry(id) = picked {
-            onchange.call(Value::Reference(id));
+            onchange.call(Value::from(id));
         }
     });
 
@@ -34,6 +34,8 @@ pub fn ReferenceField(value: Value, onchange: EventHandler<Value>) -> Element {
             div { class: "field-ref empty", onclick: open, {tid!("inspector-reference-none")} }
         };
     };
+
+    let id = EntryId::from(id.as_str());
 
     let Some((name, kind)) =
         app.with_entry(id, |entry| (entry.label().to_string(), entry.kind.clone()))

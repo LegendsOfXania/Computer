@@ -2,7 +2,7 @@ mod body;
 mod field;
 mod operations;
 
-use computer_model::{Entry, value::Value};
+use computer_model::{Entry, Value};
 use dioxus::prelude::*;
 use dioxus_i18n::tid;
 
@@ -24,14 +24,14 @@ pub fn Inspector() -> Element {
 
     let mut revision = use_signal(|| 0u32);
 
-    let edit = use_callback(move |(name, value): (String, Value)| {
+    let edit = use_callback(move |(name, subtree): (String, Vec<Value>)| {
         let Some(id) = ui.get_opened_entry() else {
             return;
         };
 
         spawn(async move {
             let change = move |entry: &mut Entry| {
-                entry.fields.insert(name, value);
+                entry.set(&name, subtree);
             };
 
             if !actions.edit_entry(id, change).await {

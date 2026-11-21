@@ -1,59 +1,78 @@
-use computer_model::{field::Variant, value::Value};
+use computer_model::{Field as Definition, FieldNode, Node, Value};
 use dioxus::prelude::*;
-use indexmap::IndexMap;
+
+use super::{assemble, child_values, names};
+use crate::components::inspector::field::{default::defaults, frame::Section, input::EnumField};
 
 use super::FieldGroup;
-use crate::components::inspector::field::{frame::Section, input::EnumField};
+
+type Case = (String, Vec<Vec<Definition>>);
+
+fn with_case(name: &str, defs: &[Vec<Definition>], children: Vec<Vec<Value>>) -> Vec<Value> {
+    assemble(Value::Variant((name.to_owned(), names(defs))), children)
+}
 
 #[component]
 pub fn VariantEditor(
     title: String,
-    variants: Vec<Variant>,
-    value: Value,
-    onchange: EventHandler<Value>,
+    def: Vec<Definition>,
+    values: Vec<Value>,
+    onchange: EventHandler<Vec<Value>>,
 ) -> Element {
-    let active = match &value {
-        Value::Variant { name, .. } => variants.iter().find(|variant| variant.name == *name),
-        _ => None,
-    }
-    .or_else(|| variants.first());
+    let cases: Vec<Case> = FieldNode::new(&def, 0)
+        .cases()
+        .map(|(name, fields)| {
+            (
+                name.to_owned(),
+                fields
+                    .iter()
+                    .map(|field| field.subtree().to_vec())
+                    .collect(),
+            )
+        })
+        .collect();
 
-    let Some(active) = active else {
+    let node = Node::new(&values, 0);
+
+    let current = match node.value() {
+        Some(Value::Variant((name, _))) => Some(name.as_str()),
+        _ => None,
+    };
+
+    let Some((name, defs)) = current
+        .and_then(|current| cases.iter().find(|(name, _)| name == current))
+        .or_else(|| cases.first())
+    else {
         return rsx! {};
     };
 
-    let values = match value {
-        Value::Variant { name, fields } if name == active.name => fields,
-        _ => IndexMap::try_from(Value::from(active)).unwrap_or_default(),
+    let children = if current == Some(name.as_str()) {
+        child_values(defs, node)
+    } else {
+        defs.iter().map(|def| defaults(def)).collect()
     };
 
-    let name = active.name.clone();
+    let options: Vec<String> = cases.iter().map(|(name, _)| name.clone()).collect();
 
-    let options: Vec<String> = variants
+    let starts: Vec<(String, Vec<Value>)> = cases
         .iter()
-        .map(|variant| variant.name.clone())
-        .collect();
+        .map(|(name, defs)| {
+            let children = defs.iter().map(|def| defaults(def)).collect();
 
-    let defaults: Vec<(String, Value)> = variants
-        .iter()
-        .map(|variant| (variant.name.clone(), Value::from(variant)))
+            (name.clone(), with_case(name, defs, children))
+        })
         .collect();
 
     let pick = move |picked: String| {
-        if let Some((_, value)) = defaults.iter().find(|(name, _)| name == &picked) {
-            onchange.call(value.clone());
+        if let Some((_, start)) = starts.iter().find(|(name, _)| name == &picked) {
+            onchange.call(start.clone());
         }
     };
 
     let update = {
-        let name = name.clone();
+        let (name, defs) = (name.clone(), defs.clone());
 
-        move |fields: IndexMap<String, Value>| {
-            onchange.call(Value::Variant {
-                name: name.clone(),
-                fields,
-            });
-        }
+        move |children: Vec<Vec<Value>>| onchange.call(with_case(&name, &defs, children))
     };
 
     rsx! {
@@ -62,14 +81,14 @@ pub fn VariantEditor(
                 EnumField {
                     icon: "git-branch",
                     options,
-                    value: name,
+                    value: name.clone(),
                     onchange: pick,
                 }
 
-                if !active.fields.is_empty() {
+                if !defs.is_empty() {
                     FieldGroup {
-                        fields: active.fields.clone(),
-                        values,
+                        defs: defs.clone(),
+                        values: children,
                         onchange: update,
                     }
                 }

@@ -14,9 +14,15 @@ mod field;
 mod tree;
 mod value;
 
-pub use exports::legends::cosmos::extension::Interaction;
+#[cfg(feature = "extension")]
+pub use exports::legends::cosmos::extension::{Interaction, Trigger};
+
+#[cfg(feature = "extension")]
+pub use legends::cosmos::engine::Fire;
+
 pub use legends::cosmos::{
     entry::{Entry, EntryDefinition},
     field::{Field, FieldKind, Value},
 };
+
 pub use tree::{Cursor, FieldNode, Node, Tree};

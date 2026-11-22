@@ -91,10 +91,10 @@ macro_rules! define_id {
 define_id!(PageId);
 define_id!(EntryId);
 
-#[cfg(feature = "engine")]
+#[cfg(feature = "extension")]
 define_id!(TaskId);
 
-#[cfg(feature = "engine")]
+#[cfg(feature = "extension")]
 define_id!(InteractionId);
 
 #[cfg(feature = "panel")]

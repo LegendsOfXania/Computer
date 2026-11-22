@@ -2,12 +2,9 @@
 resolver = "2"
 members = [
     "crates/computer",
-    "crates/computer-edk",
-    "crates/computer-edk-macro",
     "crates/computer-model",
     "crates/computer-panel",
 ]
-exclude = ["extension/dev-extension"]
 
 [workspace.package]
 edition = "2024"
@@ -17,8 +14,6 @@ authors = ["Legends of Xania"]
 
 [workspace.dependencies]
 computer = { path = "crates/computer" }
-computer-edk = { path = "crates/computer-edk" }
-computer-edk-macro = { path = "crates/computer-edk-macro" }
 computer-model = { path = "crates/computer-model", default-features = false }
 computer-panel = { path = "crates/computer-panel" }
 

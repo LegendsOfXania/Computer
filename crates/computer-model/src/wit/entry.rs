@@ -1,8 +1,6 @@
 use indexmap::IndexSet;
-
+use crate::{Entry, Node, Value};
 use crate::id::EntryId;
-
-use super::{Entry, EntryDefinition, Node, Value};
 
 impl Entry {
     #[must_use]
@@ -150,6 +148,9 @@ impl Entry {
         Some(first.index()..last.end())
     }
 }
+
+#[cfg(feature = "panel")]
+use crate::EntryDefinition;
 
 #[cfg(feature = "panel")]
 impl TryFrom<&EntryDefinition> for Entry {

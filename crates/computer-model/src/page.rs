@@ -15,7 +15,6 @@ pub struct Page {
     pub entries: Vec<EntryId>,
 }
 
-#[cfg(feature = "panel")]
 impl Page {
     pub fn new(name: String, kind: PageKind) -> Result<Self, String> {
         Ok(Self {

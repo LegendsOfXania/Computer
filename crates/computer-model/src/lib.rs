@@ -1,12 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 pub mod id;
+#[cfg(feature = "panel")]
 pub mod page;
-
-#[cfg(feature = "engine")]
-pub mod interaction;
-#[cfg(feature = "engine")]
-pub mod ipc;
 #[cfg(feature = "panel")]
 pub mod library;
 #[cfg(feature = "panel")]

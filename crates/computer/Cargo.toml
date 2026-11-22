@@ -9,7 +9,7 @@ authors.workspace = true
 crate-type = ["cdylib"]
 
 [dependencies]
-computer-model = { workspace = true, features = ["engine", "panel"] }
+computer-model = { workspace = true, features = ["extension", "panel"] }
 pumpkin-plugin-api.workspace = true
 tracing.workspace = true
 waki.workspace = true

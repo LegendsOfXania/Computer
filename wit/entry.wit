@@ -1,21 +1,42 @@
 package legends:cosmos;
 
+/// Defines the structure and data of an entry.
 interface entry {
   use field.{field, value};
 
+  /// Defines the structure and metadata of an entry kind.
   record entry-definition {
+    /// Unique kind identifier and namespaced by the engine.
     kind: string,
+
+    /// Tags associated with the entry kind.
     tags: list<string>,
+
+    /// Fields defining the entry structure.
     fields: list<field>,
+
+    /// Icon associated with the entry kind, used by the panel to display the definition.
     icon: string,
+
+    /// Color associated with the entry kind, used by the panel to display the definition.
     color: string,
+
+    /// Version of the entry definition.
     version: u32,
   }
 
+  /// Represents an entry instance.
   record entry {
+    /// Unique entry identifier.
     id: string,
+
+    /// Kind of the entry.
     kind: string,
-    version: u32,
+
+    /// Values assigned to the entry fields.
     values: list<value>,
+
+    /// Version of the entry definition used by this entry.
+    version: u32,
   }
 }

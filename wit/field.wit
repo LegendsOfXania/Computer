@@ -1,36 +1,86 @@
 package legends:cosmos;
 
+/// Defines field types and their possible values.
 interface field {
+  /// Defines a field within an entry.
   record field {
+    /// Name of the field.
     name: string,
+
+    /// Additional field properties: name, value.
+    /// Used by the panel to display the field correctly.
     %flags: map<string, string>,
+
+    /// Type of value accepted by the field.
     kind: field-kind,
   }
 
+  /// Defines the supported field types.
   variant field-kind {
+    /// Text value.
     %string,
+
+    /// Signed integer value.
     int,
+
+    /// Floating-point value.
     float,
+
+    /// Boolean value.
     %bool,
+
+    /// Reference to another entry.
     reference,
+
+    /// One of the predefined values.
     %enum(list<string>),
+
+    /// Structured value defined by a field definition index.
     %struct(u32),
+
+    /// List of values.
     %list,
+
+    /// Map of values.
     %map,
+
+    /// One of the predefined variants, each associated with a struct definition index.
     %variant(list<tuple<string, u32>>),
   }
 
+  /// Represents a field value.
   variant value {
+    /// Represents an unset value.
     null,
+
+    /// Text value.
     %string(string),
+
+    /// Signed 64-bit integer.
     int(s64),
+
+    /// 64-bit floating-point number.
     float(f64),
+
+    /// Boolean value.
     %bool(bool),
+
+    /// Identifier of a referenced entry.
     reference(string),
+
+    /// Selected enum value.
     %enum(string),
+
+    /// Values of a structured field.
     %struct(list<string>),
+
+    /// Values of a list field.
     %list(u32),
+
+    /// Values of a map field.
     %map(u32),
+
+    /// Selected variant and its associated values.
     %variant(tuple<string, list<string>>),
   }
 }

@@ -5,24 +5,98 @@ world cosmos {
   export extension;
 }
 
+/// Interface used by extensions to communicate with the engine.
 interface engine {
   use field.{value};
 
-  fire: async func(player: string, kind: string, values: list<value>) -> result<_, string>;
+  /// Describes an event to be matched against the engine's entry library.
+  record fire {
+    /// UUID of the player who triggered the event.
+    player: string,
+
+    /// Kind of the reconstructed entry.
+    kind: string,
+
+    /// Values of the reconstructed entry.
+    values: list<value>
+  }
+
+  /// Events sent by the extension to the engine.
+  variant event {
+    /// Notifies the engine that the extension has been loaded.
+    load,
+
+    /// Notifies the engine that the extension is being unloaded.
+    unload,
+
+    /// Requests the execution of an event.
+    ///
+    /// The engine reconstructs an entry from the provided data
+    /// and matches it against its library.
+    fire(fire)
+  }
+
+  /// Sends an event to the engine.
+  handle: async func(event: event) -> result<_, string>;
 }
 
+/// Interface exposed by extensions to the engine.
 interface extension {
   use entry.{entry, entry-definition};
-  use field.{value};
 
+  /// Identifies an interaction associated with a player.
   record interaction {
+    /// UUID of the player associated with the interaction.
     player: string,
+
+    /// Unique identifier of the interaction.
     id: string,
   }
 
-  register-entries: func() -> list<entry-definition>;
+  /// Describes an entry execution requested by the engine.
+  record trigger {
+    /// Entry to execute.
+    entry: entry,
 
-  set-active-kinds: func(kinds: list<string>);
+    /// Interaction associated with the execution.
+    interaction: interaction,
 
-  trigger: async func(entry: entry, interaction: interaction) -> result<map<string, list<value>>, string>;
+    /// Identifier of the task associated with the execution.
+    task: string
+  }
+
+  /// Commands sent by the engine to the extension.
+  variant command {
+    /// Requests the registration of the extension.
+    register,
+
+    /// Requests the unregistration of the extension.
+    unregister,
+
+    /// Updates the kinds handled by the extension.
+    active-kinds(list<string>),
+
+    /// Requests the execution of an entry.
+    trigger(trigger),
+
+    /// Cancels a task.
+    cancel(string),
+
+    /// Sends a heartbeat for a running task.
+    ///
+    /// Used to indicate that a long-running task is still being processed.
+    ping(string)
+  }
+
+  /// Responses sent by the extension to the engine.
+  variant response {
+    /// Provides the entry definitions registered by the extension.
+    registry(list<entry-definition>),
+
+    /// Acknowledges a command.
+    ack
+  }
+
+  /// Handles a command received from the engine.
+  handle: async func(command: command) -> result<response, string>;
 }

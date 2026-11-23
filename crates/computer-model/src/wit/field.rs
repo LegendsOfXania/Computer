@@ -37,7 +37,10 @@ impl<'a> FieldNode<'a> {
         };
 
         cases.iter().map(move |(name, count)| {
-            (name.as_str(), children.by_ref().take(*count as usize).collect())
+            (
+                name.as_str(),
+                children.by_ref().take(*count as usize).collect(),
+            )
         })
     }
 }

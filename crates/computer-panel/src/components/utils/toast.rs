@@ -36,7 +36,13 @@ impl Toasts {
         self.push("error", title, Some(description), ERR);
     }
 
-    fn push(mut self, kind: &'static str, title: String, description: Option<String>, duration: Duration) {
+    fn push(
+        mut self,
+        kind: &'static str,
+        title: String,
+        description: Option<String>,
+        duration: Duration,
+    ) {
         let id = {
             let mut list = self.list.write();
             let id = list.last().map_or(0, |toast| toast.id + 1);

@@ -7,11 +7,17 @@ use std::{
     sync::{Arc, LazyLock},
 };
 
+use crate::data;
 use arc_swap::ArcSwap;
-use computer_model::{entry::Entry, id::{EntryId, PageId}, page::Page, protocol::event::Event, Library};
+use computer_model::{
+    Library,
+    entry::Entry,
+    id::{EntryId, PageId},
+    page::Page,
+    protocol::event::Event,
+};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
-use crate::data;
 
 static LIVE: LazyLock<ArcSwap<Library>> =
     LazyLock::new(|| ArcSwap::from_pointee(Library::default()));

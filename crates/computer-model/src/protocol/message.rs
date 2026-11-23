@@ -3,7 +3,11 @@ use std::io::{Read, Write};
 use flate2::{Compression, read::DeflateDecoder, write::DeflateEncoder};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
-use crate::{id::Token, protocol::{event::Event, request::Request}, Registry, Library};
+use crate::{
+    Library, Registry,
+    id::Token,
+    protocol::{event::Event, request::Request},
+};
 
 const MAX_DECOMPRESSED_SIZE: u64 = 8 * 1024 * 1024;
 

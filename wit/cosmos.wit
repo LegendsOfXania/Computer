@@ -79,9 +79,6 @@ interface extension {
     /// Requests the execution of an entry.
     trigger(trigger),
 
-    /// Cancels a task.
-    cancel(string),
-
     /// Sends a heartbeat for a running task.
     ///
     /// Used to indicate that a long-running task is still being processed.

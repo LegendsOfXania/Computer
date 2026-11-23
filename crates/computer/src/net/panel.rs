@@ -1,4 +1,3 @@
-
 use std::{path::Path, time::Duration};
 
 use serde::Deserialize;
@@ -34,9 +33,7 @@ fn update(panel: &Path) -> Result<Option<String>, String> {
 
     let manifest = latest_manifest()?;
 
-    if installed.as_deref() == Some(&manifest.version)
-        && panel.join("index.html").is_file()
-    {
+    if installed.as_deref() == Some(&manifest.version) && panel.join("index.html").is_file() {
         return Ok(None);
     }
 
@@ -64,8 +61,7 @@ fn update(panel: &Path) -> Result<Option<String>, String> {
 
     install(panel, &archive)?;
 
-    std::fs::write(panel.join(INSTALLED_VERSION), &manifest.version)
-        .map_err(|e| e.to_string())?;
+    std::fs::write(panel.join(INSTALLED_VERSION), &manifest.version).map_err(|e| e.to_string())?;
 
     Ok(Some(manifest.version))
 }
@@ -147,7 +143,7 @@ fn install(panel: &Path, archive: &[u8]) -> Result<(), String> {
             &mut entry,
             &mut std::fs::File::create(path).map_err(|e| e.to_string())?,
         )
-            .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?;
     }
 
     if panel.exists() {

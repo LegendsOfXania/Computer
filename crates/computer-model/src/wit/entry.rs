@@ -1,6 +1,6 @@
-use indexmap::IndexSet;
-use crate::{Entry, Node, Value};
 use crate::id::EntryId;
+use crate::{Entry, Node, Value};
+use indexmap::IndexSet;
 
 impl Entry {
     #[must_use]
@@ -38,7 +38,8 @@ impl Entry {
 
     #[must_use]
     pub fn is_valid(&self) -> bool {
-        Node::trees(&self.values) == Some(1) && matches!(self.values.first(), Some(Value::Struct(_)))
+        Node::trees(&self.values) == Some(1)
+            && matches!(self.values.first(), Some(Value::Struct(_)))
     }
 
     #[must_use]
@@ -64,7 +65,9 @@ impl Entry {
 
         let end = self.root().end();
 
-        if !matches!(self.values.first(), Some(Value::Struct(_))) || !self.splice(end..end, subtree, 1) {
+        if !matches!(self.values.first(), Some(Value::Struct(_)))
+            || !self.splice(end..end, subtree, 1)
+        {
             return false;
         }
 

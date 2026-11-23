@@ -45,8 +45,7 @@ pub fn Editor() -> Element {
                     node.measured = measured;
                 }
 
-                node.selected =
-                    node.data.foreign.is_none() && selected == Some(node.data.key);
+                node.selected = node.data.foreign.is_none() && selected == Some(node.data.key);
 
                 node
             })

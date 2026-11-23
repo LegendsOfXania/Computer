@@ -34,7 +34,8 @@ impl From<EntryId> for Value {
 
 impl<'a> Node<'a> {
     fn child(&self, names: &[String], name: &str) -> Option<Self> {
-        self.children().nth(names.iter().position(|known| known == name)?)
+        self.children()
+            .nth(names.iter().position(|known| known == name)?)
     }
 
     #[must_use]
@@ -54,10 +55,10 @@ impl<'a> Node<'a> {
     fn has_same_fields(&self, names: &[String], other: &Self, other_names: &[String]) -> bool {
         names.len() == other_names.len()
             && names.iter().zip(self.children()).all(|(name, node)| {
-            other
-                .child(other_names, name)
-                .is_some_and(|counterpart| node == counterpart)
-        })
+                other
+                    .child(other_names, name)
+                    .is_some_and(|counterpart| node == counterpart)
+            })
     }
 }
 

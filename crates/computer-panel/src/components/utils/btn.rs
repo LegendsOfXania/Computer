@@ -1,24 +1,16 @@
-
 use dioxus::prelude::*;
 
 use crate::components::utils::icon::Icon;
 
 #[component]
 pub fn Btn(
-    #[props(default = "close")]
-    icon: &'static str,
-    #[props(into, default)]
-    tooltip: String,
-    #[props(into, default)]
-    label: String,
-    #[props(into, default)]
-    class: String,
-    #[props(default)]
-    popover_target: Option<String>,
-    #[props(default)]
-    popover_action: Option<String>,
-    #[props(default)]
-    onclick: EventHandler<MouseEvent>,
+    #[props(default = "close")] icon: &'static str,
+    #[props(into, default)] tooltip: String,
+    #[props(into, default)] label: String,
+    #[props(into, default)] class: String,
+    #[props(default)] popover_target: Option<String>,
+    #[props(default)] popover_action: Option<String>,
+    #[props(default)] onclick: EventHandler<MouseEvent>,
 ) -> Element {
     rsx! {
         button {

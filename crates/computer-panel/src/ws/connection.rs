@@ -6,6 +6,7 @@ use computer_model::protocol::{
     message::{ClientMessage, ProtocolMessage, ServerMessage},
 };
 use dioxus::hooks::{UnboundedReceiver, use_context, use_coroutine};
+use dioxus::logger::tracing::{error, warn};
 use dioxus::prelude::use_hook;
 use dioxus::signals::WritableExt;
 use futures_util::{
@@ -14,7 +15,6 @@ use futures_util::{
 };
 use gloo_net::websocket::{Message, futures::WebSocket};
 use gloo_timers::future::TimeoutFuture;
-use dioxus::logger::tracing::{error, warn};
 
 use crate::state::{ConnectionStatus, app::AppState};
 

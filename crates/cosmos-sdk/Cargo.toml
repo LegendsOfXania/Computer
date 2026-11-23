@@ -1,0 +1,13 @@
+[package]
+name = "cosmos-sdk"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+computer-model = { workspace = true, features = ["extension"] }
+cosmos-sdk-macro.workspace = true
+
+[lints]
+workspace = true

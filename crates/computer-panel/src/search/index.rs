@@ -164,8 +164,8 @@ pub fn extension(kind: &str) -> &str {
 fn allows(filters: &[String], value: &str) -> bool {
     filters.is_empty()
         || filters
-        .iter()
-        .any(|filter| filter.eq_ignore_ascii_case(value))
+            .iter()
+            .any(|filter| filter.eq_ignore_ascii_case(value))
 }
 
 fn exact_tier<T>(document: &Document<T>, needle: &str, fields: u8) -> Option<u8> {

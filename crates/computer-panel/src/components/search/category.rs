@@ -1,4 +1,3 @@
-
 use dioxus::prelude::*;
 
 use crate::components::utils::icon::Icon;

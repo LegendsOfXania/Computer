@@ -94,7 +94,7 @@ pub(super) fn expand(input: DeriveInput) -> syn::Result<TokenStream> {
             }
 
             fn fields(
-                out: &mut ::std::vec::Vec<::cosmos_sdk::FieldDefinition>,
+                out: &mut ::std::vec::Vec<::cosmos_sdk::computer_model::Field>,
             ) {
                 #(#definitions)*
             }
@@ -107,6 +107,18 @@ pub(super) fn expand(input: DeriveInput) -> syn::Result<TokenStream> {
                 ::std::result::Result::Ok(Self {
                     #(#names: #locals),*
                 })
+            }
+        }
+
+        impl #impl_generics ::std::convert::TryFrom<
+            &::cosmos_sdk::computer_model::Entry
+        > for #ident #type_generics #where_clause {
+            type Error = ::std::string::String;
+
+            fn try_from(
+                entry: &::cosmos_sdk::computer_model::Entry,
+            ) -> ::std::result::Result<Self, Self::Error> {
+                <Self as ::cosmos_sdk::Entry>::read(entry.root())
             }
         }
 
@@ -130,7 +142,11 @@ fn define_member(member: &Member) -> TokenStream {
     });
 
     quote! {
-        ::cosmos_sdk::define::<#ty>(#key, &[#(#flags),*], out);
+        ::cosmos_sdk::__private::define::<#ty>(
+            #key,
+            &[#(#flags),*],
+            out
+        );
     }
 }
 
@@ -145,7 +161,10 @@ fn read_member(member: &Member, local: &syn::Ident) -> TokenStream {
         let key = LitStr::new(&member.key, member.ident.span());
 
         quote! {
-            let #local = ::cosmos_sdk::member::<#ty>(node, #key)?;
+            let #local = ::cosmos_sdk::__private::member::<#ty>(
+                node,
+                #key
+            )?;
         }
     }
 }

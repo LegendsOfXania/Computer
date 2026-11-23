@@ -1,4 +1,4 @@
-use computer_model::{Entry as ModelEntry, EntryDefinition, Field as ModelField, Node};
+use computer_model::{EntryDefinition, Field as ModelField, Node};
 
 pub trait Entry: Sized {
     fn tags(out: &mut Vec<String>);
@@ -6,10 +6,6 @@ pub trait Entry: Sized {
     fn fields(out: &mut Vec<ModelField>);
 
     fn read(node: Node<'_>) -> Result<Self, String>;
-
-    fn from_entry(entry: &ModelEntry) -> Result<Self, String> {
-        Self::read(entry.root())
-    }
 }
 
 pub trait RegisteredEntry: Entry {

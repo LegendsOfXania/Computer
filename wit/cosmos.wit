@@ -21,23 +21,23 @@ interface engine {
     values: list<value>
   }
 
-  /// Events sent by the extension to the engine.
-  variant event {
+  /// Actions sent by the extension to the engine.
+  variant action {
     /// Notifies the engine that the extension has been loaded.
     load,
 
     /// Notifies the engine that the extension is being unloaded.
     unload,
 
-    /// Requests the execution of an event.
+    /// Requests the execution of an action.
     ///
     /// The engine reconstructs an entry from the provided data
     /// and matches it against its library.
     fire(fire)
   }
 
-  /// Sends an event to the engine.
-  handle: async func(event: event) -> result<_, string>;
+  /// Sends an action to the engine.
+  handle: async func(action: action) -> result<_, string>;
 }
 
 /// Interface exposed by extensions to the engine.

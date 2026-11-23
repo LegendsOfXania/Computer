@@ -7,13 +7,18 @@ use crate::common::{self, Member};
 pub(super) fn expand(input: DeriveInput) -> syn::Result<TokenStream> {
     let members = common::members(&input, false, false)?;
 
-    let field_count = u32::try_from(members.len())
-        .map_err(|_| syn::Error::new_spanned(&input.ident, "too many struct fields"))?;
+    let field_count = u32::try_from(members.len()).map_err(|_| {
+        syn::Error::new_spanned(&input.ident, "too many struct fields")
+    })?;
 
     let mut generics = input.generics.clone();
 
     for member in &members {
-        common::add_bound(&mut generics, &member.ty, parse_quote!(::cosmos_sdk::Field));
+        common::add_bound(
+            &mut generics,
+            &member.ty,
+            parse_quote!(::cosmos_sdk::Field),
+        );
     }
 
     let ident = &input.ident;
@@ -40,9 +45,14 @@ pub(super) fn expand(input: DeriveInput) -> syn::Result<TokenStream> {
             fn definition(
                 name: &str,
                 flags: &[(&str, &str)],
-                out: &mut ::std::vec::Vec<::cosmos_sdk::FieldDefinition>,
+                out: &mut ::std::vec::Vec<::cosmos_sdk::computer_model::Field>,
             ) {
-                ::cosmos_sdk::define_struct(name, flags, #field_count, out);
+                ::cosmos_sdk::__private::define_struct(
+                    name,
+                    flags,
+                    #field_count,
+                    out
+                );
 
                 #(#definitions)*
             }
@@ -50,7 +60,7 @@ pub(super) fn expand(input: DeriveInput) -> syn::Result<TokenStream> {
             fn read(
                 node: ::std::option::Option<::cosmos_sdk::Node<'_>>,
             ) -> ::std::result::Result<Self, ::std::string::String> {
-                let node = ::cosmos_sdk::expect_struct(node)?;
+                let node = ::cosmos_sdk::__private::expect_struct(node)?;
 
                 #(#reads)*
 
@@ -71,7 +81,11 @@ fn define_member(member: &Member) -> TokenStream {
     });
 
     quote! {
-        ::cosmos_sdk::define::<#ty>(#key, &[#(#flags),*], out);
+        ::cosmos_sdk::__private::define::<#ty>(
+            #key,
+            &[#(#flags),*],
+            out
+        );
     }
 }
 
@@ -80,6 +94,9 @@ fn read_member(member: &Member, local: &syn::Ident) -> TokenStream {
     let key = syn::LitStr::new(&member.key, member.ident.span());
 
     quote! {
-        let #local = ::cosmos_sdk::member::<#ty>(node, #key)?;
+        let #local = ::cosmos_sdk::__private::member::<#ty>(
+            node,
+            #key
+        )?;
     }
 }

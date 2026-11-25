@@ -1,8 +1,10 @@
 use computer_model::{EntryDefinition, Field as ModelField, Node};
 
-pub trait Entry: Sized {
-    fn tags(out: &mut Vec<String>);
+pub trait Taggable {
+    fn tags() -> Vec<String>;
+}
 
+pub trait Entry: Sized + Taggable {
     fn fields(out: &mut Vec<ModelField>);
 
     fn read(node: Node<'_>) -> Result<Self, String>;
@@ -16,14 +18,13 @@ pub trait RegisteredEntry: Entry {
 
     #[must_use]
     fn definition() -> EntryDefinition {
-        let (mut tags, mut fields) = (Vec::new(), Vec::new());
+        let mut fields = Vec::new();
 
-        Self::tags(&mut tags);
         Self::fields(&mut fields);
 
         EntryDefinition {
             kind: Self::KIND.into(),
-            tags,
+            tags: Self::tags(),
             fields,
             icon: Self::ICON.into(),
             color: Self::COLOR.into(),

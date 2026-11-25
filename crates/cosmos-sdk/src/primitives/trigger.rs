@@ -1,15 +1,22 @@
-use crate::primitives::event::TriggerEntry;
-use cosmos_sdk_macro::entry;
+use computer_model::id::EntryId;
+use cosmos_sdk::RegisteredEntry;
+use cosmos_sdk_macro::{entry, tags};
 
-#[entry(tags("event"))]
-pub struct EventEntry {
-    #[base]
-    pub base: TriggerEntry,
+#[entry]
+#[tags("trigger")]
+pub struct TriggerEntry {
+    pub triggers: Vec<EntryId>,
 }
 
-#[entry(tags("cancelable_event"))]
-pub struct CancelableEventEntry {
+#[tags("triggerable")]
+pub trait Triggerable : RegisteredEntry {
+    fn execute (self) -> impl Future<Output = Result<(), String>> + Send;
+}
+
+#[entry]
+#[tags("sequence", "action")]
+pub struct ActionEntry {
     #[base]
-    pub base: EventEntry,
-    pub cancel: bool,
+    pub base: TriggerEntry,
+    //todo criteria and modifiers
 }

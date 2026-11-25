@@ -52,3 +52,4 @@ impl ModifierOperator {
         }
     }
 }
+//todo move to model

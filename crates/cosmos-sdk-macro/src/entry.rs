@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
-    DeriveInput, Generics, LitInt, LitStr, Token, parenthesized, parse_quote,
+    DeriveInput, Generics, LitInt, LitStr, Token, parse_quote,
     punctuated::Punctuated,
 };
 
@@ -13,10 +13,12 @@ struct Args {
     icon: Option<LitStr>,
     color: Option<LitStr>,
     version: Option<LitInt>,
-    tags: Vec<LitStr>,
 }
 
-pub(super) fn attribute(args: TokenStream, input: TokenStream) -> syn::Result<TokenStream> {
+pub(super) fn attribute(
+    args: TokenStream,
+    input: TokenStream,
+) -> syn::Result<TokenStream> {
     let mut input: DeriveInput = syn::parse2(input)?;
 
     input
@@ -34,6 +36,20 @@ pub(super) fn expand(input: DeriveInput) -> syn::Result<TokenStream> {
     let args = parse_args(&input)?;
     let members = common::members(&input, true, true)?;
 
+    let own_tags: Vec<LitStr> = input
+        .attrs
+        .iter()
+        .filter(|attr| attr.path().is_ident("tags_internal"))
+        .map(|attr| {
+            attr.parse_args_with(
+                Punctuated::<LitStr, Token![,]>::parse_terminated,
+            )
+        })
+        .collect::<syn::Result<Vec<_>>>()?
+        .into_iter()
+        .flatten()
+        .collect();
+
     let mut generics = input.generics.clone();
 
     for member in &members {
@@ -49,20 +65,27 @@ pub(super) fn expand(input: DeriveInput) -> syn::Result<TokenStream> {
     }
 
     let ident = &input.ident;
-    let (impl_generics, type_generics, where_clause) = generics.split_for_impl();
+    let (impl_generics, type_generics, where_clause) =
+        generics.split_for_impl();
 
     let base_tags: Vec<_> = members
         .iter()
         .filter(|member| member.base)
         .map(|member| {
             let ty = &member.ty;
+
             quote! {
-                <#ty as ::cosmos_sdk::Entry>::tags(out);
+                for tag in <#ty as ::cosmos_sdk::Taggable>::tags() {
+                    if !out.contains(&tag) {
+                        out.push(tag);
+                    }
+                }
             }
         })
         .collect();
 
-    let definitions: Vec<_> = members.iter().map(define_member).collect();
+    let definitions: Vec<_> =
+        members.iter().map(define_member).collect();
 
     let locals: Vec<_> = (0..members.len())
         .map(|index| format_ident!("__member{index}"))
@@ -75,26 +98,38 @@ pub(super) fn expand(input: DeriveInput) -> syn::Result<TokenStream> {
         .collect();
 
     let names = members.iter().map(|member| &member.ident);
-    let tags = &args.tags;
+    let own_tags = own_tags.iter();
 
     let registered = registration(&args, ident, &generics);
 
     Ok(quote! {
+        impl #impl_generics ::cosmos_sdk::Taggable
+            for #ident #type_generics #where_clause
+        {
+            fn tags() -> ::std::vec::Vec<::std::string::String> {
+                let mut out = ::std::vec::Vec::new();
+
+                #(#base_tags)*
+
+                for tag in [#(#own_tags),*] {
+                    let tag = tag.to_string();
+
+                    if !out.contains(&tag) {
+                        out.push(tag);
+                    }
+                }
+
+                out
+            }
+        }
+
         impl #impl_generics ::cosmos_sdk::Entry
             for #ident #type_generics #where_clause
         {
-            fn tags(out: &mut ::std::vec::Vec<::std::string::String>) {
-                #(#base_tags)*
-
-                for tag in [#(#tags),*] {
-                    if !out.iter().any(|known| known == tag) {
-                        out.push(tag.into());
-                    }
-                }
-            }
-
             fn fields(
-                out: &mut ::std::vec::Vec<::cosmos_sdk::computer_model::Field>,
+                out: &mut ::std::vec::Vec<
+                    ::cosmos_sdk::computer_model::Field
+                >,
             ) {
                 #(#definitions)*
             }
@@ -169,7 +204,11 @@ fn read_member(member: &Member, local: &syn::Ident) -> TokenStream {
     }
 }
 
-fn registration(args: &Args, ident: &syn::Ident, generics: &Generics) -> TokenStream {
+fn registration(
+    args: &Args,
+    ident: &syn::Ident,
+    generics: &Generics,
+) -> TokenStream {
     let Some(kind) = &args.kind else {
         return TokenStream::new();
     };
@@ -189,7 +228,8 @@ fn registration(args: &Args, ident: &syn::Ident, generics: &Generics) -> TokenSt
         .clone()
         .unwrap_or_else(|| LitInt::new("1", kind.span()));
 
-    let (impl_generics, type_generics, where_clause) = generics.split_for_impl();
+    let (impl_generics, type_generics, where_clause) =
+        generics.split_for_impl();
 
     quote! {
         impl #impl_generics ::cosmos_sdk::RegisteredEntry
@@ -220,16 +260,9 @@ fn parse_args(input: &DeriveInput) -> syn::Result<Args> {
                 args.color = Some(meta.value()?.parse()?);
             } else if meta.path.is_ident("version") {
                 args.version = Some(meta.value()?.parse()?);
-            } else if meta.path.is_ident("tags") {
-                let content;
-                parenthesized!(content in meta.input);
-
-                args.tags = Punctuated::<LitStr, Token![,]>::parse_terminated(&content)?
-                    .into_iter()
-                    .collect();
             } else {
                 return Err(meta.error(
-                    "unknown argument; expected `kind`, `icon`, `color`, `version` or `tags(...)`",
+                    "unknown argument; expected `kind`, `icon`, `color` or `version`",
                 ));
             }
 
@@ -238,7 +271,9 @@ fn parse_args(input: &DeriveInput) -> syn::Result<Args> {
     }
 
     if args.kind.is_none()
-        && (args.icon.is_some() || args.color.is_some() || args.version.is_some())
+        && (args.icon.is_some()
+        || args.color.is_some()
+        || args.version.is_some())
     {
         return Err(syn::Error::new_spanned(
             &input.ident,

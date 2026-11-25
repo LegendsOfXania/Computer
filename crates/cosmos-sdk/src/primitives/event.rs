@@ -1,19 +1,17 @@
-use computer_model::id::EntryId;
-use cosmos_sdk_macro::entry;
+use crate::primitives::trigger::TriggerEntry;
+use cosmos_sdk_macro::{entry, tags};
 
-#[entry(tags("trigger"))]
-pub struct TriggerEntry {
-    pub triggers: Vec<EntryId>,
-}
-
-#[entry(tags("triggerable"))]
-pub struct TriggerableEntry {
+#[entry]
+#[tags("event")]
+pub struct EventEntry {
     #[base]
     pub base: TriggerEntry,
 }
 
-#[entry(tags("sequence", "action"))]
-pub struct ActionEntry {
+#[entry]
+#[tags("cancelable_event")]
+pub struct CancelableEventEntry {
     #[base]
-    pub base: TriggerableEntry,
+    pub base: EventEntry,
+    pub cancel: bool,
 }

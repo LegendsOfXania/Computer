@@ -7,9 +7,9 @@ pub mod primitives;
 pub use computer_model;
 pub use computer_model::{EntryDefinition, FieldKind, FieldNode, Node, Value, id};
 
-pub use cosmos_sdk_macro::{Entry, Field, entry};
+pub use cosmos_sdk_macro::{Entry, Field, entry, tags, taggable};
 
-pub use entry::{Entry, RegisteredEntry};
+pub use entry::{Entry, RegisteredEntry, Taggable};
 pub use field::Field;
 
 #[doc(hidden)]

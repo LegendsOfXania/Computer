@@ -12,6 +12,8 @@ mod wit;
 #[cfg(feature = "panel")]
 pub use library::Library;
 pub use wit::{Entry, EntryDefinition, Field, FieldKind, FieldNode, Node, Value};
+#[cfg(feature = "extension")]
+pub use wit::{Fire, Interaction, Trigger};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Registry(pub Vec<EntryDefinition>);

@@ -25,4 +25,4 @@ pub use legends::cosmos::{
     field::{Field, FieldKind, Value},
 };
 
-pub use tree::{Cursor, FieldNode, Node, Tree};
+pub use tree::{FieldNode, Node};

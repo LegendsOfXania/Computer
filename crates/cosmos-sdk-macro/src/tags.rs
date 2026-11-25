@@ -1,47 +1,28 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{
-    Item, LitStr, Token,
-    punctuated::Punctuated,
-    parse::Parser,
-};
+use syn::{Expr, ExprLit, Item, Lit, LitStr, Token, parse::Parser, punctuated::Punctuated};
 
-pub(super) fn expand(
-    args: TokenStream,
-    input: TokenStream,
-) -> syn::Result<TokenStream> {
-    let tags: Vec<LitStr> =
-        Punctuated::<LitStr, Token![,]>::parse_terminated
-            .parse2(args)?
-            .into_iter()
-            .collect();
-
+pub(super) fn expand(args: TokenStream, input: TokenStream) -> syn::Result<TokenStream> {
     let mut item: Item = syn::parse2(input)?;
 
     match &mut item {
         Item::Struct(item) => {
-            let tags = &tags;
+            parse(args.clone())?;
 
-            item.attrs.push(syn::parse_quote! {
-                #[tags_internal(#(#tags),*)]
-            });
+            item.attrs.push(syn::parse_quote!(#[tags_internal(#args)]));
         }
 
         Item::Trait(item) => {
-            if item.items.iter().any(|item| {
-                matches!(
-                    item,
-                    syn::TraitItem::Fn(method)
-                        if method.sig.ident == "__cosmos_sdk_tags"
-                )
-            }) {
+            let tags = Punctuated::<LitStr, Token![,]>::parse_terminated.parse2(args)?;
+
+            if item.items.iter().any(
+                |item| matches!(item, syn::TraitItem::Fn(method) if method.sig.ident == "__cosmos_sdk_tags"),
+            ) {
                 return Err(syn::Error::new_spanned(
                     &item.ident,
                     "trait already defines `__cosmos_sdk_tags`",
                 ));
             }
-
-            let tags = &tags;
 
             item.items.push(syn::parse_quote! {
                 #[doc(hidden)]
@@ -49,7 +30,7 @@ pub(super) fn expand(
                 where
                     Self: Sized,
                 {
-                    &[#(#tags),*]
+                    &[#tags]
                 }
             });
         }
@@ -62,35 +43,22 @@ pub(super) fn expand(
         }
     }
 
-    Ok(quote! { #item })
+    Ok(quote!(#item))
 }
 
-pub(super) fn expand_taggable(
-    args: TokenStream,
-    input: TokenStream,
-) -> syn::Result<TokenStream> {
-    if !args.is_empty() {
-        return Err(syn::Error::new(
-            proc_macro2::Span::call_site(),
-            "`#[taggable]` does not accept arguments",
-        ));
-    }
-
-    let item: Item = syn::parse2(input)?;
-
-    let Item::Impl(item) = item else {
-        return Err(syn::Error::new_spanned(
-            item,
-            "`#[taggable]` can only be applied to trait implementations",
-        ));
-    };
-
-    if item.trait_.is_none() {
-        return Err(syn::Error::new_spanned(
-            &item,
-            "`#[taggable]` requires a trait implementation",
-        ));
-    }
-
-    Ok(quote! { #item })
+pub(super) fn parse(args: TokenStream) -> syn::Result<Vec<TokenStream>> {
+    Punctuated::<Expr, Token![,]>::parse_terminated
+        .parse2(args)?
+        .into_iter()
+        .map(|expr| match expr {
+            Expr::Lit(ExprLit {
+                          lit: Lit::Str(tag), ..
+                      }) => Ok(quote!(&[#tag])),
+            Expr::Path(path) => Ok(quote!(<Self as #path>::__cosmos_sdk_tags())),
+            other => Err(syn::Error::new_spanned(
+                other,
+                "expected a string literal or a trait",
+            )),
+        })
+        .collect()
 }

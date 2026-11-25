@@ -1,5 +1,5 @@
+use crate::{Interaction, RegisteredEntry};
 use computer_model::id::EntryId;
-use cosmos_sdk::RegisteredEntry;
 use cosmos_sdk_macro::{entry, tags};
 
 #[entry]
@@ -9,8 +9,8 @@ pub struct TriggerEntry {
 }
 
 #[tags("triggerable")]
-pub trait Triggerable : RegisteredEntry {
-    fn execute (self) -> impl Future<Output = Result<(), String>> + Send;
+pub trait Triggerable: RegisteredEntry {
+    fn execute(self, interaction: Interaction) -> impl Future<Output = Result<(), String>> + Send;
 }
 
 #[entry]

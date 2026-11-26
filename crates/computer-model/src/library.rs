@@ -3,12 +3,7 @@ use std::fmt::Display;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    Entry,
-    id::{EntryId, PageId},
-    page::Page,
-    protocol::event::Event,
-};
+use crate::{id::{EntryId, PageId}, page::Page, protocol::event::Event, Entry};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Library {

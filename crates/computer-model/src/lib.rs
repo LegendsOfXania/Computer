@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+mod wit;
 pub mod id;
 #[cfg(feature = "panel")]
 pub mod library;
@@ -7,11 +8,14 @@ pub mod library;
 pub mod page;
 #[cfg(feature = "panel")]
 pub mod protocol;
-mod wit;
+
+#[cfg(feature = "extension")]
+mod ipc;
 
 #[cfg(feature = "panel")]
 pub use library::Library;
 pub use wit::{Entry, EntryDefinition, Field, FieldKind, FieldNode, Node, Value};
+
 #[cfg(feature = "extension")]
 pub use wit::{Fire, Interaction, Trigger};
 

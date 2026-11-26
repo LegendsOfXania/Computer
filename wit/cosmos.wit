@@ -5,11 +5,14 @@ world cosmos {
   export extension;
 }
 
-/// Interface used by extensions to communicate with the engine.
+/// Interface imported by extensions to communicate with the engine.
 interface engine {
   use field.{value};
 
-  /// Describes an event to be matched against the engine's entry library.
+  /// Describes an event to be processed by the engine.
+  ///
+  /// An extension sends a fire to the engine when it detects an event
+  /// that may match entries registered in the engine's library.
   record fire {
     /// UUID of the player who triggered the event.
     player: string,
@@ -21,26 +24,28 @@ interface engine {
     values: list<value>
   }
 
-  /// Actions sent by the extension to the engine.
-  variant action {
-    /// Notifies the engine that the extension has been loaded.
-    load,
+  /// Notifies the engine that the extension is being loaded.
+  ///
+  /// Allows the engine to initialize its integration with the extension.
+  /// Returns an error if the loading process fails.
+  load: async func() -> result<_, string>;
 
-    /// Notifies the engine that the extension is being unloaded.
-    unload,
+  /// Notifies the engine that the extension is being unloaded.
+  ///
+  /// Allows the engine to clean up resources associated with the extension.
+  /// Returns an error if the unloading process fails.
+  unload: async func() -> result<_, string>;
 
-    /// Requests the execution of an action.
-    ///
-    /// The engine reconstructs an entry from the provided data
-    /// and matches it against its library.
-    fire(fire)
-  }
-
-  /// Sends an action to the engine.
-  handle: async func(action: action) -> result<_, string>;
+  /// Sends a reconstructed event to the engine.
+  ///
+  /// The engine processes the event and matches it against its entry library.
+  ///
+  /// Returns `true` if the event should be cancelled, or `false` otherwise.
+  /// Returns an error if the event cannot be processed.
+  fire-event: async func(fire: fire) -> result<bool, string>;
 }
 
-/// Interface exposed by extensions to the engine.
+/// Interface exported by extensions for the engine to communicate with them.
 interface extension {
   use entry.{entry, entry-definition};
 
@@ -54,6 +59,8 @@ interface extension {
   }
 
   /// Describes an entry execution requested by the engine.
+  ///
+  /// Contains the entry to execute and the context in which it should run.
   record trigger {
     /// Entry to execute.
     entry: entry,
@@ -65,35 +72,44 @@ interface extension {
     task: string
   }
 
-  /// Commands sent by the engine to the extension.
-  variant command {
-    /// Requests the registration of the extension.
-    register,
+  /// Requests the registration of the extension's entry definitions.
+  ///
+  /// Called by the engine when registering the extension.
+  /// Returns the definitions of the entries provided by the extension.
+  ///
+  /// Returns an error if registration fails.
+  register: async func() -> result<list<entry-definition>, string>;
 
-    /// Requests the unregistration of the extension.
-    unregister,
+  /// Requests the unregistration of the extension's entry definitions.
+  ///
+  /// Called by the engine when unregistering the extension.
+  /// Returns the definitions that were previously registered.
+  ///
+  /// Returns an error if unregistration fails.
+  unregister: async func() -> result<_, string>;
 
-    /// Updates the kinds handled by the extension.
-    active-kinds(list<string>),
+  /// Provides the extension with the currently active entry kinds.
+  ///
+  /// Called by the engine whenever the set of active kinds changes.
+  /// Extensions can use this information to limit event matching
+  /// to kinds that are currently required.
+  active-kinds: async func(kinds: list<string>) -> result<_, string>;
 
-    /// Requests the execution of an entry.
-    trigger(trigger),
+  /// Requests the execution of an entry.
+  ///
+  /// Called by the engine to execute an entry provided by the extension.
+  /// The trigger contains the entry, its associated interaction and
+  /// the task identifier used to track the execution.
+  ///
+  /// Returns an error if the execution request cannot be processed.
+  trigger-entry: async func(trigger: trigger) -> result<_, string>;
 
-    /// Sends a heartbeat for a running task.
-    ///
-    /// Used to indicate that a long-running task is still being processed.
-    ping(string)
-  }
-
-  /// Responses sent by the extension to the engine.
-  variant response {
-    /// Provides the entry definitions registered by the extension.
-    registry(list<entry-definition>),
-
-    /// Acknowledges a command.
-    ack
-  }
-
-  /// Handles a command received from the engine.
-  handle: async func(command: command) -> result<response, string>;
+  /// Requests the cancellation of an ongoing task.
+  ///
+  /// Called by the engine when a trigger execution needs to be stopped.
+  /// The extension should interrupt the corresponding task and release
+  /// any resources associated with it.
+  ///
+  /// Returns an error if the task cannot be cancelled.
+  cancel: async func(task: string) -> result<_, string>;
 }

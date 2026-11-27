@@ -9,12 +9,16 @@ authors.workspace = true
 indexmap.workspace = true
 wit-bindgen.workspace = true
 serde.workspace = true
+minicbor = { workspace = true, optional = true }
 postcard = { workspace = true, optional = true }
 flate2 = { workspace = true, optional = true }
 getrandom = { workspace = true, optional = true }
 
+[build-dependencies]
+wit-parser.workspace = true
+
 [features]
-extension = []
+extension = ["dep:minicbor"]
 panel = ["dep:flate2", "dep:getrandom", "dep:postcard"]
 
 [lints]

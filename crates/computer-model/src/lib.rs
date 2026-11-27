@@ -10,7 +10,7 @@ pub mod page;
 pub mod protocol;
 
 #[cfg(feature = "extension")]
-mod ipc;
+pub mod ipc;
 
 #[cfg(feature = "panel")]
 pub use library::Library;

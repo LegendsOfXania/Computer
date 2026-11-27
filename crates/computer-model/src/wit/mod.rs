@@ -1,13 +1,5 @@
-wit_bindgen::generate!({
-    path: "../../wit",
-    world: "cosmos",
-    additional_derives: [
-        Clone,
-        PartialEq,
-        serde::Serialize,
-        serde::Deserialize,
-    ],
-});
+include!(concat!(env!("OUT_DIR"), "/wit_bindings.rs"));
+include!(concat!(env!("OUT_DIR"), "/variant_impls.rs"));
 
 mod entry;
 mod field;

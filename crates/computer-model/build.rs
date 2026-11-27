@@ -1,856 +1,297 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::HashMap;
 use std::env;
 use std::error::Error;
+use std::fmt::Write as _;
 use std::fs;
-use std::io;
 use std::path::PathBuf;
 
-use wit_parser::{Handle, Resolve, Type, TypeDefKind, TypeOwner, WorldItem};
+use wit_parser::{Docs, FunctionKind, InterfaceId, Resolve, Type, TypeDefKind, WorldId, WorldItem};
 
-type BuildResult<T> = Result<T, Box<dyn Error>>;
-type AttributeMap = BTreeMap<String, String>;
+type Res<T> = Result<T, Box<dyn Error>>;
 
-#[derive(Default)]
-struct CborGeneration {
-    type_attributes: AttributeMap,
-    member_attributes: AttributeMap,
-    ignored_derives: BTreeSet<String>,
-    variant_impls: String,
-}
+fn main() -> Res<()> {
+    let wit = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?).join("../../wit");
+    let out = PathBuf::from(env::var("OUT_DIR")?);
+    println!("cargo:rerun-if-changed={}", wit.display());
 
-struct FunctionMetadata {
-    constant_name: String,
-    parameters: Vec<(String, String)>,
-    result: Option<String>,
-    is_async: bool,
-    imported: bool,
-}
+    let mut resolve = Resolve::default();
+    let (package, _) = resolve.push_dir(&wit)?;
+    let world = resolve.select_world(&[package], Some("cosmos"))?;
+    let cbor = env::var_os("CARGO_FEATURE_EXTENSION").is_some();
 
-fn main() -> BuildResult<()> {
-    println!("cargo:rerun-if-env-changed=CARGO_FEATURE_EXTENSION");
-
-    let manifest_dir = PathBuf::from(
-        env::var_os("CARGO_MANIFEST_DIR")
-            .ok_or_else(|| io::Error::other("CARGO_MANIFEST_DIR is not set"))?,
-    );
-    let out_dir = PathBuf::from(
-        env::var_os("OUT_DIR").ok_or_else(|| io::Error::other("OUT_DIR is not set"))?,
-    );
-
-    let mut wit_bindings = String::from(
-        "wit_bindgen::generate!({\n\
-         path: \"../../wit\",\n\
-         world: \"cosmos\",\n\
-         additional_derives: [\n\
-             Clone,\n\
-             PartialEq,\n\
-             serde::Serialize,\n\
-             serde::Deserialize,\n",
-    );
-
-    let (function_ids, variant_impls) =
-        if env::var_os("CARGO_FEATURE_EXTENSION").is_some() {
-            let wit_dir = manifest_dir.join("../../wit");
-            println!("cargo:rerun-if-changed={}", wit_dir.display());
-
-            let mut resolve = Resolve::default();
-            let (package_id, sources) = resolve.push_dir(&wit_dir)?;
-
-            for path in sources.paths() {
-                println!("cargo:rerun-if-changed={}", path.display());
-            }
-
-            let world_id = resolve.select_world(&[package_id], Some("cosmos"))?;
-            let generated = generate_cbor_attributes(&resolve, package_id, world_id)?;
-
-            wit_bindings.push_str(
-                "minicbor::Encode,\n\
-                 minicbor::Decode,\n\
-                 minicbor::CborLen,\n\
-             ],\n",
-            );
-
-            append_derive_ignore(&mut wit_bindings, &generated.ignored_derives);
-            append_attribute_map(
-                &mut wit_bindings,
-                "additional_type_attributes",
-                &generated.type_attributes,
-            );
-            append_attribute_map(
-                &mut wit_bindings,
-                "additional_member_attributes",
-                &generated.member_attributes,
-            );
-
-            (
-                generate_function_ids(&resolve, world_id)?,
-                generated.variant_impls,
-            )
-        } else {
-            wit_bindings.push_str("         ],\n");
-            (String::new(), String::new())
-        };
-
-    wit_bindings.push_str("});\n");
-
-    fs::write(out_dir.join("wit_bindings.rs"), wit_bindings)?;
-    fs::write(out_dir.join("variant_impls.rs"), variant_impls)?;
-    fs::write(out_dir.join("function_ids.rs"), function_ids)?;
+    fs::write(out.join("types.rs"), types(&resolve, cbor)?)?;
+    fs::write(
+        out.join("ipc.rs"),
+        if cbor { ipc(&resolve, world)? } else { String::new() },
+    )?;
 
     Ok(())
 }
 
-fn generate_cbor_attributes(
-    resolve: &Resolve,
-    package_id: wit_parser::PackageId,
-    world_id: wit_parser::WorldId,
-) -> BuildResult<CborGeneration> {
-    let mut generated = CborGeneration::default();
+fn types(resolve: &Resolve, cbor: bool) -> Res<String> {
+    let mut out = String::new();
+    let mut seen = HashMap::new();
 
-    let package = resolve
-        .packages
-        .get(package_id)
-        .ok_or_else(|| io::Error::other("Cosmos WIT package was not found"))?;
+    for (_, def) in resolve.types.iter() {
+        let (Some(name), false) = (&def.name, matches!(def.kind, TypeDefKind::Type(_))) else {
+            continue;
+        };
+        let name = camel(name);
 
-    let world = resolve
-        .worlds
-        .get(world_id)
-        .ok_or_else(|| io::Error::other("Cosmos WIT world was not found"))?;
+        if seen.insert(name.clone(), ()).is_some() {
+            return Err(format!("duplicate WIT type `{name}`").into());
+        }
 
-    let package_path = format!(
-        "{}::{}",
-        rust_module_name(&package.name.namespace),
-        rust_module_name(&package.name.name),
-    );
+        let n = |i: usize| if cbor { format!("#[n({i})] ") } else { String::new() };
+        let derive = |extra: &str, attr: &str| {
+            format!(
+                "{}#[derive(Debug, Clone, PartialEq{extra}, serde::Serialize, serde::Deserialize{})]\n{}",
+                docs(&def.docs, ""),
+                if cbor { ", minicbor::Encode, minicbor::Decode" } else { "" },
+                if cbor { format!("#[cbor({attr})]\n") } else { String::new() },
+            )
+        };
 
-    for (interface_name, interface_id) in &package.interfaces {
-        let interface = resolve
-            .interfaces
-            .get(*interface_id)
-            .ok_or_else(|| io::Error::other("Cosmos WIT interface was not found"))?;
-
-        let interface_selector = resolve
-            .id_of(*interface_id)
-            .ok_or_else(|| io::Error::other("Cosmos WIT interface has no qualified name"))?;
-
-        let interface_is_exported = world.exports.values().any(
-            |item| matches!(item, WorldItem::Interface { id, .. } if id == interface_id),
-        );
-
-        let interface_path = format!(
-            "{}{}::{}",
-            if interface_is_exported {
-                "exports::"
-            } else {
-                ""
-            },
-            package_path,
-            rust_module_name(interface_name),
-        );
-
-        for (name, type_id) in &interface.types {
-            let type_def = resolve
-                .types
-                .get(*type_id)
-                .ok_or_else(|| io::Error::other("Cosmos WIT type was not found"))?;
-
-            let selector = format!("{interface_selector}/{name}");
-
-            match &type_def.kind {
-                TypeDefKind::Record(record) => {
-                    generated
-                        .type_attributes
-                        .insert(selector.clone(), "#[cbor(array)]".to_owned());
-
-                    for (index, field) in record.fields.iter().enumerate() {
-                        generated.member_attributes.insert(
-                            format!("{selector}.{}", field.name),
-                            format!("#[n({index})]"),
-                        );
-                    }
-                }
-
-                TypeDefKind::Enum(enum_) => {
-                    generated
-                        .type_attributes
-                        .insert(selector.clone(), "#[cbor(index_only)]".to_owned());
-
-                    for (index, case) in enum_.cases.iter().enumerate() {
-                        generated.member_attributes.insert(
-                            format!("{selector}.{}", case.name),
-                            format!("#[n({index})]"),
-                        );
-                    }
-                }
-
-                TypeDefKind::Variant(variant) => {
-                    // wit-bindgen already implements Clone for these variants.
-                    // Their CBOR implementations are generated separately below.
-                    generated.ignored_derives.insert(name.clone());
-
-                    generated.type_attributes.insert(
-                        selector,
-                        "#[derive(PartialEq, serde::Serialize, serde::Deserialize)]"
-                            .to_owned(),
-                    );
-
-                    let rust_type_path =
-                        format!("{interface_path}::{}", rust_type_name(name));
-
-                    generate_variant_impls(
-                        &mut generated.variant_impls,
-                        &rust_type_path,
-                        name,
-                        variant,
+        match &def.kind {
+            TypeDefKind::Record(record) => {
+                out += &derive("", "array");
+                writeln!(out, "pub struct {name} {{")?;
+                for (i, field) in record.fields.iter().enumerate() {
+                    writeln!(
+                        out,
+                        "{}    {}pub {}: {},",
+                        docs(&field.docs, "    "),
+                        n(i),
+                        ident(&field.name),
+                        rust_type(resolve, field.ty)?,
                     )?;
                 }
-
-                _ => {}
             }
-        }
-    }
-
-    Ok(generated)
-}
-
-struct VariantCase {
-    index: u32,
-    rust_name: String,
-    has_payload: bool,
-}
-
-fn generate_variant_impls(
-    output: &mut String,
-    rust_type_path: &str,
-    type_name: &str,
-    variant: &wit_parser::Variant,
-) -> BuildResult<()> {
-    let cases = variant
-        .cases
-        .iter()
-        .enumerate()
-        .map(|(index, case)| {
-            let index = u32::try_from(index).map_err(|_| {
-                io::Error::other(format!("too many cases in WIT variant `{type_name}`"))
-            })?;
-
-            Ok(VariantCase {
-                index,
-                rust_name: rust_type_name(&case.name),
-                has_payload: case.ty.is_some(),
-            })
-        })
-        .collect::<BuildResult<Vec<_>>>()?;
-
-    generate_variant_encode(output, rust_type_path, &cases);
-    generate_variant_decode(output, rust_type_path, &cases);
-    generate_variant_cbor_len(output, rust_type_path, &cases);
-
-    Ok(())
-}
-
-fn generate_variant_encode(
-    output: &mut String,
-    rust_type_path: &str,
-    cases: &[VariantCase],
-) {
-    output.push_str(&format!(
-        "\n// CBOR Encode implementation generated from WIT.\n\
-         impl<C> minicbor::Encode<C> for {rust_type_path} {{\n\
-             fn encode<W: minicbor::encode::Write>(\n\
-                 &self,\n\
-                 encoder: &mut minicbor::Encoder<W>,\n\
-                 context: &mut C,\n\
-             ) -> Result<(), minicbor::encode::Error<W::Error>> {{\n\
-                 match self {{\n"
-    ));
-
-    for case in cases {
-        let VariantCase {
-            index,
-            rust_name,
-            has_payload,
-        } = case;
-
-        if *has_payload {
-            output.push_str(&format!(
-                "            Self::{rust_name}(value) => {{\n\
-                     encoder.array(2)?.u32({index})?;\n\
-                     minicbor::Encode::encode(value, encoder, context)?;\n\
-                 }},\n"
-            ));
-        } else {
-            output.push_str(&format!(
-                "            Self::{rust_name} => {{\n\
-                     encoder.array(1)?.u32({index})?;\n\
-                 }},\n"
-            ));
-        }
-    }
-
-    output.push_str(
-        "        }\n\
-             Ok(())\n\
-         }\n\
-         }\n",
-    );
-}
-
-fn generate_variant_decode(
-    output: &mut String,
-    rust_type_path: &str,
-    cases: &[VariantCase],
-) {
-    output.push_str(&format!(
-        "\nimpl<'bytes, C> minicbor::Decode<'bytes, C> for {rust_type_path} {{\n\
-             fn decode(\n\
-                 decoder: &mut minicbor::Decoder<'bytes>,\n\
-                 context: &mut C,\n\
-             ) -> Result<Self, minicbor::decode::Error> {{\n\
-                 let array_len = decoder.array()?.ok_or_else(|| {{\n\
-                     minicbor::decode::Error::message(\n\
-                         \"indefinite WIT variant arrays are not supported\",\n\
-                     )\n\
-                 }})?;\n\
-                 let case_index = decoder.u32()?;\n\
-                 match case_index {{\n"
-    ));
-
-    for case in cases {
-        let VariantCase {
-            index,
-            rust_name,
-            has_payload,
-        } = case;
-
-        if *has_payload {
-            output.push_str(&format!(
-                "            {index} => {{\n\
-                     if array_len != 2 {{\n\
-                         return Err(minicbor::decode::Error::message(\n\
-                             \"invalid WIT variant array length\",\n\
-                         ));\n\
-                     }}\n\
-                     Ok(Self::{rust_name}(\n\
-                         minicbor::Decode::decode(decoder, context)?,\n\
-                     ))\n\
-                 }},\n"
-            ));
-        } else {
-            output.push_str(&format!(
-                "            {index} => {{\n\
-                     if array_len != 1 {{\n\
-                         return Err(minicbor::decode::Error::message(\n\
-                             \"invalid WIT variant array length\",\n\
-                         ));\n\
-                     }}\n\
-                     Ok(Self::{rust_name})\n\
-                 }},\n"
-            ));
-        }
-    }
-
-    output.push_str(
-        "            _ => Err(minicbor::decode::Error::message(\n\
-                 \"unknown WIT variant discriminant\",\n\
-             )),\n\
-         }\n\
-         }\n\
-         }\n",
-    );
-}
-
-fn generate_variant_cbor_len(
-    output: &mut String,
-    rust_type_path: &str,
-    cases: &[VariantCase],
-) {
-    output.push_str(&format!(
-        "\nimpl<C> minicbor::CborLen<C> for {rust_type_path} {{\n\
-             fn cbor_len(&self, context: &mut C) -> usize {{\n\
-                 match self {{\n"
-    ));
-
-    for case in cases {
-        let VariantCase {
-            index,
-            rust_name,
-            has_payload,
-        } = case;
-
-        if *has_payload {
-            output.push_str(&format!(
-                "            Self::{rust_name}(value) => {{\n\
-                     1 + minicbor::CborLen::cbor_len(&{index}u32, context)\n\
-                         + minicbor::CborLen::cbor_len(value, context)\n\
-                 }},\n"
-            ));
-        } else {
-            output.push_str(&format!(
-                "            Self::{rust_name} => {{\n\
-                     1 + minicbor::CborLen::cbor_len(&{index}u32, context)\n\
-                 }},\n"
-            ));
-        }
-    }
-
-    output.push_str(
-        "        }\n\
-             }\n\
-         }\n",
-    );
-}
-
-fn generate_function_ids(
-    resolve: &Resolve,
-    world_id: wit_parser::WorldId,
-) -> BuildResult<String> {
-    let world = resolve
-        .worlds
-        .get(world_id)
-        .ok_or_else(|| io::Error::other("Cosmos WIT world was not found"))?;
-
-    let mut functions = BTreeMap::<String, FunctionMetadata>::new();
-
-    for (items, imported) in [(&world.imports, true), (&world.exports, false)] {
-        for item in items.values() {
-            let WorldItem::Interface { id, .. } = item else {
-                continue;
-            };
-
-            let interface = resolve
-                .interfaces
-                .get(*id)
-                .ok_or_else(|| io::Error::other("Cosmos WIT interface was not found"))?;
-
-            let interface_name = interface
-                .name
-                .as_deref()
-                .ok_or_else(|| io::Error::other("unnamed Cosmos interface"))?;
-
-            let qualified_interface = resolve
-                .id_of(*id)
-                .ok_or_else(|| io::Error::other("Cosmos interface has no qualified name"))?;
-
-            for function in interface.functions.values() {
-                let qualified_name =
-                    format!("{qualified_interface}#{}", function.name);
-
-                let constant_name = format!(
-                    "{}_{}",
-                    rust_constant_name(interface_name),
-                    rust_constant_name(&function.name),
-                );
-
-                let parameters = function
-                    .params
-                    .iter()
-                    .map(|parameter| {
-                        Ok((
-                            parameter.name.clone(),
-                            wit_type_name(resolve, parameter.ty, 0)?,
-                        ))
-                    })
-                    .collect::<BuildResult<Vec<_>>>()?;
-
-                let result = function
-                    .result
-                    .map(|ty| wit_type_name(resolve, ty, 0))
-                    .transpose()?;
-
-                let metadata = FunctionMetadata {
-                    constant_name,
-                    parameters,
-                    result,
-                    is_async: function.kind.is_async(),
-                    imported,
-                };
-
-                if functions
-                    .insert(qualified_name.clone(), metadata)
-                    .is_some()
-                {
-                    return Err(io::Error::other(format!(
-                        "duplicate WIT function: {qualified_name}"
-                    ))
-                        .into());
+            TypeDefKind::Enum(enum_) => {
+                out += &derive(", Copy, Eq", "index_only");
+                writeln!(out, "pub enum {name} {{")?;
+                for (i, case) in enum_.cases.iter().enumerate() {
+                    writeln!(out, "{}    {}{},", docs(&case.docs, "    "), n(i), camel(&case.name))?;
                 }
             }
-        }
-    }
-
-    let mut seen_ids = BTreeMap::<u32, String>::new();
-    let mut seen_names = BTreeMap::<String, String>::new();
-
-    for (qualified_name, metadata) in &functions {
-        let id = fnv1a_32(qualified_name.as_bytes());
-
-        if seen_ids
-            .insert(id, qualified_name.clone())
-            .is_some_and(|previous| previous != *qualified_name)
-        {
-            return Err(io::Error::other(format!(
-                "WIT function ID collision: {qualified_name} maps to {id:#010x}"
-            ))
-                .into());
-        }
-
-        if seen_names
-            .insert(metadata.constant_name.clone(), qualified_name.clone())
-            .is_some_and(|previous| previous != *qualified_name)
-        {
-            return Err(io::Error::other(format!(
-                "WIT function constant collision: {}",
-                metadata.constant_name
-            ))
-                .into());
-        }
-    }
-
-    let mut output = String::from(
-        "// Generated from the Cosmos WIT world.\n\n"
-    );
-
-    for (qualified_name, metadata) in &functions {
-        let id = fnv1a_32(qualified_name.as_bytes());
-
-        output.push_str(&format!(
-            "/// Function `{qualified_name}`.\n\
-             pub const {}: u32 = {id:#010x};\n\n",
-            metadata.constant_name,
-        ));
-    }
-
-    for (qualified_name, metadata) in &functions {
-        let parameters = metadata
-            .parameters
-            .iter()
-            .map(|(name, ty)| format!("({name:?}, {ty:?})"))
-            .collect::<Vec<_>>()
-            .join(", ");
-
-        let result = metadata.result.as_ref().map_or_else(
-            || "None".to_owned(),
-            |ty| format!("Some({ty:?})"),
-        );
-
-        let constant_name = &metadata.constant_name;
-        let is_async = metadata.is_async;
-        let imported = metadata.imported;
-
-        output.push_str(&format!(
-             "/// Signature of `{qualified_name}`.\n\
-              pub const {constant_name}_SIGNATURE: Signature = Signature {{\n\
-                  id: {constant_name},\n\
-                  name: {qualified_name:?},\n\
-                  parameters: &[{parameters}],\n\
-                  result: {result},\n\
-                  is_async: {is_async},\n\
-                  imported: {imported},\n\
-              }};\n\n",
-        ));
-    }
-
-    output.push_str("pub const SIGNATURES: &[Signature] = &[\n");
-
-    for metadata in functions.values() {
-        output.push_str(&format!(
-            "    {}_SIGNATURE,\n",
-            metadata.constant_name,
-        ));
-    }
-
-    output.push_str(
-        "];\n\n\
-         /// Finds a WIT function signature by its ID.\n\
-         #[must_use]\n\
-         pub fn signature(id: u32) -> Option<&'static Signature> {\n\
-             match id {\n",
-    );
-
-    for metadata in functions.values() {
-        output.push_str(&format!(
-            "        {} => Some(&{}_SIGNATURE),\n",
-            metadata.constant_name,
-            metadata.constant_name,
-        ));
-    }
-
-    output.push_str(
-        "        _ => None,\n\
-             }\n\
-         }\n",
-    );
-
-    Ok(output)
-}
-
-fn wit_type_name(
-    resolve: &Resolve,
-    ty: Type,
-    depth: usize,
-) -> BuildResult<String> {
-    if depth > 64 {
-        return Err(io::Error::other("WIT type nesting is too deep").into());
-    }
-
-    let primitive = match ty {
-        Type::Bool => Some("bool"),
-        Type::U8 => Some("u8"),
-        Type::U16 => Some("u16"),
-        Type::U32 => Some("u32"),
-        Type::U64 => Some("u64"),
-        Type::S8 => Some("s8"),
-        Type::S16 => Some("s16"),
-        Type::S32 => Some("s32"),
-        Type::S64 => Some("s64"),
-        Type::F32 => Some("f32"),
-        Type::F64 => Some("f64"),
-        Type::Char => Some("char"),
-        Type::String => Some("string"),
-        Type::ErrorContext => Some("error-context"),
-        Type::Id(_) => None,
-    };
-
-    if let Some(name) = primitive {
-        return Ok(name.to_owned());
-    }
-
-    let Type::Id(type_id) = ty else {
-        return Err(io::Error::other("unsupported WIT type").into());
-    };
-
-    let type_def = resolve
-        .types
-        .get(type_id)
-        .ok_or_else(|| io::Error::other("WIT type was not found"))?;
-
-    if let Some(name) = &type_def.name {
-        return match type_def.owner {
-            TypeOwner::Interface(interface_id) => {
-                let interface_name = resolve
-                    .id_of(interface_id)
-                    .ok_or_else(|| io::Error::other("WIT interface has no qualified name"))?;
-
-                Ok(format!("{interface_name}/{name}"))
-            }
-            TypeOwner::World(_) | TypeOwner::None => Ok(name.clone()),
-        };
-    }
-
-    match &type_def.kind {
-        TypeDefKind::Type(inner) => {
-            wit_type_name(resolve, *inner, depth + 1)
-        }
-
-        TypeDefKind::List(inner) => Ok(format!(
-            "list<{}>",
-            wit_type_name(resolve, *inner, depth + 1)?,
-        )),
-
-        TypeDefKind::Map(key, value) => Ok(format!(
-            "map<{}, {}>",
-            wit_type_name(resolve, *key, depth + 1)?,
-            wit_type_name(resolve, *value, depth + 1)?,
-        )),
-
-        TypeDefKind::Tuple(tuple) => {
-            let types = tuple
-                .types
-                .iter()
-                .map(|ty| wit_type_name(resolve, *ty, depth + 1))
-                .collect::<BuildResult<Vec<_>>>()?;
-
-            Ok(format!("tuple<{}>", types.join(", ")))
-        }
-
-        TypeDefKind::Option(inner) => Ok(format!(
-            "option<{}>",
-            wit_type_name(resolve, *inner, depth + 1)?,
-        )),
-
-        TypeDefKind::Result(result) => {
-            let ok = optional_wit_type_name(resolve, result.ok, depth + 1)?;
-            let err = optional_wit_type_name(resolve, result.err, depth + 1)?;
-
-            Ok(format!("result<{ok}, {err}>"))
-        }
-
-        TypeDefKind::FixedLengthList(inner, length) => Ok(format!(
-            "fixed-length-list<{}, {length}>",
-            wit_type_name(resolve, *inner, depth + 1)?,
-        )),
-
-        TypeDefKind::Future(inner) => Ok(format!(
-            "future<{}>",
-            optional_wit_type_name(resolve, *inner, depth + 1)?,
-        )),
-
-        TypeDefKind::Stream(inner) => Ok(format!(
-            "stream<{}>",
-            optional_wit_type_name(resolve, *inner, depth + 1)?,
-        )),
-
-        TypeDefKind::Handle(handle) => match handle {
-            Handle::Own(resource) => Ok(format!(
-                "own<{}>",
-                wit_type_name(resolve, Type::Id(*resource), depth + 1)?,
-            )),
-            Handle::Borrow(resource) => Ok(format!(
-                "borrow<{}>",
-                wit_type_name(resolve, Type::Id(*resource), depth + 1)?,
-            )),
-        },
-
-        TypeDefKind::Record(record) => {
-            let fields = record
-                .fields
-                .iter()
-                .map(|field| {
-                    Ok(format!(
-                        "{}: {}",
-                        field.name,
-                        wit_type_name(resolve, field.ty, depth + 1)?,
-                    ))
-                })
-                .collect::<BuildResult<Vec<_>>>()?;
-
-            Ok(format!("record{{{}}}", fields.join(", ")))
-        }
-
-        TypeDefKind::Variant(variant) => {
-            let cases = variant
-                .cases
-                .iter()
-                .map(|case| {
+            TypeDefKind::Variant(variant) => {
+                out += &derive("", "flat");
+                writeln!(out, "pub enum {name} {{")?;
+                for (i, case) in variant.cases.iter().enumerate() {
                     let payload = case
                         .ty
-                        .map(|ty| wit_type_name(resolve, ty, depth + 1))
-                        .transpose()?;
-
-                    Ok(match payload {
-                        Some(payload) => format!("{}({payload})", case.name),
-                        None => case.name.clone(),
-                    })
-                })
-                .collect::<BuildResult<Vec<_>>>()?;
-
-            Ok(format!("variant{{{}}}", cases.join(", ")))
+                        .map(|ty| Ok::<_, Box<dyn Error>>(format!("({}{})", n(0), rust_type(resolve, ty)?)))
+                        .transpose()?
+                        .unwrap_or_default();
+                    writeln!(out, "{}    {}{}{payload},", docs(&case.docs, "    "), n(i), camel(&case.name))?;
+                }
+            }
+            _ => return Err(format!("unsupported WIT type definition `{name}`").into()),
         }
 
-        TypeDefKind::Enum(enum_) => Ok(format!(
-            "enum{{{}}}",
-            enum_
-                .cases
-                .iter()
-                .map(|case| case.name.as_str())
-                .collect::<Vec<_>>()
-                .join(", "),
-        )),
+        out += "}\n\n";
+    }
 
-        TypeDefKind::Flags(flags) => Ok(format!(
-            "flags{{{}}}",
-            flags
-                .flags
-                .iter()
-                .map(|flag| flag.name.as_str())
-                .collect::<Vec<_>>()
-                .join(", "),
-        )),
+    Ok(out)
+}
 
-        TypeDefKind::Resource => Ok("resource".to_owned()),
+fn ipc(resolve: &Resolve, world: WorldId) -> Res<String> {
+    let world = &resolve.worlds[world];
+    let mut ids = HashMap::new();
+    let mut out = String::new();
 
-        TypeDefKind::Unknown => {
-            Err(io::Error::other("unknown WIT type").into())
+    for item in world.imports.values().chain(world.exports.values()) {
+        if let WorldItem::Interface { id, .. } = item {
+            out += &interface(resolve, *id, &mut ids)?;
         }
+    }
+
+    Ok(out)
+}
+
+fn interface(resolve: &Resolve, id: InterfaceId, ids: &mut HashMap<u32, String>) -> Res<String> {
+    let interface = &resolve.interfaces[id];
+    let name = interface.name.as_deref().ok_or("unnamed WIT interface")?;
+    let qualified = resolve.id_of(id).ok_or("WIT interface has no qualified name")?;
+
+    let (mut methods, mut clients, mut arms, mut constants) =
+        (String::new(), String::new(), String::new(), String::new());
+
+    for (function_name, function) in &interface.functions {
+        if !matches!(function.kind, FunctionKind::Freestanding | FunctionKind::AsyncFreestanding) {
+            return Err(format!("`{qualified}#{function_name}`: only free functions are supported").into());
+        }
+
+        let path = format!("{qualified}#{function_name}");
+        let call_id = fnv1a_32(path.as_bytes());
+
+        if let Some(other) = ids.insert(call_id, path.clone()) {
+            return Err(format!("WIT function ID collision: {other} and {path}").into());
+        }
+
+        let ok = fallible(resolve, function.result)
+            .map_err(|reason| format!("`{path}`: {reason}"))?;
+
+        let constant = constant(function_name);
+        let method = ident(function_name);
+        let doc = docs(&function.docs, "    ");
+
+        let (mut owned, mut borrowed, mut names) = (Vec::new(), Vec::new(), Vec::new());
+        for param in &function.params {
+            let param_name = ident(&param.name);
+            owned.push(format!("{param_name}: {}", rust_type(resolve, param.ty)?));
+            borrowed.push(format!("{param_name}: {}", borrowed_type(resolve, param.ty)?));
+            names.push(param_name);
+        }
+
+        let tuple = |items: &[String]| match items {
+            [one] => format!("({one},)"),
+            _ => format!("({})", items.join(", ")),
+        };
+        let (self_owned, self_borrowed) = (
+            owned.iter().map(|p| format!(", {p}")).collect::<String>(),
+            borrowed.iter().map(|p| format!(", {p}")).collect::<String>(),
+        );
+        let args = tuple(&names);
+
+        writeln!(constants, "    pub const {constant}: u32 = {call_id:#010x};")?;
+        writeln!(methods, "{doc}    fn {method}(&self{self_owned}) -> impl Future<Output = Result<{ok}, String>>;\n")?;
+        writeln!(
+            clients,
+            "{doc}    pub async fn {method}<T: Transport>(transport: &T{self_borrowed}) -> Result<{ok}, String> {{\n        call(transport, {constant}, {args}).await\n    }}\n"
+        )?;
+        writeln!(
+            arms,
+            "            {constant} => {{\n                let {args} = args(&mut decoder)?;\n                reply(&handler.{method}({}).await)\n            }}",
+            names.join(", "),
+        )?;
+    }
+
+    let trait_name = camel(name);
+
+    Ok(format!(
+        "{}pub mod {module} {{\n    #[allow(unused_imports)]\n    use crate::wit::*;\n    use super::{{Transport, args, call, open, reply}};\n\n{constants}\n    /// Implemented by the side that serves `{qualified}`; the other side calls it with the functions below.\n    pub trait {trait_name} {{\n{methods}    }}\n\n{clients}    /// Decodes a request, runs the matching handler method and encodes its response.\n    pub async fn serve<H: {trait_name}>(handler: &H, request: &[u8]) -> Result<Vec<u8>, String> {{\n        let mut decoder = minicbor::Decoder::new(request);\n\n        match open(&mut decoder)? {{\n{arms}            id => Err(format!(\"unknown function {{id:#010x}} in `{qualified}`\")),\n        }}\n    }}\n}}\n\n",
+        docs(&interface.docs, ""),
+        module = ident(name),
+    ))
+}
+
+fn fallible(resolve: &Resolve, result: Option<Type>) -> Result<String, String> {
+    let Some(Type::Id(id)) = result.map(|ty| unalias(resolve, ty)) else {
+        return Err("must return `result<_, string>`".into());
+    };
+
+    match &resolve.types[id].kind {
+        TypeDefKind::Result(result) if result.err.map(|ty| unalias(resolve, ty)) == Some(Type::String) => result
+            .ok
+            .map_or_else(|| Ok("()".to_owned()), |ty| rust_type(resolve, ty).map_err(|e| e.to_string())),
+        _ => Err("must return `result<_, string>`".into()),
     }
 }
 
-fn optional_wit_type_name(
-    resolve: &Resolve,
-    ty: Option<Type>,
-    depth: usize,
-) -> BuildResult<String> {
+fn unalias(resolve: &Resolve, ty: Type) -> Type {
     match ty {
-        Some(ty) => wit_type_name(resolve, ty, depth),
-        None => Ok("_".to_owned()),
+        Type::Id(id) => match resolve.types[id].kind {
+            TypeDefKind::Type(inner) => unalias(resolve, inner),
+            _ => ty,
+        },
+        _ => ty,
     }
 }
 
-fn append_derive_ignore(output: &mut String, names: &BTreeSet<String>) {
-    if names.is_empty() {
-        return;
-    }
+fn rust_type(resolve: &Resolve, ty: Type) -> Res<String> {
+    let id = match ty {
+        Type::Bool => return Ok("bool".into()),
+        Type::U8 => return Ok("u8".into()),
+        Type::U16 => return Ok("u16".into()),
+        Type::U32 => return Ok("u32".into()),
+        Type::U64 => return Ok("u64".into()),
+        Type::S8 => return Ok("i8".into()),
+        Type::S16 => return Ok("i16".into()),
+        Type::S32 => return Ok("i32".into()),
+        Type::S64 => return Ok("i64".into()),
+        Type::F32 => return Ok("f32".into()),
+        Type::F64 => return Ok("f64".into()),
+        Type::Char => return Ok("char".into()),
+        Type::String => return Ok("String".into()),
+        Type::Id(id) => id,
+        Type::ErrorContext => return Err("unsupported WIT type `error-context`".into()),
+    };
 
-    output.push_str("additional_derives_ignore: [");
+    let def = &resolve.types[id];
+    let mut inner = |ty| rust_type(resolve, ty);
 
-    for name in names {
-        output.push_str(&format!("{name:?}, "));
-    }
-
-    output.push_str("],\n");
-}
-
-fn append_attribute_map(
-    output: &mut String,
-    option: &str,
-    attributes: &AttributeMap,
-) {
-    if attributes.is_empty() {
-        return;
-    }
-
-    output.push_str(option);
-    output.push_str(": {\n");
-
-    for (selector, attribute) in attributes {
-        output.push_str("    ");
-        output.push_str(&format!("{selector:?}"));
-        output.push_str(": [");
-        output.push_str(attribute);
-        output.push_str("],\n");
-    }
-
-    output.push_str("},\n");
-}
-
-fn rust_module_name(name: &str) -> String {
-    name.replace('-', "_")
-}
-
-fn rust_type_name(name: &str) -> String {
-    let mut result = String::new();
-    let mut uppercase_next = true;
-
-    for character in name.chars() {
-        if character == '-' {
-            uppercase_next = true;
-            continue;
+    Ok(match &def.kind {
+        TypeDefKind::Record(_) | TypeDefKind::Variant(_) | TypeDefKind::Enum(_) => {
+            camel(def.name.as_deref().ok_or("unnamed WIT type")?)
         }
-
-        if uppercase_next {
-            result.extend(character.to_uppercase());
-            uppercase_next = false;
-        } else {
-            result.push(character);
+        TypeDefKind::Type(ty) => inner(*ty)?,
+        TypeDefKind::List(ty) => format!("Vec<{}>", inner(*ty)?),
+        TypeDefKind::Option(ty) => format!("Option<{}>", inner(*ty)?),
+        TypeDefKind::Map(key, value) => {
+            format!("std::collections::BTreeMap<{}, {}>", inner(*key)?, inner(*value)?)
         }
-    }
-
-    result
+        TypeDefKind::Tuple(tuple) => {
+            let types = tuple.types.iter().map(|ty| inner(*ty)).collect::<Res<Vec<_>>>()?;
+            format!("({}{})", types.join(", "), if types.len() == 1 { "," } else { "" })
+        }
+        TypeDefKind::Result(result) => {
+            let mut side = |ty: Option<Type>| ty.map_or_else(|| Ok("()".to_owned()), &mut inner);
+            format!("Result<{}, {}>", side(result.ok)?, side(result.err)?)
+        }
+        other => return Err(format!("unsupported WIT type `{other:?}`").into()),
+    })
 }
 
-fn rust_constant_name(name: &str) -> String {
-    let mut result = String::with_capacity(name.len());
+fn borrowed_type(resolve: &Resolve, ty: Type) -> Res<String> {
+    let ty = unalias(resolve, ty);
+    let owned = rust_type(resolve, ty)?;
 
-    for character in name.chars() {
-        if character.is_ascii_alphanumeric() {
-            result.push(character.to_ascii_uppercase());
-        } else if !result.ends_with('_') {
-            result.push('_');
-        }
-    }
+    Ok(match ty {
+        Type::String => "&str".to_owned(),
+        Type::Id(id) => match &resolve.types[id].kind {
+            TypeDefKind::List(item) => format!("&[{}]", rust_type(resolve, *item)?),
+            TypeDefKind::Enum(_) => owned,
+            _ => format!("&{owned}"),
+        },
+        _ => owned,
+    })
+}
 
-    result.trim_matches('_').to_owned()
+fn docs(docs: &Docs, indent: &str) -> String {
+    docs.contents
+        .as_deref()
+        .unwrap_or_default()
+        .lines()
+        .map(|line| format!("{indent}/// {line}\n"))
+        .collect()
+}
+
+fn camel(name: &str) -> String {
+    name.split('-')
+        .flat_map(|word| {
+            let mut chars = word.chars();
+            chars.next().map(|first| first.to_uppercase().chain(chars))
+        })
+        .flatten()
+        .collect()
+}
+
+fn ident(name: &str) -> String {
+    const KEYWORDS: &[&str] = &[
+        "as", "async", "await", "break", "const", "continue", "dyn", "else", "enum", "extern",
+        "false", "fn", "for", "if", "impl", "in", "let", "loop", "match", "mod", "move", "mut",
+        "pub", "ref", "return", "static", "struct", "trait", "true", "type", "unsafe", "use",
+        "where", "while",
+    ];
+
+    let name = name.replace('-', "_");
+
+    if KEYWORDS.contains(&name.as_str()) { format!("r#{name}") } else { name }
+}
+
+fn constant(name: &str) -> String {
+    name.replace('-', "_").to_uppercase()
 }
 
 fn fnv1a_32(bytes: &[u8]) -> u32 {

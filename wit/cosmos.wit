@@ -40,7 +40,7 @@ interface engine {
   ///
   /// The engine processes the event and matches it against its entry library.
   ///
-  /// Returns `true` if the event should be cancelled, or `false` otherwise.
+  /// Returns `true` if the event should be canceled, or `false` otherwise.
   /// Returns an error if the event cannot be processed.
   fire-event: async func(fire: fire) -> result<bool, string>;
 }
@@ -110,6 +110,6 @@ interface extension {
   /// The extension should interrupt the corresponding task and release
   /// any resources associated with it.
   ///
-  /// Returns an error if the task cannot be cancelled.
+  /// Returns an error if the task cannot be canceled.
   cancel: async func(task: string) -> result<_, string>;
 }

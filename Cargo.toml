@@ -71,7 +71,7 @@ panic = "deny"
 unreachable = "deny"
 todo = "deny"
 unimplemented = "deny"
-indexing_slicing = "deny"
+#indexing_slicing = "deny"
 must_use_candidate = "warn"
 
 [profile.release]

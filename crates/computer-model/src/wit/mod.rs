@@ -1,5 +1,7 @@
-include!(concat!(env!("OUT_DIR"), "/wit_bindings.rs"));
-include!(concat!(env!("OUT_DIR"), "/variant_impls.rs"));
+mod generated {
+    include!(concat!(env!("OUT_DIR"), "/ipc.rs"));
+    include!(concat!(env!("OUT_DIR"), "/types.rs"));
+}
 
 mod entry;
 mod field;
@@ -7,14 +9,8 @@ mod tree;
 mod value;
 
 #[cfg(feature = "extension")]
-pub use exports::legends::cosmos::extension::{Interaction, Trigger};
+pub use generated::{Interaction, Trigger, Fire};
 
-#[cfg(feature = "extension")]
-pub use legends::cosmos::engine::Fire;
-
-pub use legends::cosmos::{
-    entry::{Entry, EntryDefinition},
-    field::{Field, FieldKind, Value},
-};
+pub use generated::{Entry, EntryDefinition, Field, FieldKind, Value};
 
 pub use tree::{FieldNode, Node};
